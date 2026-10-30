@@ -1,0 +1,73 @@
+<section class="health">
+  <header class="health__header">
+    <div>
+      <p class="health__eyebrow">System status</p>
+      <h1>Состояние системы</h1>
+      <p class="health__subtitle">
+        Проверка API, PostgreSQL и Redis. Readiness отражает готовность принимать трафик.
+      </p>
+    </div>
+
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="store.loading()">
+      <mat-icon>refresh</mat-icon>
+      Обновить
+    </button>
+  </header>
+
+  @if (store.loading()) {
+    <div class="health__loading" aria-live="polite">
+      <mat-spinner diameter="28" />
+      <span>Проверяем зависимости…</span>
+    </div>
+  }
+
+  @if (store.error(); as error) {
+    <mat-card class="health__error" appearance="outlined" role="alert">
+      <mat-card-content>
+        <strong>Не удалось получить статус</strong>
+        <p>{{ error }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.data(); as data) {
+    <div class="health__grid">
+      <mat-card class="health__card" appearance="outlined">
+        <mat-card-content>
+          <span class="health__label">API</span>
+          <strong class="health__value" [class.health__value--down]="data.status !== 'ok'">
+            {{ data.status === 'ok' ? 'Работает' : 'Деградация' }}
+          </strong>
+          <span class="health__meta">Версия {{ data.version }}</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="health__card" appearance="outlined">
+        <mat-card-content>
+          <span class="health__label">PostgreSQL</span>
+          <strong class="health__value" [class.health__value--down]="databaseStatus() !== 'up'">
+            {{ databaseStatus() === 'up' ? 'Доступен' : 'Недоступен' }}
+          </strong>
+          <span class="health__meta">Readiness-проверка</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="health__card" appearance="outlined">
+        <mat-card-content>
+          <span class="health__label">Redis</span>
+          <strong class="health__value" [class.health__value--down]="redisStatus() !== 'up'">
+            {{ redisStatus() === 'up' ? 'Доступен' : 'Недоступен' }}
+          </strong>
+          <span class="health__meta">Очереди и кэш</span>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <footer class="health__footer">
+      <span>Uptime: {{ data.uptimeSeconds | number: '1.0-1' }} сек.</span>
+      @if (store.checkedAt(); as checkedAt) {
+        <span>Проверено: {{ checkedAt | date: 'HH:mm:ss' }}</span>
+      }
+    </footer>
+  }
+</section>

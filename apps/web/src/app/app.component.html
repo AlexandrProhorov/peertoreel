@@ -1,0 +1,30 @@
+<div class="shell">
+  <header class="shell__header">
+    <a class="shell__brand" routerLink="/health" aria-label="Kadence — на главную">
+      <span class="shell__mark">K</span>
+      <span>
+        <strong>Kadence</strong>
+        <small>AI Content Factory</small>
+      </span>
+    </a>
+
+    <nav class="shell__nav" aria-label="Основная навигация">
+      <a
+        routerLink="/health"
+        routerLinkActive="shell__nav-link--active"
+        class="shell__nav-link"
+      >
+        Состояние системы
+      </a>
+    </nav>
+  </header>
+
+  <main class="shell__main">
+    <router-outlet />
+  </main>
+
+  <footer class="shell__footer">
+    <span>Kadence {{ currentYear }}</span>
+    <span>Pipeline foundation · M0</span>
+  </footer>
+</div>

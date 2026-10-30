@@ -1,0 +1,29 @@
+{
+  "name": "kadence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Content Factory — automated short-form video production pipeline",
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --workspace-concurrency=1 build",
+    "dev": "pnpm --filter @kadence/contracts build && concurrently -n api,web -c cyan,magenta \"pnpm --filter @kadence/api dev\" \"pnpm --filter @kadence/web dev\"",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm --filter @kadence/contracts build && pnpm -r --if-present typecheck",
+    "test": "pnpm --filter @kadence/contracts build && pnpm -r --if-present test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:migrate": "pnpm --filter @kadence/api db:migrate",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "infra:check": "docker compose -f infra/docker-compose.yml ps"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "prettier": "^3.8.1"
+  }
+}

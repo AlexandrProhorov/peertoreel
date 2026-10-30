@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+coverage/
+.angular/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs / local data
+*.log
+logs/
+tmp/
+.tmp/
+
+# test / tooling
+.vitest/
+.playwright/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# generated media
+spikes/**/out/

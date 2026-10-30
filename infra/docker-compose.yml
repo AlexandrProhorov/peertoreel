@@ -1,0 +1,62 @@
+name: kadence
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: kadence
+      POSTGRES_PASSWORD: kadence
+      POSTGRES_DB: kadence
+    ports:
+      - '5432:5432'
+    volumes:
+      # PostgreSQL 18+ keeps versioned data directories under /var/lib/postgresql.
+      - kadence-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kadence -d kadence']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - kadence-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # MinIO removed its Docker Hub images in 2026. SeaweedFS is the local
+  # S3-compatible replacement; production still uses Cloudflare R2.
+  storage:
+    image: chrislusf/seaweedfs:latest
+    command: ['server', '-dir=/data', '-s3', '-s3.port=8333']
+    ports:
+      - '8333:8333'
+    volumes:
+      - kadence-storage:/data
+
+  storage-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      - storage
+    environment:
+      AWS_ACCESS_KEY_ID: kadence
+      AWS_SECRET_ACCESS_KEY: kadence-dev-secret
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until aws --endpoint-url http://storage:8333 s3 ls; do sleep 2; done
+        aws --endpoint-url http://storage:8333 s3 mb s3://kadence || true
+
+volumes:
+  kadence-postgres:
+  kadence-redis:
+  kadence-storage:
