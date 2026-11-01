@@ -50,10 +50,11 @@ what actually breaks this system, in this priority order:
    errors are `unknown` and normalized in one place. Zod validation exists at the boundary
    for anything crossing process or network.
 
-7. **Conventions.** Angular: `*.api.ts` transport-only, `*.store.ts` state, signals,
-   `input()`/`output()`, lazy feature routes (global AGENTS_ANGULAR.md applies). NestJS:
-   controller → service → repository, business rules in services. External SDKs only inside
-   provider adapters.
+7. **Conventions.** Angular: `api/*-api.service.ts` (`*ApiService`) transport-only,
+   `data-access/*-store.service.ts` (`*StoreService`) state, signals, `input()`/`output()`,
+   lazy feature routes (global AGENTS_ANGULAR.md applies). NestJS: controller → service →
+   repository, business rules in services, module files stay colocated. External SDKs only
+   inside provider adapters.
 
 8. **Tests.** New state transitions, retry logic and job handlers need tests (including the
    failure path). External providers must be mocked — no real API calls in tests.

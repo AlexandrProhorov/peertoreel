@@ -151,19 +151,39 @@ warnings read from it. Never estimate costs; record real usage.
 
 - Global `AGENTS_ANGULAR.md` conventions apply (signals, `input()`/`output()`, `@if`/`@for`
   with `track`, no zone.js assumptions, typed reactive forms, lazy routes).
-- Feature layout: `features/<feature>/{data,pages,ui}`; `core/` for config/http/auth/layout;
-  `shared/` for reusable UI.
+- Feature layout: `features/<feature>/{api,data-access,pages,ui}`; `core/` for
+  config/http/auth/layout; `shared/` for reusable UI.
+
+  ```text
+  features/<feature>/
+  ├── api/
+  │   ├── <feature>-api.service.ts
+  │   └── <feature>-api.service.spec.ts
+  ├── data-access/
+  │   ├── <feature>-store.service.ts
+  │   ├── <feature>-store.service.spec.ts
+  │   └── local helpers/types only when needed
+  ├── pages/
+  ├── ui/
+  └── <feature>.routes.ts
+  ```
+
 - Run progress, publish states and cost views render from signal stores fed by SSE.
 
 #### Frontend data layer
 
-- `*.api.ts` is transport only: build the URL, choose the HTTP method, pass parameters, map
-  DTO → interface, optionally validate the response schema. It must not own state, cache,
-  retry, `catchError`, user-facing messages, `firstValueFrom`/`lastValueFrom` or business
-  decisions. A mapper that starts making business decisions belongs in the store/domain.
-- `*.store.ts` owns state, `loading`/`error`/`data`, cache policy, cancellation and race
-  protection. For refreshable data use `Subject` + `switchMap` + `catchError` +
-  `takeUntilDestroyed`. For one-shot work use `firstValueFrom`/`lastValueFrom`.
+- `api/<feature>-api.service.ts` (class `<Feature>ApiService`) is transport only: build the
+  URL, choose the HTTP method, pass parameters, map DTO → interface, optionally validate the
+  response schema. It must not own state, cache, retry, `catchError`, user-facing messages,
+  `firstValueFrom`/`lastValueFrom` or business decisions. A mapper that starts making business
+  decisions belongs in the store/domain.
+- `data-access/<feature>-store.service.ts` (class `<Feature>StoreService`) owns state,
+  `loading`/`error`/`data`, cache policy, cancellation and race protection. For refreshable
+  data use `Subject` + `switchMap` + `catchError` + `takeUntilDestroyed`. For one-shot work use
+  `firstValueFrom`/`lastValueFrom`.
+- `data-access/` also holds domain helpers and local types tied to that store (e.g.
+  `health.error.ts`). It is not a dumping ground for unrelated business logic, and a store or
+  helper file must not exist without a current use.
 - Use `switchMap` for cancellable reads. Use `exhaustMap`/`concatMap` for submit/mutation
   flows so the same operation cannot be started twice.
 - `catchError` receives `unknown`; narrow it immediately to `HttpErrorResponse` or a domain
@@ -171,17 +191,25 @@ warnings read from it. Never estimate costs; record real usage.
   API/store signatures.
 - A component may call `firstValueFrom` directly only for a trivial one-shot request with no
   shared state and no business logic. Otherwise the request belongs in a store.
-- Cache and retry policies live in the store or a dedicated service, never in `*.api.ts`.
-- Tests: `*.api.ts` with `HttpTestingController` (URL, method, mapping/validation); stores
+- Cache and retry policies live in the store or a dedicated service, never in
+  `<feature>-api.service.ts`.
+- Tests sit next to the file they cover with a `.spec.ts` suffix; do not create a mirrored
+  `tests/` tree. `api/<feature>-api.service.spec.ts` covers URL, method, mapping/validation
+  with `HttpTestingController`; `data-access/<feature>-store.service.spec.ts` covers stores
   with fake Observables (`of`/`throwError`) and assertions on signals, error and loading state.
+- Do not use the legacy `*.api.ts` / `*.store.ts` names for new web data services; no barrel
+  files or path aliases were introduced with this layout.
 
 ### API (NestJS)
 
 - Modules: `auth`, `accounts` (TikTok token vault), `projects`, `templates`, `pipeline`
   (runs/stages), `scripts`, `assets`, `renders`, `publish`, `analytics`, `integrations`
   (provider adapters).
-- Controller → service → repository. Business rules in services. No vendor SDK calls in
-  controllers or stores.
+- Controller → service → repository expresses dependency direction, not folder ceremony. A
+  small module keeps `*.controller.ts`, `*.service.ts`, `*.module.ts` and its unit test in one
+  folder (`health/`, `database/`, `redis/`, `config/`, `common/`, `db/`); do not add
+  `controllers/`, `services/`, `repositories/` or `modules/` subfolders per module.
+- Business rules in services. No vendor SDK calls in controllers or stores.
 - Multi-row invariants (run state transition + audit row) run in one transaction.
 
 ### Worker

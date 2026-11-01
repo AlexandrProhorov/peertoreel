@@ -3,8 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import type { ReadinessResponse } from '@kadence/contracts';
 import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
-import { HealthApi } from './health.api';
-import { HealthStore } from './health.store';
+import { HealthApiService } from '../api/health-api.service';
+import { HealthStoreService } from './health-store.service';
 
 const healthyResponse: ReadinessResponse = {
   status: 'ok',
@@ -21,15 +21,15 @@ const degradedResponse: ReadinessResponse = {
   checks: { database: 'up', redis: 'down' },
 };
 
-function setup(api: Partial<HealthApi>): HealthStore {
+function setup(api: Partial<HealthApiService>): HealthStoreService {
   TestBed.configureTestingModule({
-    providers: [HealthStore, { provide: HealthApi, useValue: api }],
+    providers: [HealthStoreService, { provide: HealthApiService, useValue: api }],
   });
 
-  return TestBed.inject(HealthStore);
+  return TestBed.inject(HealthStoreService);
 }
 
-describe('HealthStore', () => {
+describe('HealthStoreService', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
   });

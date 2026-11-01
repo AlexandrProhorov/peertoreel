@@ -3,12 +3,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { ReadinessResponse } from '@kadence/contracts';
 import { catchError, EMPTY, finalize, Subject, switchMap } from 'rxjs';
 import { toErrorMessage } from '../../../core/http/error-message';
-import { HealthApi } from './health.api';
+import { HealthApiService } from '../api/health-api.service';
 import { parseDegradedReadiness } from './health.error';
 
 @Injectable({ providedIn: 'root' })
-export class HealthStore {
-  private readonly api = inject(HealthApi);
+export class HealthStoreService {
+  private readonly api = inject(HealthApiService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly dataSignal = signal<ReadinessResponse | null>(null);

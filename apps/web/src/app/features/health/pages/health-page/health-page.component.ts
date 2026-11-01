@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { HealthStore } from '../../data/health.store';
+import { HealthStoreService } from '../../data-access/health-store.service';
 
 @Component({
   selector: 'app-health-page',
@@ -20,7 +20,7 @@ import { HealthStore } from '../../data/health.store';
   styleUrl: './health-page.component.scss',
 })
 export class HealthPageComponent implements OnInit {
-  protected readonly store = inject(HealthStore);
+  protected readonly store = inject(HealthStoreService);
 
   protected readonly databaseStatus = computed(
     () => this.store.data()?.checks.database ?? 'down',

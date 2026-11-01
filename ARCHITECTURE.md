@@ -48,13 +48,15 @@
 ### `apps/web`
 
 - `core/` — API base URL, нормализация ошибок;
-- `features/health/` — `data/` (API + store), `pages/` (route page);
+- `features/health/` — `api/` (transport), `data-access/` (store + domain helper),
+  `pages/` (route page);
 - `shared/` — появится позже.
 
 Правила:
 
-- `*.api.ts` только транспорт;
-- `*.store.ts` владеет состоянием;
+- `api/<feature>-api.service.ts` (`<Feature>ApiService`) только транспорт;
+- `data-access/<feature>-store.service.ts` (`<Feature>StoreService`) владеет состоянием;
+- unit-тесты лежат рядом с исходниками (`*.spec.ts`);
 - компоненты рендерят и делегируют;
 - ошибки нормализуются в `core/http/error-message.ts`.
 

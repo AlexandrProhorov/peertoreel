@@ -8,7 +8,7 @@ import { map, type Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/config/api.config';
 
 @Injectable({ providedIn: 'root' })
-export class HealthApi {
+export class HealthApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 

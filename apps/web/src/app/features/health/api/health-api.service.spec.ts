@@ -6,7 +6,7 @@ import {
 import { TestBed } from '@angular/core/testing';
 import type { ReadinessResponse } from '@kadence/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
-import { HealthApi } from './health.api';
+import { HealthApiService } from './health-api.service';
 
 const healthyResponse: ReadinessResponse = {
   status: 'ok',
@@ -17,8 +17,8 @@ const healthyResponse: ReadinessResponse = {
   checks: { database: 'up', redis: 'up' },
 };
 
-describe('HealthApi', () => {
-  let api: HealthApi;
+describe('HealthApiService', () => {
+  let api: HealthApiService;
   let http: HttpTestingController;
 
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe('HealthApi', () => {
       ],
     });
 
-    api = TestBed.inject(HealthApi);
+    api = TestBed.inject(HealthApiService);
     http = TestBed.inject(HttpTestingController);
   });
 

@@ -12,6 +12,22 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+## Project structure
+
+```text
+src/app/
+├── core/                       # cross-cutting: API base URL, error normalization, layout
+├── features/<feature>/
+│   ├── api/                    # transport services: URL, HTTP method, DTO mapping/validation
+│   ├── data-access/            # state services (store + its domain helpers): signals, cache, cancellation
+│   ├── pages/                  # routed page components
+│   ├── ui/                     # feature-local presentational components
+│   └── <feature>.routes.ts     # feature route table, lazy-loaded from app.routes.ts
+└── shared/                     # reusable UI and utilities (must not import feature code)
+```
+
+Unit tests live next to the file they cover (`*.spec.ts`), not in a mirrored `tests/` tree.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
