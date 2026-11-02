@@ -39,7 +39,7 @@ docs/           # adr/, pipeline contracts, API notes
 | --- | --- | --- |
 | Web | Angular 22 (standalone, signals, zoneless) | Global `AGENTS_ANGULAR.md` conventions apply |
 | API | NestJS + REST | modular monolith |
-| DB | PostgreSQL | relational model for runs/artifacts/cards |
+| DB | PostgreSQL + Drizzle ORM | relational model for runs/artifacts/cards; schema in `apps/api/src/db/schema.ts`, migrations via `drizzle-kit` |
 | Queue | Redis + BullMQ | per-stage queues, retries, rate limiting |
 | Worker | separate Node.js process | FFmpeg rendering, media downloads, provider calls |
 | Storage | Cloudflare R2 (SeaweedFS locally) | all artifacts; custom domain needed for TikTok `PULL_FROM_URL`. MinIO community images were removed in 2026 — see ADR-0002 |
@@ -210,6 +210,11 @@ warnings read from it. Never estimate costs; record real usage.
   folder (`health/`, `database/`, `redis/`, `config/`, `common/`, `db/`); do not add
   `controllers/`, `services/`, `repositories/` or `modules/` subfolders per module.
 - Business rules in services. No vendor SDK calls in controllers or stores.
+- Data access uses Drizzle: schema in `src/db/schema.ts`, `DatabaseService.db` is the
+  `NodePgDatabase`, repositories receive that handle. No SQL in controllers or stores.
+- Schema changes are `drizzle-kit generate` migrations committed with the code. Applied
+  migrations are immutable; never edit them, generate a new one. Production uses
+  `drizzle-kit migrate`, never `push`.
 - Multi-row invariants (run state transition + audit row) run in one transaction.
 
 ### Worker

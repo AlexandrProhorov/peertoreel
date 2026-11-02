@@ -11,7 +11,7 @@ milestone'ах.
 
 - **Web:** Angular 22, standalone, zoneless, signals, Angular Material 3
 - **API:** NestJS 12, REST, Zod-контракты
-- **DB:** PostgreSQL 18
+- **DB:** PostgreSQL 18 + Drizzle ORM / drizzle-kit
 - **Queue/cache:** Redis 8, BullMQ 6 (следующий milestone)
 - **Storage:** Cloudflare R2 в production, SeaweedFS локально
 - **Worker:** Node.js 24 (следующий milestone)
@@ -49,7 +49,9 @@ pnpm infra:down
 | `pnpm typecheck` | TypeScript-проверка |
 | `pnpm test` | Unit-тесты |
 | `pnpm check` | lint + typecheck + test + build |
-| `pnpm db:migrate` | Применяет SQL-миграции |
+| `pnpm --filter @kadence/api db:generate` | Генерирует миграцию из `schema.ts` |
+| `pnpm db:migrate` | Применяет миграции через drizzle-kit |
+| `pnpm --filter @kadence/api db:studio` | Drizzle Studio для локальной БД |
 | `pnpm infra:up` | Postgres + Redis + S3 |
 | `pnpm infra:down` | Останавливает инфраструктуру |
 
@@ -63,6 +65,9 @@ packages/
   contracts/    Zod-схемы и общие типы
 infra/          Docker Compose для локальной инфраструктуры
 docs/adr/       Architecture Decision Records
+apps/api/
+  src/db/schema.ts   Drizzle-схема
+  drizzle/           сгенерированные SQL-миграции
 ```
 
 ## Локальный S3

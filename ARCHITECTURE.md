@@ -37,11 +37,12 @@
 Слои:
 
 - `config/` — Zod-валидация env, ConfigModule;
-- `database/` — `pg.Pool`, ping, lifecycle;
+- `database/` — `pg.Pool`, Drizzle client, ping, lifecycle;
 - `redis/` — `ioredis`, lazy connect, ping;
 - `health/` — liveness/readiness;
 - `common/` — exception filter и единый формат ошибок;
-- `db/migrate.ts` — минимальный SQL-мигратор.
+- `db/schema.ts` — Drizzle-схема;
+- `drizzle/` — сгенерированные SQL-миграции и journal.
 
 Принцип: controller → service → infrastructure. Бизнес-логики пока нет.
 
@@ -86,6 +87,18 @@ Web показывает readiness и умеет отобразить degraded-�
 
 `ApiExceptionFilter` перехватывает `unknown`, маппит HTTP-статус в `ApiErrorCode` и не отдаёт
 внутренние детали наружу. Для 5xx пишет structured log через Nest Logger.
+
+## Data access
+
+```text
+Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreSQL
+```
+
+- `schema.ts` — источник правды для таблиц.
+- Миграции генерируются `drizzle-kit generate`, применяются `drizzle-kit migrate`.
+- Сгенерированный SQL коммитится и читается перед применением.
+- Применённые миграции immutable.
+- `drizzle-kit push` — только локальные эксперименты, не production.
 
 ## Локальная инфраструктура
 
