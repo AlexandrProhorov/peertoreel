@@ -12,9 +12,9 @@ milestone'ах.
 - **Web:** Angular 22, standalone, zoneless, signals, Angular Material 3
 - **API:** NestJS 12, REST, Zod-контракты
 - **DB:** PostgreSQL 18 + Drizzle ORM / drizzle-kit
-- **Queue/cache:** Redis 8, BullMQ 6 (следующий milestone)
+- **Queue/cache:** Redis 8, BullMQ 6
 - **Storage:** Cloudflare R2 в production, SeaweedFS локально
-- **Worker:** Node.js 24 (следующий milestone)
+- **Worker:** Node.js 24 + BullMQ worker
 - **Media:** FFmpeg (следующий milestone)
 - **Monorepo:** pnpm workspaces
 
@@ -32,6 +32,8 @@ pnpm dev
 - Web: http://localhost:4200
 - API health: http://localhost:3000/api/v1/health/ready
 - API liveness: http://localhost:3000/api/v1/health/live
+- Ping job: `POST /api/v1/system/ping` → `GET /api/v1/system/ping/:jobId`
+- Worker запускается вместе с `pnpm dev`
 
 Остановить инфраструктуру:
 
@@ -61,6 +63,7 @@ pnpm infra:down
 apps/
   api/          NestJS REST API
   web/          Angular dashboard
+  worker/       BullMQ worker
 packages/
   contracts/    Zod-схемы и общие типы
 infra/          Docker Compose для локальной инфраструктуры
@@ -80,9 +83,9 @@ SeaweedFS с S3-совместимым API на `http://localhost:8333`. Product
 ## Ограничения текущего этапа
 
 - Нет authentication.
-- Нет worker и очередей.
+- Нет SSE и UI для прогресса worker'а (S0.2b).
 - Нет AI-провайдеров.
 - Нет TikTok-интеграции.
 - Нет загрузки медиа.
 
-Это сознательно: M0 проверяет только фундамент и health vertical slice.
+Это сознательно: M0 проверяет фундамент, health и базовый async-путь.

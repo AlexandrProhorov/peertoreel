@@ -219,8 +219,11 @@ warnings read from it. Never estimate costs; record real usage.
 
 ### Worker
 
+- `apps/worker` is a separate plain Node.js process, not a Nest application. Job payloads,
+  results and queue names live in `packages/contracts`.
 - Every job handler is **idempotent**: re-running a job must not duplicate artifacts,
-  posts or charges. Use run/stage state as the idempotency guard.
+  posts or charges. Use run/stage state as the idempotency guard; use a deterministic
+  `jobId` where the queue supports it.
 - Classify provider errors: retryable vs terminal (see §7). Max attempts + backoff are
   configured per queue, never hardcoded in handlers.
 - FFmpeg arguments come from structured inputs only — never interpolate user text into

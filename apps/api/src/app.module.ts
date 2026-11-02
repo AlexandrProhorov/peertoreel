@@ -9,6 +9,7 @@ import type { AppEnv } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { SystemModule } from './system/system.module.js';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { RedisModule } from './redis/redis.module.js';
     DatabaseModule,
     RedisModule,
     HealthModule,
+    SystemModule,
   ],
   providers: [
     {

@@ -24,7 +24,8 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 | M0.3 | Local infrastructure | агент | DONE |
 | M0.4 | API skeleton, DB, health | вы | DONE |
 | M0.5 | Web shell и health page | агент | DONE |
-| M0.6 | Worker, queue, SSE ping | вы | TODO |
+| M0.6a | Worker, BullMQ, ping job | вы | DONE |
+| M0.6b | SSE progress + web ping UI | пара | TODO |
 | M0.7 | Auth и sessions | вы | TODO |
 | M0.8 | Error model, observability, CI gates | пара | DONE |
 | M0.9 | Render spike | агент | TODO |
@@ -34,8 +35,9 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 - `pnpm install` проходит.
 - `pnpm infra:up` поднимает Postgres, Redis, S3.
 - `pnpm db:migrate` применяет миграции.
-- `pnpm dev` поднимает API и web.
+- `pnpm dev` поднимает API, web и worker.
 - `/api/v1/health/live` и `/api/v1/health/ready` работают.
+- `POST /api/v1/system/ping` ставит job, worker обрабатывает, статус читается.
 - Web показывает статус API/Postgres/Redis.
 - `pnpm check` зелёный.
 - CI зелёный.
@@ -43,6 +45,6 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 
 ## Следующие сессии
 
-1. S0.2 — worker + BullMQ + SSE ping.
+1. S0.2b — SSE progress + web ping UI.
 2. S0.3 — auth + sessions + baseline schema.
 3. S0.4 — state machine skeleton + reviewer gate.

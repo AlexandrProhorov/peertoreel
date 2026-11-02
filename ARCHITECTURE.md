@@ -3,22 +3,53 @@
 ## Текущий срез: M0
 
 ```text
-┌─────────────┐       HTTP/JSON        ┌──────────────┐
-│ Angular 22  │ ─────────────────────► │ NestJS 12    │
-│ :4200       │                        │ :3000        │
-└─────────────┘                        └──────┬───────┘
-                                              │
-                         ┌────────────────────┼────────────────────┐
-                         │                    │                    │
-                         ▼                    ▼                    ▼
-                  ┌────────────┐       ┌────────────┐       ┌────────────┐
-                  │ PostgreSQL │       │ Redis      │       │ S3         │
-                  │ :5432      │       │ :6379      │       │ :8333      │
-                  └────────────┘       └────────────┘       └────────────┘
+┌─────────────┐      HTTP/JSON       ┌──────────────┐
+│ Angular 22  │ ───────────────────► │ NestJS 12    │
+│ :4200       │                      │ API :3000    │
+└─────────────┘                      └──────┬───────┘
+                                            │
+                         ┌──────────────────┼──────────────────┐
+                         │                  │                  │
+                         ▼                  ▼                  ▼
+                  ┌────────────┐     ┌────────────┐     ┌────────────┐
+                  │ PostgreSQL │     │ Redis      │     │ S3         │
+                  │ :5432      │     │ :6379      │     │ :8333      │
+                  └────────────┘     └──────┬─────┘     └────────────┘
+                                            │
+                                            │ BullMQ
+                                            ▼
+                                     ┌────────────┐
+                                     │ Worker     │
+                                     │ apps/worker│
+                                     └────────────┘
 ```
 
-Пока worker'а нет. Redis подключён и проверяется readiness-чеком, но ещё не используется
-приложением. S3 поднят для следующего milestone.
+Redis используется как транспорт BullMQ. Worker — отдельный процесс, который забирает jobs
+из очереди `system`. S3 пока поднят, но приложением не используется.
+
+## System queue (S0.2a)
+
+```text
+POST /api/v1/system/ping
+  → SystemQueue.enqueuePing()
+  → Queue.add('ping', { requestId }, { jobId: requestId, attempts: 3 })
+  → Redis
+  → Worker processPing()
+  → progress 10 → 50 → 90 → 100
+  → result { requestId, processedAt, durationMs }
+
+GET /api/v1/system/ping/:jobId
+  → Queue.getJob()
+  → job.getState()
+  → status snapshot
+```
+
+- `jobId = requestId` — идемпотентность: повторный запрос с тем же `requestId` не создаёт
+  второй job.
+- `attempts: 3`, exponential backoff — transient-ошибки повторяются.
+- `removeOnComplete/removeOnFail: 100` — Redis не растёт бесконечно.
+- Worker закрывается по `SIGINT`/`SIGTERM` через `worker.close()`.
+- SSE и web UI — следующий срез S0.2b.
 
 ## Packages
 
@@ -27,7 +58,9 @@
 Единственный источник правды для схем, которые пересекают границы процессов:
 
 - `health.ts` — liveness/readiness response;
-- `errors.ts` — единый error envelope.
+- `errors.ts` — единый error envelope;
+- `system.ts` — ping job, status snapshot, enqueue request/response;
+- `queues.ts` — имена очередей и jobs.
 
 Схемы описаны Zod. API, web и worker импортируют один и тот же пакет. Пакет собирается в ESM
 (`dist/index.js` + `dist/index.d.ts`), потому что NestJS 12 и Angular 22 работают в ESM.
@@ -45,6 +78,17 @@
 - `drizzle/` — сгенерированные SQL-миграции и journal.
 
 Принцип: controller → service → infrastructure. Бизнес-логики пока нет.
+
+### `apps/worker`
+
+- отдельный Node.js-процесс, не Nest-приложение;
+- `config/env.ts` — Zod-валидация env;
+- `redis-connection.ts` — BullMQ connection options из `REDIS_URL`;
+- `processors/ping.processor.ts` — чистая функция обработки job;
+- `main.ts` — Worker, логирование, graceful shutdown.
+
+Worker не ходит в БД напрямую; в будущем stage-процессоры будут использовать
+`DatabaseService`/repository через отдельный composition layer.
 
 ### `apps/web`
 
