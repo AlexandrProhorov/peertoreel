@@ -33,7 +33,13 @@ const conflict = new HttpErrorResponse({
 
 function setup(api: Partial<RunsApiService>): RunsStoreService {
   TestBed.configureTestingModule({
-    providers: [RunsStoreService, { provide: RunsApiService, useValue: api }],
+    providers: [
+      RunsStoreService,
+      {
+        provide: RunsApiService,
+        useValue: { artifacts: vi.fn().mockReturnValue(of([])), ...api },
+      },
+    ],
   });
 
   return TestBed.inject(RunsStoreService);
@@ -77,6 +83,27 @@ describe('RunsStoreService', () => {
 
     await vi.waitFor(() => expect(store.selected()?.id).toBe(run.id));
     expect(store.allowed()).toEqual(['RESEARCHING', 'FAILED']);
+  });
+
+  it('loads artifacts next to the run', async () => {
+    const artifact = {
+      id: '22222222-2222-4222-8222-222222222222',
+      stage: 'voiceover' as const,
+      type: 'voiceover_mp3',
+      contentType: 'audio/mpeg',
+      sizeBytes: 1024,
+      createdAt: '2026-11-04T12:00:00.000Z',
+      url: 'http://storage.test/voiceover.mp3',
+    };
+    const store = setup({
+      detail: vi.fn().mockReturnValue(of(detail)),
+      artifacts: vi.fn().mockReturnValue(of([artifact])),
+    });
+
+    store.loadRun(run.id);
+
+    await vi.waitFor(() => expect(store.artifacts()).toHaveLength(1));
+    expect(store.artifacts()[0]?.type).toBe('voiceover_mp3');
   });
 
   it('sends a transition and refreshes the run', async () => {

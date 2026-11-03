@@ -149,3 +149,59 @@ h2 {
   color: var(--mat-sys-on-surface-variant);
   font-style: italic;
 }
+
+.run__artifact-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run__artifact {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+}
+
+.run__artifact-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.run__artifact-type {
+  font-weight: 600;
+}
+
+.run__artifact-meta {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+}
+
+.run__artifact-link {
+  margin-left: auto;
+  color: var(--mat-sys-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.run__artifact-link:hover {
+  text-decoration: underline;
+}
+
+.run__artifact-video {
+  display: block;
+  width: min(100%, 320px);
+  margin-top: 0.75rem;
+  border-radius: 0.5rem;
+  background: #000;
+}
+
+.run__artifact-audio {
+  display: block;
+  width: min(100%, 420px);
+  margin-top: 0.75rem;
+}

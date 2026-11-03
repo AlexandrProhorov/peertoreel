@@ -2,6 +2,7 @@ import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   allowedTransitions,
+  type Artifact,
   type Run,
   type RunDetail,
   type RunState,
@@ -11,6 +12,8 @@ import {
   EMPTY,
   exhaustMap,
   finalize,
+  forkJoin,
+  of,
   Subject,
   switchMap,
   tap,
@@ -36,6 +39,7 @@ export class RunsStoreService {
 
   private readonly runsSignal = signal<Run[]>([]);
   private readonly selectedSignal = signal<RunDetail | null>(null);
+  private readonly artifactsSignal = signal<Artifact[]>([]);
   private readonly loadingSignal = signal(false);
   private readonly pendingSignal = signal(false);
   private readonly errorSignal = signal<string | null>(null);
@@ -43,6 +47,7 @@ export class RunsStoreService {
 
   readonly runs = this.runsSignal.asReadonly();
   readonly selected = this.selectedSignal.asReadonly();
+  readonly artifacts = this.artifactsSignal.asReadonly();
   readonly loading = this.loadingSignal.asReadonly();
   readonly pending = this.pendingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
@@ -81,13 +86,22 @@ export class RunsStoreService {
         tap((id) => {
           if (this.selectedSignal()?.id !== id) {
             this.selectedSignal.set(null);
+            this.artifactsSignal.set([]);
           }
           this.loadingSignal.set(true);
           this.errorSignal.set(null);
         }),
         switchMap((id) =>
-          this.api.detail(id).pipe(
-            tap((run) => this.selectedSignal.set(run)),
+          forkJoin({
+            run: this.api.detail(id),
+            artifacts: this.api
+              .artifacts(id)
+              .pipe(catchError(() => of([] as Artifact[]))),
+          }).pipe(
+            tap(({ run, artifacts }) => {
+              this.selectedSignal.set(run);
+              this.artifactsSignal.set(artifacts);
+            }),
             catchError((error: unknown) => {
               this.errorSignal.set(toErrorMessage(error));
               return EMPTY;

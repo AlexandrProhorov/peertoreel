@@ -4,6 +4,8 @@ import {
   runDetailSchema,
   runListResponseSchema,
   runSchema,
+  runArtifactsResponseSchema,
+  type Artifact,
   type CreateRunRequest,
   type Run,
   type RunDetail,
@@ -31,6 +33,15 @@ export class RunsApiService {
     return this.http
       .get<RunDetail>(`${this.baseUrl}/runs/${id}`, { withCredentials: true })
       .pipe(map((data) => runDetailSchema.parse(data)));
+  }
+
+  artifacts(id: string): Observable<Artifact[]> {
+    return this.http
+      .get(`${this.baseUrl}/runs/${id}/artifacts`, { withCredentials: true })
+      .pipe(
+        map((data) => runArtifactsResponseSchema.parse(data)),
+        map((response) => response.artifacts),
+      );
   }
 
   create(topic: string): Observable<Run> {

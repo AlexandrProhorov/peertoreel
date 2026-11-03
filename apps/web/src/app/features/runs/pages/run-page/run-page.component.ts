@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, effect, inject, input } from '@angular/core';
+import { Component, computed, effect, inject, input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -9,6 +9,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
 import type { RunState } from '@kadence/contracts';
+import {
+  artifactLabel,
+  formatBytes,
+  isAudio,
+  isVideo,
+  sortArtifacts,
+} from '../../data-access/artifact-labels';
 import {
   runStageLabel,
   runStateLabel,
@@ -41,6 +48,13 @@ export class RunPageComponent {
   protected readonly stageLabel = runStageLabel;
   protected readonly stateTone = runStateTone;
   protected readonly transitionLabel = transitionLabel;
+  protected readonly artifactLabel = artifactLabel;
+  protected readonly formatBytes = formatBytes;
+  protected readonly isVideo = isVideo;
+  protected readonly isAudio = isAudio;
+  protected readonly artifacts = computed(() =>
+    sortArtifacts(this.store.artifacts()),
+  );
   protected readonly reason = new FormControl('', { nonNullable: true });
 
   private loadedId: string | null = null;

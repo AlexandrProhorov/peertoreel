@@ -85,7 +85,6 @@
 
     <section class="run__history">
       <h2>История ({{ run.events.length }})</h2>
-
       <ol>
         @for (event of run.events; track event.id) {
           <li>
@@ -106,6 +105,56 @@
           </li>
         }
       </ol>
+    </section>
+    <section class="run__artifacts">
+      <h2>Артефакты ({{ artifacts().length }})</h2>
+
+      @if (artifacts().length > 0) {
+        <ul class="run__artifact-list">
+          @for (artifact of artifacts(); track artifact.id) {
+            <li class="run__artifact">
+              <div class="run__artifact-head">
+                <span class="run__artifact-type">
+                  {{ artifactLabel(artifact.type) }}
+                </span>
+                <span class="run__artifact-meta">
+                  {{ stageLabel(artifact.stage) }} ·
+                  {{ formatBytes(artifact.sizeBytes) }} ·
+                  {{ artifact.createdAt | date: 'dd.MM HH:mm' }}
+                </span>
+                <a
+                  class="run__artifact-link"
+                  [href]="artifact.url"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Открыть
+                </a>
+              </div>
+
+              @if (isVideo(artifact)) {
+                <video
+                  class="run__artifact-video"
+                  [src]="artifact.url"
+                  controls
+                  preload="metadata"
+                ></video>
+              } @else if (isAudio(artifact)) {
+                <audio
+                  class="run__artifact-audio"
+                  [src]="artifact.url"
+                  controls
+                  preload="metadata"
+                ></audio>
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="run__hint">
+          Стадии пока не произвели файлов — запустите сценарий или озвучку.
+        </p>
+      }
     </section>
   }
 </section>

@@ -99,4 +99,46 @@ describe('RunsApiService', () => {
 
     expect(result).toEqual(detail);
   });
+
+  it('lists run artifacts with signed urls', () => {
+    let result: unknown[] | undefined;
+
+    api.artifacts(run.id).subscribe((artifacts) => {
+      result = artifacts;
+    });
+
+    const request = http.expectOne(
+      `http://api.test/api/v1/runs/${run.id}/artifacts`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+
+    request.flush({
+      artifacts: [
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          stage: 'voiceover',
+          type: 'voiceover_mp3',
+          contentType: 'audio/mpeg',
+          sizeBytes: 952_990,
+          createdAt: '2026-11-04T12:00:00.000Z',
+          url: 'http://storage.test/voiceover.mp3',
+        },
+      ],
+    });
+
+    expect(result).toHaveLength(1);
+  });
+
+  it('rejects a malformed artifact payload', () => {
+    let failed = false;
+
+    api.artifacts(run.id).subscribe({ error: () => (failed = true) });
+
+    http
+      .expectOne(`http://api.test/api/v1/runs/${run.id}/artifacts`)
+      .flush({ artifacts: [{ type: 'voiceover_mp3' }] });
+
+    expect(failed).toBe(true);
+  });
 });
