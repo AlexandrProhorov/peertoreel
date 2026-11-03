@@ -182,6 +182,7 @@ Worker не ходит в БД напрямую; в будущем stage-про�
 - `core/` — API base URL, нормализация ошибок;
 - `features/auth/` — `api/` (login/me/logout), `data-access/` (session store),
   `pages/login-page/`, `authGuard`;
+- `features/runs/` — список прогонов, карточка run'а, гейты и история переходов;
 - `features/health/` — `api/` (transport), `data-access/` (store + domain helper),
   `pages/` (route page);
 - `features/system/` — ping UI, SSE stream, progress store;
@@ -243,6 +244,6 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. Reviewer gate UI + список run'ов в web (S0.4b).
-2. Provider ports и cost ledger.
-3. TikTok OAuth и token vault.
+1. S1: TikTok OAuth + token vault + один приватный publish.
+2. Provider ports (`LlmProvider`, `TtsProvider`, …) и cost ledger.
+3. Стадийные исполнители (research/script/tts) в worker.

@@ -101,8 +101,31 @@ SeaweedFS с S3-совместимым API на `http://localhost:8333`. Product
 - Нет AI-провайдеров.
 - Нет TikTok-интеграции.
 - Нет загрузки медиа.
-- Auth-защита есть только у `/system`; остальные бизнес-роуты появятся вместе со своими
+- Auth-защита есть у `/system` и `/runs`; остальные бизнес-роуты появятся вместе со своими
   таблицами и сразу под `SessionAuthGuard`.
 - Нет rate limit на логин и аудита неудачных попыток (запланировано).
 
 Это сознательно: M0 проверяет фундамент, health и базовый async-путь.
+
+## Troubleshooting
+
+**`does not provide an export named '<schema>'` в консоли web.**
+Vite пре-бандлит `@kadence/contracts` в `apps/web/.angular/cache`, и после добавления нового
+экспорта в контракты кэш остаётся старым. Лечится так:
+
+```bash
+pnpm --filter @kadence/contracts build
+# остановить web-дев-сервер, затем:
+rm -rf apps/web/.angular/cache      # Windows: Remove-Item -Recurse -Force apps/web/.angular/cache
+pnpm --filter @kadence/web dev
+```
+
+Дополнительно сделайте жёсткую перезагрузку вкладки (Ctrl+Shift+R): Vite отдаёт
+оптимизированные зависимости с `immutable`-кэшем.
+
+Если ошибка повторяется при каждом изменении контрактов, запускайте web без пребандлинга —
+тогда локальный пакет отдаётся как обычный ESM и кэш не участвует:
+
+```bash
+pnpm --filter @kadence/web exec ng serve --port 4200 --prebundle=false
+```

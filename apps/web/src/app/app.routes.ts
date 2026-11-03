@@ -31,6 +31,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'runs',
+    canActivate: [authGuard],
+    loadChildren: () =>
+      import('./features/runs/runs.routes').then(
+        (module) => module.RUNS_ROUTES,
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'health',
   },

@@ -1,0 +1,83 @@
+<section class="runs">
+  <header class="runs__header">
+    <div>
+      <p class="runs__eyebrow">Pipeline</p>
+      <h1>Прогоны</h1>
+      <p class="runs__subtitle">
+        Каждый run проходит стадии пайплайна; состояние проверяется на сервере.
+      </p>
+    </div>
+  </header>
+
+  <mat-card class="runs__create" appearance="outlined">
+    <mat-card-content>
+      <form [formGroup]="form" (ngSubmit)="create()" class="runs__form" novalidate>
+        <mat-form-field appearance="outline">
+          <mat-label>Тема ролика</mat-label>
+          <input
+            matInput
+            formControlName="topic"
+            placeholder="Например: почему небо синее"
+            maxlength="300"
+            [attr.aria-invalid]="form.controls.topic.touched && form.controls.topic.invalid"
+          />
+          @if (form.controls.topic.touched && form.controls.topic.invalid) {
+            <mat-error>Тема обязательна (до 300 символов)</mat-error>
+          }
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          type="submit"
+          [disabled]="store.pending()"
+        >
+          <mat-icon>add</mat-icon>
+          Создать run
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  @if (store.error(); as error) {
+    <mat-card class="runs__error" appearance="outlined" role="alert">
+      <mat-card-content>{{ error }}</mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.loading() && store.runs().length === 0) {
+    <mat-progress-bar mode="indeterminate" aria-label="Загрузка прогонов" />
+  }
+
+  @if (store.runs().length > 0) {
+    <ul class="runs__list">
+      @for (run of store.runs(); track run.id) {
+        <li>
+          <a class="runs__item" [routerLink]="['/runs', run.id]">
+            <span class="runs__topic">{{ run.topic }}</span>
+            <span class="runs__meta">
+              <span
+                class="runs__badge"
+                [class.runs__badge--error]="stateTone(run.state) === 'error'"
+                [class.runs__badge--ready]="stateTone(run.state) === 'ready'"
+                [class.runs__badge--muted]="stateTone(run.state) === 'muted'"
+              >
+                {{ stateLabel(run.state) }}
+              </span>
+              <span class="runs__stage">{{ stageLabel(run.currentStage) }}</span>
+              <time [attr.datetime]="run.updatedAt">
+                {{ run.updatedAt | date: 'dd.MM HH:mm' }}
+              </time>
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  } @else if (!store.loading()) {
+    <mat-card class="runs__empty" appearance="outlined">
+      <mat-card-content>
+        <mat-icon>movie</mat-icon>
+        <p>Пока нет ни одного прогона. Создайте первый из темы выше.</p>
+      </mat-card-content>
+    </mat-card>
+  }
+</section>

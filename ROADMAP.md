@@ -45,5 +45,4 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 
 ## Следующие сессии
 
-1. S0.4b — reviewer gate UI (список run'ов, переходы, история).
-2. S1 — publish risk spike (TikTok private publish + manual export).
+1. S1 — publish risk spike (TikTok private publish + manual export).

@@ -1,0 +1,111 @@
+<section class="run">
+  <a class="run__back" routerLink="/runs">← Все прогоны</a>
+
+  @if (store.error(); as error) {
+    <mat-card class="run__error" appearance="outlined" role="alert">
+      <mat-card-content>{{ error }}</mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.loading() && !store.selected()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Загрузка прогона" />
+  }
+
+  @if (store.selected(); as run) {
+    <header class="run__header">
+      <div>
+        <p class="run__eyebrow">Run</p>
+        <h1>{{ run.topic }}</h1>
+        <p class="run__meta">
+          <span
+            class="run__badge"
+            [class.run__badge--error]="stateTone(run.state) === 'error'"
+            [class.run__badge--ready]="stateTone(run.state) === 'ready'"
+            [class.run__badge--muted]="stateTone(run.state) === 'muted'"
+          >
+            {{ stateLabel(run.state) }}
+          </span>
+          <span>стадия: {{ stageLabel(run.currentStage) }}</span>
+          <span>обновлён {{ run.updatedAt | date: 'dd.MM HH:mm:ss' }}</span>
+        </p>
+      </div>
+    </header>
+
+    @if (run.state === 'FAILED') {
+      <mat-card class="run__failure" appearance="outlined">
+        <mat-card-content>
+          <strong>Стадия {{ stageLabel(run.failedStage) }} остановлена</strong>
+          <p>{{ run.failureReason }}</p>
+          <p class="run__hint">
+            Повтор запускает только эту стадию — остальные артефакты остаются.
+          </p>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <mat-card class="run__actions" appearance="outlined">
+      <mat-card-content>
+        <h2>Действия</h2>
+
+        @if (store.allowed().length > 0) {
+          <mat-form-field appearance="outline" class="run__reason">
+            <mat-label>Комментарий</mat-label>
+            <input
+              matInput
+              [formControl]="reason"
+              maxlength="500"
+              placeholder="Нужен для остановки и отказа на ревью"
+            />
+          </mat-form-field>
+
+          @if (reason.touched && reason.value.trim().length === 0) {
+            <p class="run__field-error" role="alert">
+              Для остановки run'а укажите причину.
+            </p>
+          }
+
+          <div class="run__buttons">
+            @for (to of store.allowed(); track to) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="store.pending()"
+                [class.run__danger]="to === 'FAILED'"
+                (click)="transition(to)"
+              >
+                {{ transitionLabel(run.state, to) }}
+              </button>
+            }
+          </div>
+        } @else {
+          <p class="run__hint">Из этого состояния переходов нет.</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <section class="run__history">
+      <h2>История ({{ run.events.length }})</h2>
+
+      <ol>
+        @for (event of run.events; track event.id) {
+          <li>
+            <time [attr.datetime]="event.createdAt">
+              {{ event.createdAt | date: 'dd.MM HH:mm:ss' }}
+            </time>
+            <span class="run__event">
+              {{ event.fromState ? stateLabel(event.fromState) : 'создан' }}
+              →
+              {{ stateLabel(event.toState) }}
+            </span>
+            <span class="run__event-stage">
+              {{ stageLabel(event.stage) }}
+            </span>
+            @if (event.reason) {
+              <span class="run__event-reason">{{ event.reason }}</span>
+            }
+          </li>
+        }
+      </ol>
+    </section>
+  }
+</section>

@@ -1,0 +1,125 @@
+.runs {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.runs__eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--mat-sys-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.runs__subtitle {
+  max-width: 42rem;
+  margin: 0.75rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.runs__form {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.runs__form mat-form-field {
+  flex: 1;
+}
+
+.runs__form button {
+  margin-top: 0.5rem;
+}
+
+.runs__error {
+  border-color: var(--mat-sys-error);
+  color: var(--mat-sys-on-error-container);
+}
+
+.runs__list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.runs__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.runs__item:hover,
+.runs__item:focus-visible {
+  background: var(--mat-sys-surface-container-high);
+}
+
+.runs__topic {
+  font-weight: 600;
+}
+
+.runs__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+}
+
+.runs__badge {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font-weight: 700;
+}
+
+.runs__badge--ready {
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+
+.runs__badge--error {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.runs__badge--muted {
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.runs__empty mat-card-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+@media (max-width: 720px) {
+  .runs__form {
+    flex-direction: column;
+  }
+
+  .runs__item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
