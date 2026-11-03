@@ -26,7 +26,7 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 | M0.5 | Web shell и health page | агент | DONE |
 | M0.6a | Worker, BullMQ, ping job | вы | DONE |
 | M0.6b | SSE progress + web ping UI | пара | DONE |
-| M0.7 | Auth и sessions | вы | TODO |
+| M0.7 | Auth и sessions | вы | DONE |
 | M0.8 | Error model, observability, CI gates | пара | DONE |
 | M0.9 | Render spike | агент | TODO |
 
@@ -45,6 +45,5 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 
 ## Следующие сессии
 
-1. S0.3 — auth + sessions + baseline schema.
-2. S0.4 — state machine skeleton + reviewer gate.
-3. S1 — publish risk spike (TikTok private publish + manual export).
+1. S0.4 — state machine skeleton + reviewer gate.
+2. S1 — publish risk spike (TikTok private publish + manual export).

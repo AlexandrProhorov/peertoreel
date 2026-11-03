@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import cookieParser from 'cookie-parser';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import type { AppEnv } from './config/env.js';
@@ -9,6 +10,7 @@ async function bootstrap(): Promise<void> {
   const config = app.get<ConfigService<AppEnv, true>>(ConfigService);
 
   app.useLogger(app.get(Logger));
+  app.use(cookieParser());
   app.setGlobalPrefix('api/v1');
   app.enableCors({
     origin: config

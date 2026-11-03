@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
+import { AuthModule } from './auth/auth.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { AppConfigModule } from './config/config.module.js';
 import type { AppEnv } from './config/env.js';
@@ -39,6 +40,7 @@ import { SystemModule } from './system/system.module.js';
     }),
     DatabaseModule,
     RedisModule,
+    AuthModule,
     HealthModule,
     SystemModule,
   ],

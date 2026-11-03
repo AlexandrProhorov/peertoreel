@@ -3,9 +3,9 @@
 Kadence — pipeline-платформа для производства коротких вертикальных видео: тема → исследование →
 сценарий → озвучка → визуалы → рендер → QC → публикация.
 
-Сейчас проект находится на этапе **M0 — Walking Skeleton**. Реализованы только фундамент,
-health-check и локальная инфраструктура. AI-стадии, worker и TikTok появятся в следующих
-milestone'ах.
+Сейчас проект находится на этапе **M0 — Walking Skeleton**. Реализованы фундамент,
+health-check, локальная инфраструктура, async-путь через BullMQ и вход по сессии.
+AI-стадии и TikTok появятся в следующих milestone'ах.
 
 ## Стек
 
@@ -29,13 +29,27 @@ pnpm db:migrate
 pnpm dev
 ```
 
-- Web: http://localhost:4200
+- Web: http://localhost:4200 (вход: `/login`)
 - API health: http://localhost:3000/api/v1/health/ready
 - API liveness: http://localhost:3000/api/v1/health/live
+- Auth: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`
 - Ping job: `POST /api/v1/system/ping` → `GET /api/v1/system/ping/:jobId`
 - SSE progress: `GET /api/v1/system/ping/:jobId/events`
 - Web: `/system` — кнопка запуска и live-прогресс
 - Worker запускается вместе с `pnpm dev`
+
+### Первый вход
+
+При первом старте API создаёт администратора из `.env`, если таблица `users` пуста:
+
+```bash
+BOOTSTRAP_ADMIN_EMAIL=owner@kadence.local
+BOOTSTRAP_ADMIN_PASSWORD=kadence-dev-password
+SESSION_TTL_HOURS=168
+```
+
+После успешного входа эти переменные можно убрать. Существующие пользователи не
+перезаписываются: bootstrap срабатывает только на пустой таблице.
 
 Остановить инфраструктуру:
 
@@ -84,10 +98,11 @@ SeaweedFS с S3-совместимым API на `http://localhost:8333`. Product
 
 ## Ограничения текущего этапа
 
-- Нет authentication.
-- Нет auth и бизнес-таблиц.
 - Нет AI-провайдеров.
 - Нет TikTok-интеграции.
 - Нет загрузки медиа.
+- Auth-защита есть только у `/system`; остальные бизнес-роуты появятся вместе со своими
+  таблицами и сразу под `SessionAuthGuard`.
+- Нет rate limit на логин и аудита неудачных попыток (запланировано).
 
 Это сознательно: M0 проверяет фундамент, health и базовый async-путь.

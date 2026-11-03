@@ -89,7 +89,7 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 ## 5. Data model (core tables)
 
 ```text
-users, tiktok_accounts (encrypted tokens), projects, templates, topics,
+users, sessions, tiktok_accounts (encrypted tokens), projects, templates, topics,
 runs (state, current_stage, cost_estimate), artifacts (stage, type, r2_key, meta),
 scenes (idx, text, duration_sec, visual_direction, visual_asset_id, transition),
 publish_cards (title, hashtags, privacy_level, is_aigc, scheduled_at, state,

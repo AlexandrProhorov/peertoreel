@@ -7,16 +7,19 @@ import {
   Param,
   Post,
   Sse,
+  UseGuards,
 } from '@nestjs/common';
 import {
   enqueuePingRequestSchema,
   type EnqueuePingRequest,
 } from '@kadence/contracts';
+import { SessionAuthGuard } from '../auth/session-auth.guard.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { SystemEventsService } from './system-events.service.js';
 import { SystemQueue } from './system.queue.js';
 
 @Controller('system')
+@UseGuards(SessionAuthGuard)
 export class SystemController {
   constructor(
     private readonly queue: SystemQueue,

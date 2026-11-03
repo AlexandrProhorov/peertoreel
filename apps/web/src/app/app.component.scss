@@ -77,6 +77,24 @@
   flex: 1;
 }
 
+.shell__user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shell__user-name {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.shell__logout {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .shell__footer {
   display: flex;
   justify-content: space-between;

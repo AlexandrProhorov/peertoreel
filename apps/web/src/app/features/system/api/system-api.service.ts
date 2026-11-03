@@ -17,13 +17,17 @@ export class SystemApiService {
 
   enqueuePing(request: EnqueuePingRequest): Observable<EnqueuePingResponse> {
     return this.http
-      .post<EnqueuePingResponse>(`${this.baseUrl}/system/ping`, request)
+      .post<EnqueuePingResponse>(`${this.baseUrl}/system/ping`, request, {
+        withCredentials: true,
+      })
       .pipe(map((data) => enqueuePingResponseSchema.parse(data)));
   }
 
   getPing(jobId: string): Observable<SystemJobSnapshot> {
     return this.http
-      .get<SystemJobSnapshot>(`${this.baseUrl}/system/ping/${jobId}`)
+      .get<SystemJobSnapshot>(`${this.baseUrl}/system/ping/${jobId}`, {
+        withCredentials: true,
+      })
       .pipe(map((data) => systemJobSnapshotSchema.parse(data)));
   }
 
@@ -31,6 +35,7 @@ export class SystemApiService {
     return new Observable<SystemJobSnapshot>((subscriber) => {
       const source = new EventSource(
         `${this.baseUrl}/system/ping/${jobId}/events`,
+        { withCredentials: true },
       );
 
       const onJob = (event: MessageEvent<string>): void => {

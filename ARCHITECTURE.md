@@ -65,6 +65,37 @@ Worker job.updateProgress()
 - Web использует `EventSource`; store отписывается при завершении и очищает соединение.
 - `exhaustMap` не даёт запустить второй ping, пока первый активен.
 
+## Auth (S0.3)
+
+```text
+POST /api/v1/auth/login { email, password }
+  → AuthService.login()
+  → UsersRepository.findByEmail()
+  → PasswordService.verify() (Argon2id, @node-rs/argon2)
+  → SessionsRepository.create({ tokenHash: sha256(token), expiresAt })
+  → Set-Cookie kadence_session=<opaque token>; HttpOnly; SameSite=Lax; Path=/
+
+Каждый защищённый запрос:
+  SessionAuthGuard
+  → readSessionToken(req) (cookie-parser)
+  → AuthService.authenticate()
+  → sessions ⨝ users where token_hash = sha256(token) and expires_at > now()
+  → request.auth = { user, expiresAt }
+
+POST /api/v1/auth/logout → удаляет строку sessions + чистит cookie
+```
+
+- Серверные сессии в Postgres, а не JWT: logout и отзыв устройства мгновенные, см.
+  `docs/adr/0004-server-side-sessions.md`.
+- В БД хранится только `sha256(token)` — дамп базы не даёт живых сессий.
+- `last_seen_at` обновляется не чаще одного раза в 5 минут.
+- При неизвестном email выполняется холостая проверка хеша, чтобы время ответа не выдавало
+  существование аккаунта.
+- Первый админ создаётся из `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, только пока
+  таблица `users` пуста.
+- `/system` защищён тем же guard'ом; web отправляет cookie через `withCredentials` и
+  `EventSource(..., { withCredentials: true })`.
+
 ## Packages
 
 ### `packages/contracts`
@@ -72,6 +103,7 @@ Worker job.updateProgress()
 Единственный источник правды для схем, которые пересекают границы процессов:
 
 - `health.ts` — liveness/readiness response;
+- `auth.ts` — login request, session payload, user/role;
 - `errors.ts` — единый error envelope;
 - `system.ts` — ping job, status snapshot, enqueue request/response;
 - `queues.ts` — имена очередей и jobs.
@@ -84,6 +116,7 @@ Worker job.updateProgress()
 Слои:
 
 - `config/` — Zod-валидация env, ConfigModule;
+- `auth/` — login/logout/me, `SessionAuthGuard`, Argon2id, сессии и пользователи;
 - `database/` — `pg.Pool`, Drizzle client, ping, lifecycle;
 - `redis/` — `ioredis`, lazy connect, ping;
 - `health/` — liveness/readiness;
@@ -107,6 +140,8 @@ Worker не ходит в БД напрямую; в будущем stage-про�
 ### `apps/web`
 
 - `core/` — API base URL, нормализация ошибок;
+- `features/auth/` — `api/` (login/me/logout), `data-access/` (session store),
+  `pages/login-page/`, `authGuard`;
 - `features/health/` — `api/` (transport), `data-access/` (store + domain helper),
   `pages/` (route page);
 - `features/system/` — ping UI, SSE stream, progress store;
@@ -168,7 +203,6 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. Worker + BullMQ + SSE.
-2. Auth + sessions.
-3. Run state machine + `run_stages` + `run_events`.
-4. Provider ports и cost ledger.
+1. Run state machine + `run_stages` + `run_events`.
+2. Provider ports и cost ledger.
+3. TikTok OAuth и token vault.

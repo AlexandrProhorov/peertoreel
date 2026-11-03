@@ -1,0 +1,54 @@
+.login {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.login__header h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.login__eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--mat-sys-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.login__subtitle {
+  margin: 0.75rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.login__card {
+  padding: 0.5rem;
+}
+
+form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.login__error {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  font-size: 0.875rem;
+}
+
+.login__submit {
+  justify-self: stretch;
+  margin-top: 0.5rem;
+}

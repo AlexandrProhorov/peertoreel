@@ -24,6 +24,19 @@
         Очередь
       </a>
     </nav>
+
+    @if (session.user(); as user) {
+      <div class="shell__user">
+        <span class="shell__user-name">{{ user.displayName }}</span>
+        <button
+          class="shell__nav-link shell__logout"
+          type="button"
+          (click)="logout()"
+        >
+          Выйти
+        </button>
+      </div>
+    }
   </header>
 
   <main class="shell__main">
