@@ -49,7 +49,21 @@ GET /api/v1/system/ping/:jobId
 - `attempts: 3`, exponential backoff — transient-ошибки повторяются.
 - `removeOnComplete/removeOnFail: 100` — Redis не растёт бесконечно.
 - Worker закрывается по `SIGINT`/`SIGTERM` через `worker.close()`.
-- SSE и web UI — следующий срез S0.2b.
+### SSE progress
+
+```text
+Worker job.updateProgress()
+  → BullMQ QueueEvents
+  → SystemEventsService.snapshots$
+  → SSE GET /api/v1/system/ping/:jobId/events
+  → Angular SystemStoreService
+  → SystemPageComponent
+```
+
+- API сначала отдаёт текущий snapshot из `Queue.getJob`, затем live-события.
+- Поток закрывается на `completed`/`failed`.
+- Web использует `EventSource`; store отписывается при завершении и очищает соединение.
+- `exhaustMap` не даёт запустить второй ping, пока первый активен.
 
 ## Packages
 
@@ -95,6 +109,7 @@ Worker не ходит в БД напрямую; в будущем stage-про�
 - `core/` — API base URL, нормализация ошибок;
 - `features/health/` — `api/` (transport), `data-access/` (store + domain helper),
   `pages/` (route page);
+- `features/system/` — ping UI, SSE stream, progress store;
 - `shared/` — появится позже.
 
 Правила:

@@ -147,6 +147,16 @@ warnings read from it. Never estimate costs; record real usage.
 - Secrets only via `.env` (never committed); validate env with Zod at boot.
 - Conventional commits: `feat(worker): retry transient TikTok publish errors`.
 
+### Sessions and learning
+
+- One work session delivers one finished slice: code, tests, demo, and updated docs.
+- End an implementation session with a short theory block (5–10 bullets) tied to the code
+  that was just written. Keep it practical.
+- Do not add control questions, quizzes or explain-back prompts to implementation sessions.
+  Deep theory and review are a separate learning session.
+- Update `SESSION_LOG.md` after each session. `LEARNING.md` is a local, gitignored
+  learning artifact and is not part of the repository.
+
 ### Web (Angular)
 
 - Global `AGENTS_ANGULAR.md` conventions apply (signals, `input()`/`output()`, `@if`/`@for`

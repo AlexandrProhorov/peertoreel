@@ -14,6 +14,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'system',
+    loadChildren: () =>
+      import('./features/system/system.routes').then(
+        (module) => module.SYSTEM_ROUTES,
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'health',
   },

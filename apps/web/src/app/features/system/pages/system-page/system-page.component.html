@@ -1,0 +1,104 @@
+<section class="system">
+  <header class="system__header">
+    <div>
+      <p class="system__eyebrow">Queue &amp; worker</p>
+      <h1>Очередь задач</h1>
+      <p class="system__subtitle">
+        Проверка асинхронного пути: API ставит job в BullMQ, worker обрабатывает,
+        прогресс приходит через SSE.
+      </p>
+    </div>
+
+    <button
+      mat-flat-button
+      type="button"
+      (click)="start()"
+      [disabled]="store.running()"
+    >
+      <mat-icon>play_arrow</mat-icon>
+      Запустить ping
+    </button>
+  </header>
+
+  @if (store.error(); as error) {
+    <mat-card class="system__error" appearance="outlined" role="alert">
+      <mat-card-content>
+        <strong>Ошибка выполнения</strong>
+        <p>{{ error }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.jobId(); as jobId) {
+    <mat-card class="system__card" appearance="outlined">
+      <mat-card-content>
+        <div class="system__job-header">
+          <div>
+            <span class="system__label">Job ID</span>
+            <code class="system__job-id">{{ jobId }}</code>
+          </div>
+          <span
+            class="system__status"
+            [class.system__status--done]="store.status() === 'completed'"
+            [class.system__status--failed]="store.status() === 'failed'"
+          >
+            {{ statusLabel() }}
+          </span>
+        </div>
+
+        <mat-progress-bar
+          mode="determinate"
+          [value]="store.progress()"
+          [attr.aria-label]="'Прогресс задачи: ' + store.progress() + '%'"
+        />
+
+        <div class="system__progress-meta">
+          <span>{{ store.progress() }}%</span>
+          @if (store.running()) {
+            <span>Прогресс приходит в реальном времени</span>
+          } @else {
+            <span>Соединение закрыто</span>
+          }
+        </div>
+
+        @if (store.result(); as result) {
+          <dl class="system__result">
+            <div>
+              <dt>Request ID</dt>
+              <dd>{{ result.requestId }}</dd>
+            </div>
+            <div>
+              <dt>Обработано</dt>
+              <dd>{{ result.processedAt | date: 'HH:mm:ss.SSS' }}</dd>
+            </div>
+            <div>
+              <dt>Длительность</dt>
+              <dd>{{ result.durationMs }} мс</dd>
+            </div>
+          </dl>
+        }
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <mat-card class="system__empty" appearance="outlined">
+      <mat-card-content>
+        <mat-icon>hourglass_empty</mat-icon>
+        <p>Нажмите «Запустить ping», чтобы проверить очередь и worker.</p>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.history().length > 0) {
+    <details class="system__history">
+      <summary>История событий ({{ store.history().length }})</summary>
+      <ol>
+        @for (event of store.history(); track $index) {
+          <li>
+            <code>{{ event.status }}</code>
+            <span>{{ event.progress }}%</span>
+          </li>
+        }
+      </ol>
+    </details>
+  }
+</section>

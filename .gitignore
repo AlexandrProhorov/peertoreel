@@ -12,6 +12,9 @@ coverage/
 .env.*
 !.env.example
 
+# local learning notes (not part of the repo)
+/LEARNING.md
+
 # logs / local data
 *.log
 logs/

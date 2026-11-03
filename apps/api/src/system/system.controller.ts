@@ -6,17 +6,22 @@ import {
   NotFoundException,
   Param,
   Post,
+  Sse,
 } from '@nestjs/common';
 import {
   enqueuePingRequestSchema,
   type EnqueuePingRequest,
 } from '@kadence/contracts';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
+import { SystemEventsService } from './system-events.service.js';
 import { SystemQueue } from './system.queue.js';
 
 @Controller('system')
 export class SystemController {
-  constructor(private readonly queue: SystemQueue) {}
+  constructor(
+    private readonly queue: SystemQueue,
+    private readonly events: SystemEventsService,
+  ) {}
 
   @Post('ping')
   @HttpCode(202)
@@ -36,5 +41,10 @@ export class SystemController {
     }
 
     return snapshot;
+  }
+
+  @Sse('ping/:jobId/events')
+  eventsForPing(@Param('jobId') jobId: string) {
+    return this.events.stream(jobId);
   }
 }

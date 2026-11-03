@@ -33,6 +33,8 @@ pnpm dev
 - API health: http://localhost:3000/api/v1/health/ready
 - API liveness: http://localhost:3000/api/v1/health/live
 - Ping job: `POST /api/v1/system/ping` → `GET /api/v1/system/ping/:jobId`
+- SSE progress: `GET /api/v1/system/ping/:jobId/events`
+- Web: `/system` — кнопка запуска и live-прогресс
 - Worker запускается вместе с `pnpm dev`
 
 Остановить инфраструктуру:
@@ -83,7 +85,7 @@ SeaweedFS с S3-совместимым API на `http://localhost:8333`. Product
 ## Ограничения текущего этапа
 
 - Нет authentication.
-- Нет SSE и UI для прогресса worker'а (S0.2b).
+- Нет auth и бизнес-таблиц.
 - Нет AI-провайдеров.
 - Нет TikTok-интеграции.
 - Нет загрузки медиа.
