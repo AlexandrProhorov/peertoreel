@@ -96,6 +96,45 @@ POST /api/v1/auth/logout → удаляет строку sessions + чистит
 - `/system` защищён тем же guard'ом; web отправляет cookie через `withCredentials` и
   `EventSource(..., { withCredentials: true })`.
 
+## Run state machine (S0.4a)
+
+```text
+POST /api/v1/runs { topic }
+  → RunsService.create()
+  → RunsRepository.createWithEvent()  (tx: insert run + run_events)
+  → state DRAFT, current_stage topic_discovery
+
+POST /api/v1/runs/:id/transitions { to, reason? }
+  → allowedTransitions(from, resume_state) из @kadence/contracts
+  → нет перехода → 409 CONFLICT
+  → to = FAILED без reason → 400
+  → tx: update runs + insert run_events
+```
+
+Разрешённые рёбра (`packages/contracts/src/run.ts`):
+
+```text
+DRAFT → RESEARCHING
+RESEARCHING → SCRIPT_READY
+SCRIPT_READY → VOICE_READY | RESEARCHING
+VOICE_READY → VISUALS_READY | SCRIPT_READY
+VISUALS_READY → RENDERING | VOICE_READY
+RENDERING → REVIEW | VISUALS_READY
+REVIEW → SCHEDULED | SCRIPT_READY | VOICE_READY | VISUALS_READY | RENDERING
+SCHEDULED → PUBLISHING | REVIEW
+PUBLISHING → PUBLISHED
+любое незавершённое → FAILED (с reason)
+FAILED → resume_state (только туда)
+```
+
+- Один `FAILED`, а не `FAILED_<STAGE>`: стадия живёт в `failed_stage`, точка возврата — в
+  `resume_state`, см. `docs/adr/0005-run-state-machine.md`.
+- Правый вектор (`REVIEW → SCRIPT_READY`, `… → VOICE_READY`) — это regeneration с выбранной
+  стадии после отказа ревьюера.
+- Создание run и каждый переход пишут `run_events` в той же транзакции, что и обновление
+  `runs`: история не может разойтись с состоянием.
+- `GET /runs` (последние 50), `GET /runs/:id` (+ история), всё под `SessionAuthGuard`.
+
 ## Packages
 
 ### `packages/contracts`
@@ -117,6 +156,7 @@ POST /api/v1/auth/logout → удаляет строку sessions + чистит
 
 - `config/` — Zod-валидация env, ConfigModule;
 - `auth/` — login/logout/me, `SessionAuthGuard`, Argon2id, сессии и пользователи;
+- `runs/` — состояние run, переходы, история (`run_events`);
 - `database/` — `pg.Pool`, Drizzle client, ping, lifecycle;
 - `redis/` — `ioredis`, lazy connect, ping;
 - `health/` — liveness/readiness;
@@ -203,6 +243,6 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. Run state machine + `run_stages` + `run_events`.
+1. Reviewer gate UI + список run'ов в web (S0.4b).
 2. Provider ports и cost ledger.
 3. TikTok OAuth и token vault.

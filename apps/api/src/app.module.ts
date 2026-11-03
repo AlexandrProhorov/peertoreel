@@ -10,6 +10,7 @@ import type { AppEnv } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { RunsModule } from './runs/runs.module.js';
 import { SystemModule } from './system/system.module.js';
 
 @Module({
@@ -42,6 +43,7 @@ import { SystemModule } from './system/system.module.js';
     RedisModule,
     AuthModule,
     HealthModule,
+    RunsModule,
     SystemModule,
   ],
   providers: [

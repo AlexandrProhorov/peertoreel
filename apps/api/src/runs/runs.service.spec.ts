@@ -1,0 +1,162 @@
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
+import type { RunsRepository, RunRecord } from './runs.repository.js';
+import { RunsService } from './runs.service.js';
+
+const runId = '11111111-1111-4111-8111-111111111111';
+
+function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
+  return {
+    id: runId,
+    createdBy: '22222222-2222-4222-8222-222222222222',
+    topic: 'Почему небо синее',
+    state: 'DRAFT',
+    currentStage: 'topic_discovery',
+    failedStage: null,
+    failureReason: null,
+    resumeState: null,
+    createdAt: new Date('2026-11-03T12:00:00.000Z'),
+    updatedAt: new Date('2026-11-03T12:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function setup(run: RunRecord | null, applied?: RunRecord) {
+  const repository = {
+    createWithEvent: vi.fn().mockResolvedValue(run),
+    findById: vi.fn().mockResolvedValue(run),
+    list: vi.fn().mockResolvedValue(run ? [run] : []),
+    listEvents: vi.fn().mockResolvedValue([]),
+    applyTransition: vi.fn().mockResolvedValue(applied ?? run),
+  } as unknown as RunsRepository;
+
+  return { service: new RunsService(repository), repository };
+}
+
+describe('RunsService', () => {
+  it('creates a run in DRAFT on the topic stage', async () => {
+    const { service, repository } = setup(makeRun());
+
+    const run = await service.create('22222222-2222-4222-8222-222222222222', {
+      topic: '  Почему небо синее  ',
+    });
+
+    expect(repository.createWithEvent).toHaveBeenCalledWith({
+      createdBy: '22222222-2222-4222-8222-222222222222',
+      topic: 'Почему небо синее',
+      stage: 'topic_discovery',
+    });
+    expect(run.state).toBe('DRAFT');
+    expect(run.createdAt).toBe('2026-11-03T12:00:00.000Z');
+  });
+
+  it('rejects a transition the state machine forbids', async () => {
+    const { service, repository } = setup(makeRun());
+
+    await expect(
+      service.transition(runId, { to: 'REVIEW' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.applyTransition).not.toHaveBeenCalled();
+  });
+
+  it('requires a reason when failing', async () => {
+    const { service, repository } = setup(makeRun({ state: 'RESEARCHING' }));
+
+    await expect(
+      service.transition(runId, { to: 'FAILED' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.applyTransition).not.toHaveBeenCalled();
+  });
+
+  it('stores the failed stage and the state to resume from', async () => {
+    const running = makeRun({
+      state: 'RESEARCHING',
+      currentStage: 'research',
+    });
+    const { service, repository } = setup(running);
+
+    await service.transition(runId, {
+      to: 'FAILED',
+      reason: 'Pixabay 429',
+    });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        state: 'FAILED',
+        failedStage: 'research',
+        failureReason: 'Pixabay 429',
+        resumeState: 'RESEARCHING',
+        currentStage: 'research',
+      }),
+      expect.objectContaining({
+        fromState: 'RESEARCHING',
+        toState: 'FAILED',
+        stage: 'research',
+        reason: 'Pixabay 429',
+      }),
+    );
+  });
+
+  it('resumes a failed run only into the state it stopped in', async () => {
+    const failed = makeRun({
+      state: 'FAILED',
+      currentStage: 'render',
+      failedStage: 'render',
+      failureReason: 'ffmpeg exit 1',
+      resumeState: 'RENDERING',
+    });
+    const { service, repository } = setup(failed);
+
+    await expect(
+      service.transition(runId, { to: 'DRAFT' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await service.transition(runId, { to: 'RENDERING' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        state: 'RENDERING',
+        currentStage: 'render',
+        failedStage: null,
+        failureReason: null,
+        resumeState: null,
+      }),
+      expect.objectContaining({ fromState: 'FAILED', toState: 'RENDERING' }),
+    );
+  });
+
+  it('returns a run with its audit trail', async () => {
+    const { service, repository } = setup(makeRun({ state: 'REVIEW' }));
+
+    vi.mocked(repository.listEvents).mockResolvedValue([
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        fromState: 'RENDERING',
+        toState: 'REVIEW',
+        stage: 'qc',
+        reason: null,
+        createdAt: new Date('2026-11-03T13:00:00.000Z'),
+      },
+    ]);
+
+    const detail = await service.detail(runId);
+
+    expect(detail.state).toBe('REVIEW');
+    expect(detail.events).toHaveLength(1);
+    expect(detail.events[0]?.createdAt).toBe('2026-11-03T13:00:00.000Z');
+  });
+
+  it('reports a missing run', async () => {
+    const { service } = setup(null);
+
+    await expect(service.detail(runId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+});

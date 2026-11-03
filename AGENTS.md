@@ -77,10 +77,11 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 ```text
 DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 → RENDERING → REVIEW → SCHEDULED → PUBLISHING → PUBLISHED
-                                         ↘ FAILED_<STAGE> (stage + reason stored)
+                                         ↘ FAILED (failed_stage + failure_reason stored)
 ```
 
-- Transitions are validated server-side; every transition writes an audit row (`jobs_audit`).
+- Transitions are validated server-side; every transition writes an audit row (`run_events`
+  for run state, `jobs_audit` for queue jobs).
 - A failed stage restarts **only that stage** — never the whole run.
 - Human gates: `SCRIPT_READY` (edit/approve script) and `REVIEW` (approve/reject final video
   with a comment; rejection regenerates from the chosen stage).
@@ -90,7 +91,8 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 
 ```text
 users, sessions, tiktok_accounts (encrypted tokens), projects, templates, topics,
-runs (state, current_stage, cost_estimate), artifacts (stage, type, r2_key, meta),
+runs (state, current_stage, failed_stage, failure_reason, resume_state, cost_estimate),
+run_events (run_id, from_state, to_state, stage, reason, created_at), artifacts (stage, type, r2_key, meta),
 scenes (idx, text, duration_sec, visual_direction, visual_asset_id, transition),
 publish_cards (title, hashtags, privacy_level, is_aigc, scheduled_at, state,
                publish_id, post_id, fail_reason),
@@ -244,7 +246,7 @@ warnings read from it. Never estimate costs; record real usage.
 - Vitest for units; Testcontainers (Postgres/Redis) for API/worker integration; Playwright
   for a few e2e flows.
 - Must-have test targets: stage contract schemas, run state machine transitions (including
-  every `FAILED_*` path), worker job idempotency (run twice, assert one result), publish
+  every failed-stage path), worker job idempotency (run twice, assert one result), publish
   error classification, token refresh flow.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
