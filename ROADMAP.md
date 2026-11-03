@@ -28,7 +28,7 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 | M0.6b | SSE progress + web ping UI | пара | DONE |
 | M0.7 | Auth и sessions | вы | DONE |
 | M0.8 | Error model, observability, CI gates | пара | DONE |
-| M0.9 | Render spike | агент | TODO |
+| M0.9 | Render spike | агент | DONE |
 
 ## M0 acceptance
 
@@ -46,3 +46,4 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 ## Следующие сессии
 
 1. S1 — publish risk spike (TikTok private publish + manual export).
+2. M2.1 — storage (S3 + `artifacts`) и перенос спайков в стадии worker'а.
