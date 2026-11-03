@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { UserRole } from '@kadence/contracts';
 import { count, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
-import { users } from '../db/schema.js';
+import { users } from '@kadence/db';
 
 export interface UserRecord {
   id: string;

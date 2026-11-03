@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import type { ArtifactsRepository } from './artifacts.repository.js';
+import type { StorageService } from '../storage/storage.service.js';
 import type { RunsRepository, RunRecord } from './runs.repository.js';
 import { RunsService } from './runs.service.js';
 
@@ -34,7 +36,18 @@ function setup(run: RunRecord | null, applied?: RunRecord) {
     applyTransition: vi.fn().mockResolvedValue(applied ?? run),
   } as unknown as RunsRepository;
 
-  return { service: new RunsService(repository), repository };
+  const artifacts = {
+    listByRun: vi.fn().mockResolvedValue([]),
+  } as unknown as ArtifactsRepository;
+
+  const storage = {
+    presignGet: vi.fn().mockResolvedValue('http://storage.test/file'),
+  } as unknown as StorageService;
+
+  return {
+    service: new RunsService(repository, artifacts, storage),
+    repository,
+  };
 }
 
 describe('RunsService', () => {

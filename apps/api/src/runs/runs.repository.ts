@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { RunStage, RunState } from '@kadence/contracts';
 import { desc, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
-import { runEvents, runs } from '../db/schema.js';
+import { runEvents, runs } from '@kadence/db';
 
 export interface RunRecord {
   id: string;

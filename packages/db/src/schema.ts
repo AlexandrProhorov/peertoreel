@@ -1,10 +1,13 @@
 import {
+  bigint,
   boolean,
   index,
+  jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -133,10 +136,39 @@ export const runEvents = pgTable(
   (table) => [index('run_events_run_idx').on(table.runId, table.createdAt)],
 );
 
+/**
+ * Every file a stage produces. The object itself lives in S3 (SeaweedFS
+ * locally, R2 in production); the row is the only source of truth about it.
+ */
+export const artifacts = pgTable(
+  'artifacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => runs.id, { onDelete: 'cascade' }),
+    stage: runStageEnum('stage').notNull(),
+    /** Logical kind: script_json, voiceover_mp3, word_timings, draft_mp4, … */
+    type: text('type').notNull(),
+    objectKey: text('object_key').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+    meta: jsonb('meta').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('artifacts_run_idx').on(table.runId, table.stage),
+    uniqueIndex('artifacts_object_key_unique').on(table.objectKey),
+  ],
+);
+
 export const schema = {
   appMeta,
   users,
   sessions,
   runs,
   runEvents,
+  artifacts,
 };

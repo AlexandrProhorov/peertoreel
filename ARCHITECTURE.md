@@ -150,13 +150,24 @@ FAILED → resume_state (только туда)
 Схемы описаны Zod. API, web и worker импортируют один и тот же пакет. Пакет собирается в ESM
 (`dist/index.js` + `dist/index.d.ts`), потому что NestJS 12 и Angular 22 работают в ESM.
 
+### `packages/db` и `packages/storage`
+
+- `@kadence/db` — схема Drizzle и `createDatabase(url)`; один и тот же код используют API
+  (через `DatabaseService`) и worker. Миграции применяет API (`drizzle-kit`), worker их не
+  запускает.
+- `@kadence/storage` — обёртка над S3-совместимым хранилищем: `putObject`, `getObject`,
+  `deleteObject`, `presignGet` и билдер ключей `runs/<runId>/<stage>/<name>`.
+- Локальный диск — только временный каталог для FFmpeg. Продукт стадии — объект в S3 +
+  строка в `artifacts`; UI читает файлы по подписанной ссылке (1 час).
+- `object_key` уникален: повторный запуск стадии перезаписывает объект и не плодит строки.
+
 ### `apps/api`
 
 Слои:
 
 - `config/` — Zod-валидация env, ConfigModule;
 - `auth/` — login/logout/me, `SessionAuthGuard`, Argon2id, сессии и пользователи;
-- `runs/` — состояние run, переходы, история (`run_events`);
+- `runs/` — состояние run, переходы, история (`run_events`), реестр `artifacts`;
 - `database/` — `pg.Pool`, Drizzle client, ping, lifecycle;
 - `redis/` — `ioredis`, lazy connect, ping;
 - `health/` — liveness/readiness;

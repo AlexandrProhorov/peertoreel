@@ -7,12 +7,18 @@ import {
 import {
   canTransition,
   stageForState,
+  type Artifact,
   type CreateRunRequest,
   type Run,
   type RunDetail,
   type RunEvent,
   type TransitionRunRequest,
 } from '@kadence/contracts';
+import { StorageService } from '../storage/storage.service.js';
+import {
+  ArtifactsRepository,
+  type ArtifactRecord,
+} from './artifacts.repository.js';
 import {
   RunsRepository,
   type RunEventRecord,
@@ -49,7 +55,11 @@ function toEvent(record: RunEventRecord): RunEvent {
 
 @Injectable()
 export class RunsService {
-  constructor(private readonly repository: RunsRepository) {}
+  constructor(
+    private readonly repository: RunsRepository,
+    private readonly artifacts: ArtifactsRepository,
+    private readonly storage: StorageService,
+  ) {}
 
   async create(userId: string, request: CreateRunRequest): Promise<Run> {
     const record = await this.repository.createWithEvent({
@@ -72,6 +82,26 @@ export class RunsService {
     const events = await this.repository.listEvents(id);
 
     return { ...toRun(run), events: events.map(toEvent) };
+  }
+
+  async artifactsFor(id: string): Promise<Artifact[]> {
+    await this.findRun(id);
+
+    const records = await this.artifacts.listByRun(id);
+
+    return Promise.all(records.map((record) => this.toArtifact(record)));
+  }
+
+  private async toArtifact(record: ArtifactRecord): Promise<Artifact> {
+    return {
+      id: record.id,
+      stage: record.stage,
+      type: record.type,
+      contentType: record.contentType,
+      sizeBytes: record.sizeBytes,
+      createdAt: record.createdAt.toISOString(),
+      url: await this.storage.presignGet(record.objectKey),
+    };
   }
 
   async transition(id: string, request: TransitionRunRequest): Promise<Run> {

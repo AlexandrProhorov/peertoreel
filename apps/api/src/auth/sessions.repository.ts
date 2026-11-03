@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { and, eq, gt, lt } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
-import { sessions, users } from '../db/schema.js';
+import { sessions, users } from '@kadence/db';
 import type { UserRecord } from './users.repository.js';
 
 export interface NewSession {

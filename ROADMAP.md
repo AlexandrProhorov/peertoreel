@@ -45,5 +45,5 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 
 ## Следующие сессии
 
-1. S1 — publish risk spike (TikTok private publish + manual export).
-2. M2.1 — storage (S3 + `artifacts`) и перенос спайков в стадии worker'а.
+1. M2.2 — стадия `voiceover` в очереди (артефакты, прогресс, `provider_usage`).
+2. S1 — publish risk spike (TikTok private publish + manual export).

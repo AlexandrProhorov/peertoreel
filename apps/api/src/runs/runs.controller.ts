@@ -15,6 +15,7 @@ import {
   type AuthSession,
   type CreateRunRequest,
   type Run,
+  type RunArtifactsResponse,
   type RunDetail,
   type RunListResponse,
   type TransitionRunRequest,
@@ -45,6 +46,13 @@ export class RunsController {
   @Get(':id')
   detail(@Param('id', ParseUUIDPipe) id: string): Promise<RunDetail> {
     return this.runs.detail(id);
+  }
+
+  @Get(':id/artifacts')
+  async artifacts(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<RunArtifactsResponse> {
+    return { artifacts: await this.runs.artifactsFor(id) };
   }
 
   @Post(':id/transitions')

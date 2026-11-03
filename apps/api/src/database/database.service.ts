@@ -1,27 +1,22 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createDatabase, type Database } from '@kadence/db';
 import { sql } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import type { AppEnv } from '../config/env.js';
-import * as schema from '../db/schema.js';
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name);
   private readonly pool: Pool;
 
-  readonly db: NodePgDatabase<typeof schema>;
+  readonly db: Database;
 
   constructor(config: ConfigService<AppEnv, true>) {
-    this.pool = new Pool({
-      connectionString: config.get('DATABASE_URL', { infer: true }),
-      max: 10,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 3_000,
-    });
+    const handle = createDatabase(config.get('DATABASE_URL', { infer: true }));
 
-    this.db = drizzle(this.pool, { schema });
+    this.pool = handle.pool;
+    this.db = handle.db;
 
     this.pool.on('error', (error: Error) => {
       this.logger.error({ err: error }, 'Unexpected PostgreSQL pool error');

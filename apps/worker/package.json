@@ -14,13 +14,18 @@
   },
   "dependencies": {
     "@kadence/contracts": "workspace:*",
+    "@kadence/db": "workspace:*",
+    "@kadence/storage": "workspace:*",
     "bullmq": "^6.5.2",
     "dotenv": "^18.0.9",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "oxlint": "^1.90.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",

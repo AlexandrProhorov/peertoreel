@@ -11,6 +11,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { RunsModule } from './runs/runs.module.js';
+import { StorageModule } from './storage/storage.module.js';
 import { SystemModule } from './system/system.module.js';
 
 @Module({
@@ -41,6 +42,7 @@ import { SystemModule } from './system/system.module.js';
     }),
     DatabaseModule,
     RedisModule,
+    StorageModule,
     AuthModule,
     HealthModule,
     RunsModule,
