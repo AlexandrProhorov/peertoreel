@@ -135,6 +135,30 @@ FAILED → resume_state (только туда)
   `runs`: история не может разойтись с состоянием.
 - `GET /runs` (последние 50), `GET /runs/:id` (+ история), всё под `SessionAuthGuard`.
 
+## Стадии в очереди (M2.2)
+
+```text
+POST /api/v1/runs/:id/stages/:stage   (202)
+  → StagesService: run.state === STAGE_REQUIRED_STATE[stage] ? 409 иначе
+  → Queue.add(stage, { runId }, { jobId: "<stage>-<runId>", attempts: 3, backoff })
+  → Worker (script ×2, voiceover ×1)
+      1. loadRun → guard по состоянию
+      2. провайдер (LLM / TTS)
+      3. объекты в S3 (runs/<runId>/<stage>/<file>)
+      4. saveArtifact (upsert по object_key)
+      5. transitionRun: runs + run_events в одной транзакции
+  → GET /api/v1/runs/:id/stages/:stage/job → status / progress / result / failedReason
+```
+
+- `jobId` детерминирован (`script-<runId>`), BullMQ не допускает `:` в кастомных id.
+- Повторный запуск стадии идемпотентен: состояние `SCRIPT_READY`/`VOICE_READY` возвращает
+  результат без повторного вызова провайдера; `object_key` уникален, поэтому ретрай
+  перезаписывает объект, а не плодит строки.
+- `FAILED` ставится только на последней попытке (`attemptsMade >= attempts`), транзиентные
+  429/5xx уходят в retry с экспоненциальным backoff.
+- Ключи провайдеров опциональны при старте worker'а: стадия падает с явным сообщением, если
+  ключ не задан.
+
 ## Packages
 
 ### `packages/contracts`

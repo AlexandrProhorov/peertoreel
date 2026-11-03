@@ -11,24 +11,32 @@ import {
 } from '@nestjs/common';
 import {
   createRunRequestSchema,
+  stageQueueNameSchema,
   transitionRunRequestSchema,
   type AuthSession,
   type CreateRunRequest,
+  type EnqueueStageResponse,
   type Run,
   type RunArtifactsResponse,
   type RunDetail,
   type RunListResponse,
+  type StageJobSnapshot,
+  type StageQueueName,
   type TransitionRunRequest,
 } from '@kadence/contracts';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { SessionAuthGuard } from '../auth/session-auth.guard.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { RunsService } from './runs.service.js';
+import { StagesService } from './stages.service.js';
 
 @Controller('runs')
 @UseGuards(SessionAuthGuard)
 export class RunsController {
-  constructor(private readonly runs: RunsService) {}
+  constructor(
+    private readonly runs: RunsService,
+    private readonly stages: StagesService,
+  ) {}
 
   @Post()
   create(
@@ -53,6 +61,25 @@ export class RunsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<RunArtifactsResponse> {
     return { artifacts: await this.runs.artifactsFor(id) };
+  }
+
+  @Post(':id/stages/:stage')
+  @HttpCode(HttpStatus.ACCEPTED)
+  startStage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stage', new ZodValidationPipe(stageQueueNameSchema))
+    stage: StageQueueName,
+  ): Promise<EnqueueStageResponse> {
+    return this.stages.start(id, stage);
+  }
+
+  @Get(':id/stages/:stage/job')
+  stageJob(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stage', new ZodValidationPipe(stageQueueNameSchema))
+    stage: StageQueueName,
+  ): Promise<StageJobSnapshot> {
+    return this.stages.status(id, stage);
   }
 
   @Post(':id/transitions')

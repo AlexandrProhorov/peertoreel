@@ -1,36 +1,106 @@
-import { PING_JOB, SYSTEM_QUEUE } from '@kadence/contracts';
+﻿import {
+  PING_JOB,
+  STAGE_QUEUES,
+  SYSTEM_QUEUE,
+  stageJobDataSchema,
+} from '@kadence/contracts';
+import { createDatabase } from '@kadence/db';
+import { ObjectStorage } from '@kadence/storage';
 import { Worker } from 'bullmq';
 import { config as loadEnv } from 'dotenv';
 import pino from 'pino';
-import { loadWorkerEnv } from './config/env.js';
+import { loadWorkerEnv, type WorkerEnv } from './config/env.js';
 import { processPing } from './processors/ping.processor.js';
 import { redisConnectionOptions } from './redis-connection.js';
+import type { StageDeps } from './stages/context.js';
+import { processScriptStage } from './stages/script.processor.js';
+import { failRun } from './stages/transition.js';
+import { processVoiceoverStage } from './stages/voiceover.processor.js';
 
 loadEnv({ path: '../../.env', quiet: true });
 
 const env = loadWorkerEnv();
 const logger = pino({ level: env.LOG_LEVEL });
 
-const worker = new Worker(SYSTEM_QUEUE, processPing, {
-  connection: redisConnectionOptions(env.REDIS_URL),
-  concurrency: env.WORKER_CONCURRENCY,
+const { db, pool } = createDatabase(env.DATABASE_URL);
+const storage = new ObjectStorage({
+  endpoint: env.S3_ENDPOINT,
+  region: env.S3_REGION,
+  bucket: env.S3_BUCKET,
+  accessKeyId: env.S3_ACCESS_KEY,
+  secretAccessKey: env.S3_SECRET_KEY,
+  forcePathStyle: env.S3_FORCE_PATH_STYLE,
 });
 
-worker.on('completed', (job) => {
-  logger.info({ jobId: job.id, jobName: job.name }, 'job completed');
+const deps: StageDeps<WorkerEnv> = { db, storage, env, logger };
+const connection = redisConnectionOptions(env.REDIS_URL);
+
+const workers: Worker[] = [
+  new Worker(SYSTEM_QUEUE, processPing, {
+    connection,
+    concurrency: env.WORKER_CONCURRENCY,
+  }),
+  new Worker(STAGE_QUEUES.script, (job) => processScriptStage(job, deps), {
+    connection,
+    concurrency: 2,
+  }),
+  new Worker(STAGE_QUEUES.voiceover, (job) => processVoiceoverStage(job, deps), {
+    connection,
+    concurrency: 1,
+  }),
+];
+
+const [, scriptWorker, voiceoverWorker] = workers;
+
+for (const worker of workers) {
+  worker.on('completed', (job) => {
+    logger.info({ queue: worker.name, jobId: job.id }, 'job completed');
+  });
+
+  worker.on('error', (error) => {
+    logger.error({ queue: worker.name, err: error }, 'worker error');
+  });
+}
+
+scriptWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'script');
 });
 
-worker.on('failed', (job, error) => {
-  logger.error({ jobId: job?.id, jobName: job?.name, err: error }, 'job failed');
+voiceoverWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'voiceover');
 });
 
-worker.on('error', (error) => {
-  logger.error({ err: error }, 'worker error');
-});
+/**
+ * Only the last attempt marks the run as FAILED: a transient 429 must not end
+ * the pipeline, while an exhausted or terminal error must be visible in the UI.
+ */
+async function handleFinalFailure(
+  job: { data: unknown; attemptsMade?: number; opts: { attempts?: number }; id?: string } | undefined,
+  error: Error,
+  stage: 'script' | 'voiceover',
+): Promise<void> {
+  logger.error({ queue: stage, jobId: job?.id, err: error }, 'stage failed');
+
+  const attempts = job?.opts.attempts ?? 1;
+  const attemptsMade = job?.attemptsMade ?? 0;
+
+  if (!job || attemptsMade < attempts) {
+    return;
+  }
+
+  try {
+    const { runId } = stageJobDataSchema.parse(job.data);
+
+    await failRun(db, runId, stage, error.message);
+    logger.warn({ runId, stage }, 'run marked FAILED');
+  } catch (failError: unknown) {
+    logger.error({ err: failError, stage }, 'could not mark run as failed');
+  }
+}
 
 logger.info(
   {
-    queue: SYSTEM_QUEUE,
+    queues: [SYSTEM_QUEUE, STAGE_QUEUES.script, STAGE_QUEUES.voiceover],
     pingJob: PING_JOB,
     concurrency: env.WORKER_CONCURRENCY,
   },
@@ -39,7 +109,9 @@ logger.info(
 
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'worker shutting down');
-  await worker.close();
+
+  await Promise.all(workers.map((worker) => worker.close()));
+  await pool.end();
   process.exit(0);
 }
 
@@ -50,3 +122,5 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   void shutdown('SIGTERM');
 });
+
+

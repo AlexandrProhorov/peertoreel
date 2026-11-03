@@ -1,0 +1,153 @@
+﻿import { runEvents, runs, type Database } from '@kadence/db';
+import {
+  canTransition,
+  stageForState,
+  type RunStage,
+  type RunState,
+} from '@kadence/contracts';
+import { eq } from 'drizzle-orm';
+
+export class StageTransitionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StageTransitionError';
+  }
+}
+
+export interface RunSnapshot {
+  id: string;
+  state: RunState;
+  currentStage: RunStage | null;
+  resumeState: RunState | null;
+  failedStage: RunStage | null;
+  failureReason: string | null;
+}
+
+export async function loadRun(
+  db: Database,
+  runId: string,
+): Promise<RunSnapshot> {
+  const [run] = await db
+    .select({
+      id: runs.id,
+      state: runs.state,
+      currentStage: runs.currentStage,
+      resumeState: runs.resumeState,
+      failedStage: runs.failedStage,
+      failureReason: runs.failureReason,
+    })
+    .from(runs)
+    .where(eq(runs.id, runId))
+    .limit(1);
+
+  if (!run) {
+    throw new StageTransitionError(`Run ${runId} РЅРµ РЅР°Р№РґРµРЅ`);
+  }
+
+  return run;
+}
+
+/**
+ * Moves the run and writes the audit row in one transaction. Repeating the same
+ * target state is a no-op, which keeps retried jobs from failing on a race.
+ */
+export async function transitionRun(
+  db: Database,
+  runId: string,
+  to: RunState,
+  reason: string | null = null,
+): Promise<RunState> {
+  return db.transaction(async (tx) => {
+    const [run] = await tx
+      .select({
+        id: runs.id,
+        state: runs.state,
+        resumeState: runs.resumeState,
+      })
+      .from(runs)
+      .where(eq(runs.id, runId))
+      .limit(1);
+
+    if (!run) {
+      throw new StageTransitionError(`Run ${runId} РЅРµ РЅР°Р№РґРµРЅ`);
+    }
+
+    if (run.state === to) {
+      return run.state;
+    }
+
+    if (!canTransition(run.state, to, run.resumeState)) {
+      throw new StageTransitionError(
+        `РџРµСЂРµС…РѕРґ ${run.state} в†’ ${to} РЅРµРІРѕР·РјРѕР¶РµРЅ РґР»СЏ run ${runId}`,
+      );
+    }
+
+    await tx
+      .update(runs)
+      .set({
+        state: to,
+        currentStage: stageForState(to),
+        failedStage: null,
+        failureReason: null,
+        resumeState: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(runs.id, runId));
+
+    await tx.insert(runEvents).values({
+      runId,
+      fromState: run.state,
+      toState: to,
+      stage: stageForState(to),
+      reason,
+    });
+
+    return to;
+  });
+}
+
+/**
+ * Marks the run as failed and keeps the state it can resume from. Called only
+ * when a job has no retries left, so a transient 429 does not end the run.
+ */
+export async function failRun(
+  db: Database,
+  runId: string,
+  stage: RunStage,
+  reason: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [run] = await tx
+      .select({
+        id: runs.id,
+        state: runs.state,
+        failedStage: runs.failedStage,
+      })
+      .from(runs)
+      .where(eq(runs.id, runId))
+      .limit(1);
+
+    if (!run || run.state === 'FAILED' || run.state === 'PUBLISHED') {
+      return;
+    }
+
+    await tx
+      .update(runs)
+      .set({
+        state: 'FAILED',
+        failedStage: run.failedStage ?? stage,
+        failureReason: reason.slice(0, 500),
+        resumeState: run.state,
+        updatedAt: new Date(),
+      })
+      .where(eq(runs.id, runId));
+
+    await tx.insert(runEvents).values({
+      runId,
+      fromState: run.state,
+      toState: 'FAILED',
+      stage,
+      reason: reason.slice(0, 500),
+    });
+  });
+}

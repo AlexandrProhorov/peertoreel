@@ -4,10 +4,18 @@ import { ArtifactsRepository } from './artifacts.repository.js';
 import { RunsController } from './runs.controller.js';
 import { RunsRepository } from './runs.repository.js';
 import { RunsService } from './runs.service.js';
+import { StagesQueue } from './stages.queue.js';
+import { StagesService } from './stages.service.js';
 
 @Module({
   imports: [AuthModule],
   controllers: [RunsController],
-  providers: [RunsService, RunsRepository, ArtifactsRepository],
+  providers: [
+    RunsService,
+    RunsRepository,
+    ArtifactsRepository,
+    StagesQueue,
+    StagesService,
+  ],
 })
 export class RunsModule {}

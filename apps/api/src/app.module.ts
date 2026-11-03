@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
@@ -56,3 +56,4 @@ import { SystemModule } from './system/system.module.js';
   ],
 })
 export class AppModule {}
+
