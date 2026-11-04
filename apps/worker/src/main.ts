@@ -1,6 +1,7 @@
 ﻿import {
   PING_JOB,
   STAGE_QUEUES,
+  STAGE_REQUIRED_STATE,
   SYSTEM_QUEUE,
   stageJobDataSchema,
 } from '@kadence/contracts';
@@ -13,6 +14,7 @@ import { loadWorkerEnv, type WorkerEnv } from './config/env.js';
 import { processPing } from './processors/ping.processor.js';
 import { redisConnectionOptions } from './redis-connection.js';
 import type { StageDeps } from './stages/context.js';
+import { processRenderStage } from './stages/render.processor.js';
 import { processScriptStage } from './stages/script.processor.js';
 import { failRun } from './stages/transition.js';
 import { processVoiceoverStage } from './stages/voiceover.processor.js';
@@ -48,9 +50,13 @@ const workers: Worker[] = [
     connection,
     concurrency: 1,
   }),
+  new Worker(STAGE_QUEUES.render, (job) => processRenderStage(job, deps), {
+    connection,
+    concurrency: 1,
+  }),
 ];
 
-const [, scriptWorker, voiceoverWorker] = workers;
+const [, scriptWorker, voiceoverWorker, renderWorker] = workers;
 
 for (const worker of workers) {
   worker.on('completed', (job) => {
@@ -70,6 +76,10 @@ voiceoverWorker?.on('failed', (job, error) => {
   void handleFinalFailure(job, error, 'voiceover');
 });
 
+renderWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'render');
+});
+
 /**
  * Only the last attempt marks the run as FAILED: a transient 429 must not end
  * the pipeline, while an exhausted or terminal error must be visible in the UI.
@@ -77,7 +87,7 @@ voiceoverWorker?.on('failed', (job, error) => {
 async function handleFinalFailure(
   job: { data: unknown; attemptsMade?: number; opts: { attempts?: number }; id?: string } | undefined,
   error: Error,
-  stage: 'script' | 'voiceover',
+  stage: 'script' | 'voiceover' | 'render',
 ): Promise<void> {
   logger.error({ queue: stage, jobId: job?.id, err: error }, 'stage failed');
 
@@ -91,7 +101,9 @@ async function handleFinalFailure(
   try {
     const { runId } = stageJobDataSchema.parse(job.data);
 
-    await failRun(db, runId, stage, error.message);
+    // Resume to the state the stage started from, not the mid-stage state
+    // (RENDERING etc.), otherwise "retry" cannot start the stage again.
+    await failRun(db, runId, stage, error.message, STAGE_REQUIRED_STATE[stage]);
     logger.warn({ runId, stage }, 'run marked FAILED');
   } catch (failError: unknown) {
     logger.error({ err: failError, stage }, 'could not mark run as failed');
@@ -100,7 +112,7 @@ async function handleFinalFailure(
 
 logger.info(
   {
-    queues: [SYSTEM_QUEUE, STAGE_QUEUES.script, STAGE_QUEUES.voiceover],
+    queues: [SYSTEM_QUEUE, STAGE_QUEUES.script, STAGE_QUEUES.voiceover, STAGE_QUEUES.render],
     pingJob: PING_JOB,
     concurrency: env.WORKER_CONCURRENCY,
   },
@@ -122,5 +134,6 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   void shutdown('SIGTERM');
 });
+
 
 

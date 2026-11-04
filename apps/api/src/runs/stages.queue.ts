@@ -55,18 +55,27 @@ export class StagesQueue implements OnModuleDestroy {
 
   async enqueue(stage: StageQueueName, runId: string): Promise<EnqueueStageResponse> {
     const jobId = stageJobId(stage, runId);
+    const queue = this.queueFor(stage);
 
-    await this.queueFor(stage).add(
-      STAGE_JOB_NAMES[stage],
-      { runId },
-      {
-        jobId,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 2_000 },
-        removeOnComplete: 100,
-        removeOnFail: 100,
-      },
-    );
+    // A finished job keeps the deterministic id, so a second run would silently
+    // return the old (possibly failed) job instead of executing the stage again.
+    const existing = await queue.getJob(jobId);
+
+    if (existing) {
+      const state = await existing.getState();
+
+      if (state === 'completed' || state === 'failed') {
+        await existing.remove();
+      }
+    }
+
+    await queue.add(STAGE_JOB_NAMES[stage], { runId }, {
+      jobId,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2_000 },
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    });
 
     return { jobId, stage: STAGE_OF_QUEUE[stage], status: 'queued' };
   }

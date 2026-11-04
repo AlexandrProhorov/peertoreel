@@ -7,15 +7,18 @@
 }
 
 .run__back {
+  justify-self: start;
+  border: 0;
+  background: transparent;
   color: var(--mat-sys-on-surface-variant);
   font-size: 0.875rem;
-  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
 }
 
 .run__back:hover {
   color: var(--mat-sys-primary);
 }
-
 .run__eyebrow {
   margin: 0 0 0.5rem;
   color: var(--mat-sys-primary);
@@ -91,6 +94,27 @@ h2 {
 
 .run__reason {
   width: min(28rem, 100%);
+}
+
+.run__stage-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.run__stage-head h2 {
+  margin-bottom: 0.35rem;
+}
+
+.run__progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
 }
 
 .run__field-error {

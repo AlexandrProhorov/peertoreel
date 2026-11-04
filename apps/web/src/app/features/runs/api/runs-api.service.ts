@@ -1,15 +1,19 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import {
+  runArtifactsResponseSchema,
   runDetailSchema,
   runListResponseSchema,
   runSchema,
-  runArtifactsResponseSchema,
+  stageJobSnapshotSchema,
   type Artifact,
   type CreateRunRequest,
+  type EnqueueStageResponse,
   type Run,
   type RunDetail,
   type RunListResponse,
+  type StageJobSnapshot,
+  type StageQueueName,
   type TransitionRunRequest,
 } from '@kadence/contracts';
 import { map, type Observable } from 'rxjs';
@@ -58,5 +62,21 @@ export class RunsApiService {
         withCredentials: true,
       })
       .pipe(map((data) => runSchema.parse(data)));
+  }
+
+  startStage(id: string, stage: StageQueueName): Observable<EnqueueStageResponse> {
+    return this.http.post<EnqueueStageResponse>(
+      `${this.baseUrl}/runs/${id}/stages/${stage}`,
+      null,
+      { withCredentials: true },
+    );
+  }
+
+  stageJob(id: string, stage: StageQueueName): Observable<StageJobSnapshot> {
+    return this.http
+      .get<StageJobSnapshot>(`${this.baseUrl}/runs/${id}/stages/${stage}/job`, {
+        withCredentials: true,
+      })
+      .pipe(map((data) => stageJobSnapshotSchema.parse(data)));
   }
 }

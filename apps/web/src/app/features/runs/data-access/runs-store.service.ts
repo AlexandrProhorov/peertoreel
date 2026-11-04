@@ -6,6 +6,8 @@ import {
   type Run,
   type RunDetail,
   type RunState,
+  type StageJobSnapshot,
+  type StageQueueName,
 } from '@kadence/contracts';
 import {
   catchError,
@@ -16,7 +18,9 @@ import {
   of,
   Subject,
   switchMap,
+  takeWhile,
   tap,
+  timer,
 } from 'rxjs';
 import { toErrorMessage } from '../../../core/http/error-message';
 import { RunsApiService } from '../api/runs-api.service';
@@ -27,6 +31,13 @@ interface TransitionCommand {
   reason?: string;
 }
 
+interface StageCommand {
+  id: string;
+  stage: StageQueueName;
+}
+
+const STAGE_POLL_MS = 1500;
+
 @Injectable({ providedIn: 'root' })
 export class RunsStoreService {
   private readonly api = inject(RunsApiService);
@@ -36,6 +47,7 @@ export class RunsStoreService {
   private readonly detailRequests = new Subject<string>();
   private readonly createRequests = new Subject<string>();
   private readonly transitionRequests = new Subject<TransitionCommand>();
+  private readonly stageRequests = new Subject<StageCommand>();
 
   private readonly runsSignal = signal<Run[]>([]);
   private readonly selectedSignal = signal<RunDetail | null>(null);
@@ -44,6 +56,8 @@ export class RunsStoreService {
   private readonly pendingSignal = signal(false);
   private readonly errorSignal = signal<string | null>(null);
   private readonly createdSignal = signal<Run | null>(null);
+  private readonly stageJobSignal = signal<StageJobSnapshot | null>(null);
+  private readonly activeStageSignal = signal<StageQueueName | null>(null);
 
   readonly runs = this.runsSignal.asReadonly();
   readonly selected = this.selectedSignal.asReadonly();
@@ -52,6 +66,13 @@ export class RunsStoreService {
   readonly pending = this.pendingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
   readonly created = this.createdSignal.asReadonly();
+  readonly stageJob = this.stageJobSignal.asReadonly();
+  readonly activeStage = this.activeStageSignal.asReadonly();
+  readonly stageRunning = computed(() => {
+    const status = this.stageJobSignal()?.status;
+
+    return status === 'queued' || status === 'active';
+  });
 
   /** Only edges the state machine allows for the run in front of the user. */
   readonly allowed = computed(() => {
@@ -163,6 +184,49 @@ export class RunsStoreService {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
+
+    this.stageRequests
+      .pipe(
+        exhaustMap(({ id, stage }) => {
+          this.stageJobSignal.set(null);
+          this.activeStageSignal.set(stage);
+          this.errorSignal.set(null);
+
+          return this.api.startStage(id, stage).pipe(
+            switchMap(() =>
+              timer(0, STAGE_POLL_MS).pipe(
+                switchMap(() => this.api.stageJob(id, stage)),
+                tap((snapshot) => this.stageJobSignal.set(snapshot)),
+                takeWhile(
+                  (snapshot) =>
+                    snapshot.status !== 'completed' &&
+                    snapshot.status !== 'failed',
+                  true,
+                ),
+              ),
+            ),
+            catchError((error: unknown) => {
+              this.errorSignal.set(toErrorMessage(error));
+              return EMPTY;
+            }),
+            finalize(() => {
+              const snapshot = this.stageJobSignal();
+
+              if (snapshot?.status === 'failed') {
+                this.errorSignal.set(
+                  snapshot.failedReason ?? 'Стадия завершилась ошибкой',
+                );
+              }
+
+              this.activeStageSignal.set(null);
+              this.detailRequests.next(id);
+              this.listRequests.next();
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
   }
 
   loadRuns(): void {
@@ -182,7 +246,26 @@ export class RunsStoreService {
     }
   }
 
+  /** Drops the last created run so returning to the list does not redirect again. */
+  clearCreated(): void {
+    this.createdSignal.set(null);
+  }
+
   transition(id: string, to: RunState, reason?: string): void {
     this.transitionRequests.next({ id, to, reason });
+  }
+
+  runStage(id: string, stage: StageQueueName): void {
+    if (this.stageRunning()) {
+      return;
+    }
+
+    this.stageRequests.next({ id, stage });
+  }
+
+  /** Drops the last job snapshot so a finished stage does not linger in the UI. */
+  clearStageJob(): void {
+    this.stageJobSignal.set(null);
+    this.activeStageSignal.set(null);
   }
 }

@@ -27,11 +27,14 @@ describe('stage contracts', () => {
     expect(STAGE_PRODUCED_STATE.script).toBe('SCRIPT_READY');
     expect(STAGE_REQUIRED_STATE.voiceover).toBe('SCRIPT_READY');
     expect(STAGE_PRODUCED_STATE.voiceover).toBe('VOICE_READY');
+    expect(STAGE_REQUIRED_STATE.render).toBe('VISUALS_READY');
+    expect(STAGE_PRODUCED_STATE.render).toBe('REVIEW');
   });
 
   it('validates payloads', () => {
     expect(stageQueueNameSchema.safeParse('script').success).toBe(true);
-    expect(stageQueueNameSchema.safeParse('render').success).toBe(false);
+    expect(stageQueueNameSchema.safeParse('render').success).toBe(true);
+    expect(stageQueueNameSchema.safeParse('qc').success).toBe(false);
     expect(
       stageJobDataSchema.safeParse({
         runId: '11111111-1111-4111-8111-111111111111',

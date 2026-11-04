@@ -41,7 +41,7 @@ export async function loadRun(
     .limit(1);
 
   if (!run) {
-    throw new StageTransitionError(`Run ${runId} РЅРµ РЅР°Р№РґРµРЅ`);
+    throw new StageTransitionError(`Run ${runId} не найден`);
   }
 
   return run;
@@ -69,7 +69,7 @@ export async function transitionRun(
       .limit(1);
 
     if (!run) {
-      throw new StageTransitionError(`Run ${runId} РЅРµ РЅР°Р№РґРµРЅ`);
+      throw new StageTransitionError(`Run ${runId} не найден`);
     }
 
     if (run.state === to) {
@@ -78,7 +78,7 @@ export async function transitionRun(
 
     if (!canTransition(run.state, to, run.resumeState)) {
       throw new StageTransitionError(
-        `РџРµСЂРµС…РѕРґ ${run.state} в†’ ${to} РЅРµРІРѕР·РјРѕР¶РµРЅ РґР»СЏ run ${runId}`,
+        `Переход ${run.state} → ${to} невозможен для run ${runId}`,
       );
     }
 
@@ -115,6 +115,7 @@ export async function failRun(
   runId: string,
   stage: RunStage,
   reason: string,
+  resumeState?: RunState,
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const [run] = await tx
@@ -137,7 +138,7 @@ export async function failRun(
         state: 'FAILED',
         failedStage: run.failedStage ?? stage,
         failureReason: reason.slice(0, 500),
-        resumeState: run.state,
+        resumeState: resumeState ?? run.state,
         updatedAt: new Date(),
       })
       .where(eq(runs.id, runId));

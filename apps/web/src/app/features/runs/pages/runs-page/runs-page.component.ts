@@ -56,6 +56,7 @@ export class RunsPageComponent {
 
       if (created) {
         this.form.reset();
+        this.store.clearCreated();
         void this.router.navigate(['/runs', created.id]);
       }
     });

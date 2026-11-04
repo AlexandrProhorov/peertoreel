@@ -31,7 +31,7 @@ async function loadScript(
     .limit(1);
 
   if (!row) {
-    throw new Error(`РЈ run ${runId} РЅРµС‚ Р°СЂС‚РµС„Р°РєС‚Р° script_json вЂ” СЃРЅР°С‡Р°Р»Р° СЃС‚Р°РґРёСЏ script`);
+    throw new Error(`У run ${runId} нет артефакта script_json — сначала стадия script`);
   }
 
   const body = Buffer.from(await storage.getObject(row.objectKey)).toString('utf8');
@@ -39,12 +39,13 @@ async function loadScript(
   return scriptSchema.parse(JSON.parse(body));
 }
 
-/** SCRIPT_READY в†’ VOICE_READY: TTS, word timings, karaoke subtitles. */
+/** SCRIPT_READY → VOICE_READY: TTS, word timings, karaoke subtitles. */
 export async function processVoiceoverStage(
   job: Job,
   deps: StageDeps<WorkerEnv>,
 ): Promise<StageJobResult> {
-  const { runId } = stageJobDataSchema.parse(job.data);  const run = await loadRun(deps.db, runId);
+  const { runId } = stageJobDataSchema.parse(job.data);
+  const run = await loadRun(deps.db, runId);
 
   if (run.state === 'VOICE_READY') {
     return { runId, stage: 'voiceover', state: run.state, artifacts: [] };
@@ -52,7 +53,7 @@ export async function processVoiceoverStage(
 
   if (run.state !== 'SCRIPT_READY') {
     throw new Error(
-      `РЎС‚Р°РґРёСЏ voiceover Р¶РґС‘С‚ SCRIPT_READY, Р° run ${runId} РІ СЃРѕСЃС‚РѕСЏРЅРёРё ${run.state}`,
+      `Стадия voiceover ждёт SCRIPT_READY, а run ${runId} в состоянии ${run.state}`,
     );
   }
 

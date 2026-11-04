@@ -100,6 +100,36 @@ describe('RunsApiService', () => {
     expect(result).toEqual(detail);
   });
 
+  it('starts a stage and reads its job status', () => {
+    api.startStage(run.id, 'script').subscribe();
+
+    const start = http.expectOne(
+      `http://api.test/api/v1/runs/${run.id}/stages/script`,
+    );
+    expect(start.request.method).toBe('POST');
+    expect(start.request.withCredentials).toBe(true);
+    start.flush({ jobId: `script-${run.id}`, stage: 'script', status: 'queued' });
+
+    let snapshot: unknown;
+
+    api.stageJob(run.id, 'script').subscribe((value) => {
+      snapshot = value;
+    });
+
+    const status = http.expectOne(
+      `http://api.test/api/v1/runs/${run.id}/stages/script/job`,
+    );
+    expect(status.request.method).toBe('GET');
+    status.flush({
+      jobId: `script-${run.id}`,
+      stage: 'script',
+      status: 'completed',
+      progress: 100,
+    });
+
+    expect(snapshot).toMatchObject({ status: 'completed', progress: 100 });
+  });
+
   it('lists run artifacts with signed urls', () => {
     let result: unknown[] | undefined;
 

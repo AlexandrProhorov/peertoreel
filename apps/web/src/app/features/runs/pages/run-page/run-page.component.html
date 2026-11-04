@@ -1,5 +1,7 @@
 <section class="run">
-  <a class="run__back" routerLink="/runs">← Все прогоны</a>
+  <button class="run__back" type="button" (click)="goToRuns()">
+    ← Все прогоны
+  </button>
 
   @if (store.error(); as error) {
     <mat-card class="run__error" appearance="outlined" role="alert">
@@ -43,8 +45,41 @@
       </mat-card>
     }
 
-    <mat-card class="run__actions" appearance="outlined">
-      <mat-card-content>
+    @if (stageFor(run.state) ?? store.activeStage(); as stage) {
+      <mat-card class="run__stage" appearance="outlined">
+        <mat-card-content>
+          <div class="run__stage-head">
+            <div>
+              <h2>{{ stageTitle(stage) }}</h2>
+              <p class="run__hint">{{ stageHint(stage) }}</p>
+            </div>
+
+            <button
+              mat-flat-button
+              type="button"
+              [disabled]="store.stageRunning()"
+              (click)="runStage(stage)"
+            >
+              {{ store.stageRunning() ? 'Выполняется…' : 'Запустить' }}
+            </button>
+          </div>
+
+          @if (store.stageJob(); as job) {
+            <mat-progress-bar
+              mode="determinate"
+              [value]="job.progress"
+              [attr.aria-label]="'Прогресс стадии: ' + job.progress + '%'"
+            />
+            <div class="run__progress-meta">
+              <span>{{ job.status }}</span>
+              <span>{{ job.progress }}%</span>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <mat-card class="run__actions" appearance="outlined">      <mat-card-content>
         <h2>Действия</h2>
 
         @if (store.allowed().length > 0) {

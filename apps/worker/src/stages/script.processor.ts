@@ -31,7 +31,7 @@ export async function processScriptStage(
   });
 
   if (!topic) {
-    throw new Error(`Run ${runId} РёСЃС‡РµР· РґРѕ РЅР°С‡Р°Р»Р° СЃС‚Р°РґРёРё`);
+    throw new Error(`Run ${runId} исчез до начала стадии`);
   }
 
   await job.updateProgress(10);
