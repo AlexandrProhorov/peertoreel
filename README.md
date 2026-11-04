@@ -61,11 +61,12 @@ pnpm infra:down
 
 | Команда | Что делает |
 |---|---|
-| `pnpm dev` | Собирает contracts и запускает API + web |
+| `pnpm dev` | Собирает `packages/*` и запускает API + web + worker |
 | `pnpm build` | Собирает все пакеты в топологическом порядке |
+| `pnpm build:packages` | Собирает только `packages/*` (contracts, db, storage) |
 | `pnpm lint` | oxlint по пакетам |
-| `pnpm typecheck` | TypeScript-проверка |
-| `pnpm test` | Unit-тесты |
+| `pnpm typecheck` | Собирает `packages/*`, затем TypeScript-проверка |
+| `pnpm test` | Собирает `packages/*`, затем unit-тесты |
 | `pnpm check` | lint + typecheck + test + build |
 | `pnpm --filter @kadence/api db:generate` | Генерирует миграцию из `schema.ts` |
 | `pnpm db:migrate` | Применяет миграции через drizzle-kit |
