@@ -61,6 +61,16 @@
           <span class="health__meta">Очереди и кэш</span>
         </mat-card-content>
       </mat-card>
+
+      <mat-card class="health__card" appearance="outlined">
+        <mat-card-content>
+          <span class="health__label">Worker</span>
+          <strong class="health__value" [class.health__value--down]="workerStatus() !== 'up'">
+            {{ workerStatus() === 'up' ? 'Подключён' : 'Недоступен' }}
+          </strong>
+          <span class="health__meta">BullMQ consumer</span>
+        </mat-card-content>
+      </mat-card>
     </div>
 
     <footer class="health__footer">

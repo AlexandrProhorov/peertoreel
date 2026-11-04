@@ -12,13 +12,13 @@ const healthyResponse: ReadinessResponse = {
   version: '0.1.0',
   uptimeSeconds: 12,
   timestamp: '2026-10-30T12:00:00.000Z',
-  checks: { database: 'up', redis: 'up' },
+  checks: { database: 'up', redis: 'up', worker: 'up' },
 };
 
 const degradedResponse: ReadinessResponse = {
   ...healthyResponse,
   status: 'degraded',
-  checks: { database: 'up', redis: 'down' },
+  checks: { database: 'up', redis: 'down', worker: 'up' },
 };
 
 function setup(api: Partial<HealthApiService>): HealthStoreService {
@@ -49,17 +49,15 @@ describe('HealthStoreService', () => {
 
   it('treats a 503 readiness body as degraded domain data', async () => {
     const api = {
-      getReadiness: vi
-        .fn()
-        .mockReturnValue(
-          throwError(
-            () =>
-              new HttpErrorResponse({
-                status: 503,
-                error: degradedResponse,
-              }),
-          ),
+      getReadiness: vi.fn().mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 503,
+              error: degradedResponse,
+            }),
         ),
+      ),
     };
     const store = setup(api);
 
@@ -72,23 +70,21 @@ describe('HealthStoreService', () => {
 
   it('stores a normalized error and clears stale data', async () => {
     const api = {
-      getReadiness: vi
-        .fn()
-        .mockReturnValue(
-          throwError(
-            () =>
-              new HttpErrorResponse({
-                status: 500,
+      getReadiness: vi.fn().mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 500,
+              error: {
                 error: {
-                  error: {
-                    code: 'INTERNAL_ERROR',
-                    message: 'Backend down',
-                    requestId: 'req-1',
-                  },
+                  code: 'INTERNAL_ERROR',
+                  message: 'Backend down',
+                  requestId: 'req-1',
                 },
-              }),
-          ),
+              },
+            }),
         ),
+      ),
     };
     const store = setup(api);
 

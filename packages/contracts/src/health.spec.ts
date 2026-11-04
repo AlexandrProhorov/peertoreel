@@ -21,7 +21,20 @@ describe('health contracts', () => {
       version: '0.1.0',
       uptimeSeconds: 12.5,
       timestamp: '2026-10-30T12:00:00.000Z',
-      checks: { database: 'up', redis: 'down' },
+      checks: { database: 'up', redis: 'down', worker: 'up' },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a readiness response with a missing worker', () => {
+    const result = readinessResponseSchema.safeParse({
+      status: 'degraded',
+      service: 'api',
+      version: '0.1.0',
+      uptimeSeconds: 12.5,
+      timestamp: '2026-10-30T12:00:00.000Z',
+      checks: { database: 'up', redis: 'up', worker: 'down' },
     });
 
     expect(result.success).toBe(true);
@@ -34,7 +47,7 @@ describe('health contracts', () => {
       version: '0.1.0',
       uptimeSeconds: 1,
       timestamp: '2026-10-30T12:00:00.000Z',
-      checks: { database: 'unknown', redis: 'up' },
+      checks: { database: 'unknown', redis: 'up', worker: 'up' },
     });
 
     expect(result.success).toBe(false);

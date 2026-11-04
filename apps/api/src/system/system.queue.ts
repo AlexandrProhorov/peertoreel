@@ -34,7 +34,9 @@ export class SystemQueue implements OnModuleDestroy {
 
   constructor(config: ConfigService<AppEnv, true>) {
     this.queue = new Queue<PingJobData, PingJobResult>(SYSTEM_QUEUE, {
-      connection: redisConnectionOptions(config.get('REDIS_URL', { infer: true })),
+      connection: redisConnectionOptions(
+        config.get('REDIS_URL', { infer: true }),
+      ),
     });
   }
 
@@ -63,6 +65,11 @@ export class SystemQueue implements OnModuleDestroy {
       jobId: job.id ?? requestId,
       status: 'queued',
     };
+  }
+
+  /** Number of BullMQ workers currently registered for the system queue. */
+  getWorkersCount(): Promise<number> {
+    return this.queue.getWorkersCount();
   }
 
   async getPing(jobId: string): Promise<SystemJobSnapshot | null> {

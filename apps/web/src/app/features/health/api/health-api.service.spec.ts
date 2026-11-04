@@ -1,8 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { ReadinessResponse } from '@kadence/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
@@ -14,7 +11,7 @@ const healthyResponse: ReadinessResponse = {
   version: '0.1.0',
   uptimeSeconds: 12,
   timestamp: '2026-10-30T12:00:00.000Z',
-  checks: { database: 'up', redis: 'up' },
+  checks: { database: 'up', redis: 'up', worker: 'up' },
 };
 
 describe('HealthApiService', () => {

@@ -20,6 +20,7 @@ export const readinessResponseSchema = z.object({
   checks: z.object({
     database: healthCheckStatusSchema,
     redis: healthCheckStatusSchema,
+    worker: healthCheckStatusSchema,
   }),
 });
 

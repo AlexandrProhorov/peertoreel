@@ -8,5 +8,6 @@ import { SystemQueue } from './system.queue.js';
   imports: [AuthModule],
   controllers: [SystemController],
   providers: [SystemQueue, SystemEventsService],
+  exports: [SystemQueue],
 })
 export class SystemModule {}

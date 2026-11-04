@@ -22,12 +22,9 @@ import { HealthStoreService } from '../../data-access/health-store.service';
 export class HealthPageComponent implements OnInit {
   protected readonly store = inject(HealthStoreService);
 
-  protected readonly databaseStatus = computed(
-    () => this.store.data()?.checks.database ?? 'down',
-  );
-  protected readonly redisStatus = computed(
-    () => this.store.data()?.checks.redis ?? 'down',
-  );
+  protected readonly databaseStatus = computed(() => this.store.data()?.checks.database ?? 'down');
+  protected readonly redisStatus = computed(() => this.store.data()?.checks.redis ?? 'down');
+  protected readonly workerStatus = computed(() => this.store.data()?.checks.worker ?? 'down');
 
   ngOnInit(): void {
     this.store.load();
