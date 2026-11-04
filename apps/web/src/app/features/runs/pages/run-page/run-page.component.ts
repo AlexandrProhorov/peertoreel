@@ -1,12 +1,5 @@
 ﻿import { DatePipe } from '@angular/common';
-import {
-  Component,
-  computed,
-  effect,
-  inject,
-  input,
-  OnDestroy,
-} from '@angular/core';
+import { Component, computed, effect, inject, input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -15,11 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router } from '@angular/router';
-import {
-  STAGE_FOR_STATE,
-  type RunState,
-  type StageQueueName,
-} from '@kadence/contracts';
+import type { RunState, StageQueueName } from '@kadence/contracts';
 import {
   artifactLabel,
   formatBytes,
@@ -33,7 +22,7 @@ import {
   runStateTone,
   transitionLabel,
 } from '../../data-access/run-labels';
-import { RunsStoreService } from '../../data-access/runs-store.service';
+import { RunDetailStoreService } from '../../data-access/run-detail-store.service';
 
 @Component({
   selector: 'app-run-page',
@@ -50,10 +39,10 @@ import { RunsStoreService } from '../../data-access/runs-store.service';
   templateUrl: './run-page.component.html',
   styleUrl: './run-page.component.scss',
 })
-export class RunPageComponent implements OnDestroy {
+export class RunPageComponent {
   readonly id = input.required<string>();
 
-  protected readonly store = inject(RunsStoreService);
+  protected readonly store = inject(RunDetailStoreService);
   private readonly router = inject(Router);
   protected readonly stateLabel = runStateLabel;
   protected readonly stageLabel = runStageLabel;
@@ -63,45 +52,21 @@ export class RunPageComponent implements OnDestroy {
   protected readonly formatBytes = formatBytes;
   protected readonly isVideo = isVideo;
   protected readonly isAudio = isAudio;
-  protected readonly artifacts = computed(() =>
-    sortArtifacts(this.store.artifacts()),
-  );
+  protected readonly artifacts = computed(() => sortArtifacts(this.store.artifacts()));
   protected readonly reason = new FormControl('', { nonNullable: true });
 
-  private loadedId: string | null = null;
-
   constructor() {
-    effect(() => {
-      const id = this.id();
-
-      if (id !== this.loadedId) {
-        this.loadedId = id;
-        this.store.loadRun(id);
-      }
-    });
+    // The route is scoped to the store, but Angular reuses the component when
+    // only the `id` parameter changes. setRelativeId resets and reloads.
+    effect(() => this.store.setRelativeId(this.id()));
   }
 
   protected goToRuns(): void {
-    this.store.clearStageJob();
     void this.router.navigateByUrl('/runs');
   }
 
-  ngOnDestroy(): void {
-    this.store.clearStageJob();
-  }
-
   protected runStage(stage: StageQueueName): void {
-    const run = this.store.selected();
-
-    if (run) {
-      this.store.runStage(run.id, stage);
-    }
-  }
-
-  protected stageFor(state: RunState): StageQueueName | null {
-    const stages: Partial<Record<RunState, StageQueueName>> = STAGE_FOR_STATE;
-
-    return stages[state] ?? null;
+    void this.store.runStage(stage);
   }
 
   protected stageTitle(stage: StageQueueName): string {
@@ -127,9 +92,7 @@ export class RunPageComponent implements OnDestroy {
   }
 
   protected transition(to: RunState): void {
-    const run = this.store.selected();
-
-    if (!run || this.store.pending()) {
+    if (this.store.pending()) {
       return;
     }
 
@@ -140,7 +103,10 @@ export class RunPageComponent implements OnDestroy {
       return;
     }
 
-    this.store.transition(run.id, to, reason.length > 0 ? reason : undefined);
-    this.reason.reset();
+    void this.store.transition(to, reason.length > 0 ? reason : undefined).then((ok) => {
+      if (ok) {
+        this.reason.reset();
+      }
+    });
   }
 }

@@ -1,66 +1,32 @@
-import { DestroyRef, inject, Injectable, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { inject, Injectable } from '@angular/core';
 import type { AuthUser, LoginRequest } from '@kadence/contracts';
-import {
-  catchError,
-  EMPTY,
-  exhaustMap,
-  finalize,
-  map,
-  of,
-  Subject,
-  tap,
-  type Observable,
-} from 'rxjs';
+import { catchError, finalize, map, of, shareReplay, tap, type Observable } from 'rxjs';
 import { SessionStateService } from '../../../core/auth/session-state.service';
-import { toErrorMessage } from '../../../core/http/error-message';
+import { BaseStore } from '../../../core/state/base-store';
 import { AuthApiService } from '../api/auth-api.service';
 
 @Injectable({ providedIn: 'root' })
-export class AuthStoreService {
+export class AuthStoreService extends BaseStore {
   private readonly api = inject(AuthApiService);
   private readonly session = inject(SessionStateService);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly loginRequests = new Subject<LoginRequest>();
 
   private pendingRestore: Observable<AuthUser | null> | null = null;
   private restoreChecked = false;
 
-  private readonly loadingSignal = signal(false);
-  private readonly errorSignal = signal<string | null>(null);
-
   readonly user = this.session.user;
   readonly expiresAt = this.session.expiresAt;
   readonly isAuthenticated = this.session.isAuthenticated;
-  readonly loading = this.loadingSignal.asReadonly();
-  readonly error = this.errorSignal.asReadonly();
 
-  constructor() {
-    this.loginRequests
-      .pipe(
-        exhaustMap((credentials) => {
-          this.loadingSignal.set(true);
-          this.errorSignal.set(null);
-
-          return this.api.login(credentials).pipe(
-            tap((session) => {
-              this.session.set(session);
-              this.restoreChecked = true;
-            }),
-            catchError((error: unknown) => {
-              this.errorSignal.set(toErrorMessage(error));
-              return EMPTY;
-            }),
-            finalize(() => this.loadingSignal.set(false)),
-          );
+  async login(credentials: LoginRequest): Promise<boolean> {
+    const session_2 = await this.command('login', () =>
+      this.api.login(credentials).pipe(
+        tap((session) => {
+          this.session.set(session);
+          this.restoreChecked = true;
         }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe();
-  }
-
-  login(credentials: LoginRequest): void {
-    this.loginRequests.next(credentials);
+      ),
+    );
+    return session_2 !== null;
   }
 
   /**
@@ -90,22 +56,16 @@ export class AuthStoreService {
         this.pendingRestore = null;
         this.restoreChecked = true;
       }),
+      shareReplay({ bufferSize: 1, refCount: false }),
     );
 
     return this.pendingRestore;
   }
 
   logout(): void {
-    this.api
-      .logout()
-      .pipe(
-        catchError(() => EMPTY),
-        finalize(() => {
-          this.restoreChecked = false;
-          this.session.clear();
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe();
+    void this.command('logout', () => this.api.logout()).finally(() => {
+      this.restoreChecked = false;
+      this.session.clear();
+    });
   }
 }

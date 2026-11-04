@@ -1,5 +1,5 @@
 ﻿import { z } from 'zod';
-import { RUN_STAGES, RUN_STATES, runStageSchema } from './run.js';
+import { RUN_STAGES, RUN_STATES, runStageSchema, type RunState } from './run.js';
 
 /** One queue per stage, so concurrency and rate limits stay independent. */
 export const STAGE_QUEUES = {
@@ -84,6 +84,22 @@ export const STAGE_FOR_STATE = {
   SCRIPT_READY: 'voiceover',
   VISUALS_READY: 'render',
 } as const satisfies Partial<Record<(typeof RUN_STATES)[number], StageQueueName>>;
+
+/**
+ * Stage whose job can be in flight for this state, used to rehydrate progress
+ * after a page reload. Unlike `STAGE_FOR_STATE`, it includes `RENDERING`: the
+ * render stage is started from `VISUALS_READY` but the run moves to `RENDERING`
+ * while FFmpeg is still working.
+ */
+export function stageForProgress(state: RunState): StageQueueName | null {
+  if (state === 'RENDERING') {
+    return 'render';
+  }
+
+  const stages: Partial<Record<RunState, StageQueueName>> = STAGE_FOR_STATE;
+
+  return stages[state] ?? null;
+}
 
 /** Deterministic id: one job per run per stage, safe for BullMQ (no colons). */
 export function stageJobId(stage: StageQueueName, runId: string): string {

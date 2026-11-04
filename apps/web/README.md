@@ -17,6 +17,8 @@ Once the server is running, open your browser and navigate to `http://localhost:
 ```text
 src/app/
 ├── core/                       # cross-cutting: API base URL, error normalization, layout
+│   ├── api/                    # BaseApiService: URL, credentials, response validation
+│   └── state/                  # BaseStore: loading/pending, error, relative id
 ├── features/<feature>/
 │   ├── api/                    # transport services: URL, HTTP method, DTO mapping/validation
 │   ├── data-access/            # state services (store + its domain helpers): signals, cache, cancellation
@@ -25,6 +27,20 @@ src/app/
 │   └── <feature>.routes.ts     # feature route table, lazy-loaded from app.routes.ts
 └── shared/                     # reusable UI and utilities (must not import feature code)
 ```
+
+### Data layer
+
+- `api/*.service.ts` extends `BaseApiService`; it only builds the path, chooses the method and
+  validates the response with a schema. No state, cache or user-facing errors.
+- `data-access/*.service.ts` extends `BaseStore`; `query()` wraps cancellable reads and
+  `command()` wraps one-shot mutations. `loading`, `pending` and `error` come from the base.
+- Per-entity stores (`runs` list/detail) are declared in route `providers` and destroyed with
+  the route. The detail store binds its route id through `setRelativeId`.
+- An in-flight stage progress is rehydrated from `GET /runs/:id/stages/:stage/job` when the
+  page opens, so navigation, reload and a second tab do not lose the progress bar.
+- Root stores are reserved for global state: auth/session, health, and the system SSE job.
+
+See `docs/adr/0007-web-data-layer.md` for the full decision.
 
 Unit tests live next to the file they cover (`*.spec.ts`), not in a mirrored `tests/` tree.
 

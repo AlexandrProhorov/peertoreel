@@ -1,5 +1,4 @@
-import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import {
   enqueuePingResponseSchema,
   systemJobSnapshotSchema,
@@ -7,36 +6,24 @@ import {
   type EnqueuePingResponse,
   type SystemJobSnapshot,
 } from '@kadence/contracts';
-import { map, Observable } from 'rxjs';
-import { API_BASE_URL } from '../../../core/config/api.config';
+import { Observable } from 'rxjs';
+import { BaseApiService } from '../../../core/api/base-api.service';
 
 @Injectable({ providedIn: 'root' })
-export class SystemApiService {
-  private readonly http = inject(HttpClient);
-  private readonly baseUrl = inject(API_BASE_URL);
-
+export class SystemApiService extends BaseApiService {
   enqueuePing(request: EnqueuePingRequest): Observable<EnqueuePingResponse> {
-    return this.http
-      .post<EnqueuePingResponse>(`${this.baseUrl}/system/ping`, request, {
-        withCredentials: true,
-      })
-      .pipe(map((data) => enqueuePingResponseSchema.parse(data)));
+    return this.post('/system/ping', request, enqueuePingResponseSchema);
   }
 
   getPing(jobId: string): Observable<SystemJobSnapshot> {
-    return this.http
-      .get<SystemJobSnapshot>(`${this.baseUrl}/system/ping/${jobId}`, {
-        withCredentials: true,
-      })
-      .pipe(map((data) => systemJobSnapshotSchema.parse(data)));
+    return this.get(`/system/ping/${jobId}`, systemJobSnapshotSchema);
   }
 
   streamPing(jobId: string): Observable<SystemJobSnapshot> {
     return new Observable<SystemJobSnapshot>((subscriber) => {
-      const source = new EventSource(
-        `${this.baseUrl}/system/ping/${jobId}/events`,
-        { withCredentials: true },
-      );
+      const source = new EventSource(this.url(`/system/ping/${jobId}/events`), {
+        withCredentials: true,
+      });
 
       const onJob = (event: MessageEvent<string>): void => {
         try {

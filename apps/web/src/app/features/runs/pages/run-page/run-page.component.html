@@ -1,7 +1,5 @@
 <section class="run">
-  <button class="run__back" type="button" (click)="goToRuns()">
-    ← Все прогоны
-  </button>
+  <button class="run__back" type="button" (click)="goToRuns()">← Все прогоны</button>
 
   @if (store.error(); as error) {
     <mat-card class="run__error" appearance="outlined" role="alert">
@@ -45,7 +43,7 @@
       </mat-card>
     }
 
-    @if (stageFor(run.state) ?? store.activeStage(); as stage) {
+    @if (store.stageToRun() ?? store.watchingStage(); as stage) {
       <mat-card class="run__stage" appearance="outlined">
         <mat-card-content>
           <div class="run__stage-head">
@@ -79,7 +77,8 @@
       </mat-card>
     }
 
-    <mat-card class="run__actions" appearance="outlined">      <mat-card-content>
+    <mat-card class="run__actions" appearance="outlined">
+      <mat-card-content>
         <h2>Действия</h2>
 
         @if (store.allowed().length > 0) {
@@ -94,9 +93,7 @@
           </mat-form-field>
 
           @if (reason.touched && reason.value.trim().length === 0) {
-            <p class="run__field-error" role="alert">
-              Для остановки run'а укажите причину.
-            </p>
+            <p class="run__field-error" role="alert">Для остановки run'а укажите причину.</p>
           }
 
           <div class="run__buttons">
@@ -153,16 +150,10 @@
                   {{ artifactLabel(artifact.type) }}
                 </span>
                 <span class="run__artifact-meta">
-                  {{ stageLabel(artifact.stage) }} ·
-                  {{ formatBytes(artifact.sizeBytes) }} ·
+                  {{ stageLabel(artifact.stage) }} · {{ formatBytes(artifact.sizeBytes) }} ·
                   {{ artifact.createdAt | date: 'dd.MM HH:mm' }}
                 </span>
-                <a
-                  class="run__artifact-link"
-                  [href]="artifact.url"
-                  target="_blank"
-                  rel="noopener"
-                >
+                <a class="run__artifact-link" [href]="artifact.url" target="_blank" rel="noopener">
                   Открыть
                 </a>
               </div>
@@ -186,9 +177,7 @@
           }
         </ul>
       } @else {
-        <p class="run__hint">
-          Стадии пока не произвели файлов — запустите сценарий или озвучку.
-        </p>
+        <p class="run__hint">Стадии пока не произвели файлов — запустите сценарий или озвучку.</p>
       }
     </section>
   }

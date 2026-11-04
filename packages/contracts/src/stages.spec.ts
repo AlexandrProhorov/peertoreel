@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   STAGE_PRODUCED_STATE,
   STAGE_REQUIRED_STATE,
+  stageForProgress,
   stageJobId,
   stageJobDataSchema,
   stageQueueNameSchema,
@@ -29,6 +30,16 @@ describe('stage contracts', () => {
     expect(STAGE_PRODUCED_STATE.voiceover).toBe('VOICE_READY');
     expect(STAGE_REQUIRED_STATE.render).toBe('VISUALS_READY');
     expect(STAGE_PRODUCED_STATE.render).toBe('REVIEW');
+  });
+
+  it('maps run states to the stage job worth observing', () => {
+    expect(stageForProgress('RESEARCHING')).toBe('script');
+    expect(stageForProgress('SCRIPT_READY')).toBe('voiceover');
+    expect(stageForProgress('VISUALS_READY')).toBe('render');
+    expect(stageForProgress('RENDERING')).toBe('render');
+    expect(stageForProgress('DRAFT')).toBeNull();
+    expect(stageForProgress('REVIEW')).toBeNull();
+    expect(stageForProgress('FAILED')).toBeNull();
   });
 
   it('validates payloads', () => {

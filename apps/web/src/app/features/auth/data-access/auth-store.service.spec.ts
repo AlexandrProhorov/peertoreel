@@ -29,10 +29,7 @@ const unauthorized = new HttpErrorResponse({
 
 function setup(api: Partial<AuthApiService>): AuthStoreService {
   TestBed.configureTestingModule({
-    providers: [
-      AuthStoreService,
-      { provide: AuthApiService, useValue: api },
-    ],
+    providers: [AuthStoreService, { provide: AuthApiService, useValue: api }],
   });
 
   return TestBed.inject(AuthStoreService);
@@ -63,9 +60,7 @@ describe('AuthStoreService', () => {
 
     store.login({ email: 'owner@kadence.local', password: 'wrong-password' });
 
-    await vi.waitFor(() =>
-      expect(store.error()).toBe('Неверный email или пароль'),
-    );
+    await vi.waitFor(() => expect(store.error()).toBe('Неверный email или пароль'));
     expect(store.isAuthenticated()).toBe(false);
     expect(store.loading()).toBe(false);
   });
@@ -82,6 +77,16 @@ describe('AuthStoreService', () => {
 
     expect(restored).toEqual(session.user);
     expect(store.isAuthenticated()).toBe(true);
+    expect(me).toHaveBeenCalledOnce();
+  });
+
+  it('shares one session restore between concurrent callers', () => {
+    const me = vi.fn().mockReturnValue(of(session));
+    const store = setup({ me });
+
+    store.restore().subscribe();
+    store.restore().subscribe();
+
     expect(me).toHaveBeenCalledOnce();
   });
 

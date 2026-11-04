@@ -1,10 +1,6 @@
 import { Component, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {
-  NonNullableFormBuilder,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -39,10 +35,7 @@ export class LoginPageComponent {
   });
 
   constructor() {
-    this.store
-      .restore()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+    this.store.restore().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
 
     effect(() => {
       if (this.store.isAuthenticated()) {
@@ -57,6 +50,6 @@ export class LoginPageComponent {
       return;
     }
 
-    this.store.login(this.form.getRawValue());
+    void this.store.login(this.form.getRawValue());
   }
 }

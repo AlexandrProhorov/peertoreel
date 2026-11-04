@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PingJobResult, SystemJobSnapshot } from '@kadence/contracts';
-import { of, throwError } from 'rxjs';
+import { concat, of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { SystemApiService } from '../api/system-api.service';
 import { SystemStoreService } from './system-store.service';
@@ -52,6 +52,39 @@ describe('SystemStoreService', () => {
     expect(store.result()).toEqual(result);
     expect(store.running()).toBe(false);
     expect(store.history()).toHaveLength(2);
+  });
+
+  it('ignores a second ping while the first is running', () => {
+    const stream = new Subject<SystemJobSnapshot>();
+    const enqueuePing = vi.fn().mockReturnValue(of({ jobId: 'job-1', status: 'queued' as const }));
+    const store = setup({
+      enqueuePing,
+      streamPing: vi.fn().mockReturnValue(stream.asObservable()),
+    });
+
+    store.start();
+    store.start();
+
+    expect(enqueuePing).toHaveBeenCalledOnce();
+  });
+
+  it('re-enables the button when the SSE stream fails', async () => {
+    const api = {
+      enqueuePing: vi.fn().mockReturnValue(of({ jobId: 'job-1', status: 'queued' as const })),
+      streamPing: vi.fn().mockReturnValue(
+        concat(
+          of(activeSnapshot),
+          throwError(() => new Error('sse down')),
+        ),
+      ),
+    };
+    const store = setup(api);
+
+    store.start();
+
+    await vi.waitFor(() => expect(store.status()).toBe('failed'));
+    expect(store.error()).toBe('sse down');
+    expect(store.running()).toBe(false);
   });
 
   it('stores a normalized error and stops running', async () => {

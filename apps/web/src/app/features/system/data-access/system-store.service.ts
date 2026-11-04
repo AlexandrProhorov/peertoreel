@@ -1,93 +1,69 @@
-import { DestroyRef, inject, Injectable, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type {
-  PingJobResult,
-  SystemJobSnapshot,
-  SystemJobStatus,
-} from '@kadence/contracts';
-import {
-  catchError,
-  EMPTY,
-  exhaustMap,
-  finalize,
-  Subject,
-  switchMap,
-  tap,
-} from 'rxjs';
-import { toErrorMessage } from '../../../core/http/error-message';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import type { PingJobResult, SystemJobSnapshot, SystemJobStatus } from '@kadence/contracts';
+import { defer, switchMap, tap } from 'rxjs';
+import { BaseStore } from '../../../core/state/base-store';
 import { SystemApiService } from '../api/system-api.service';
 
 @Injectable({ providedIn: 'root' })
-export class SystemStoreService {
+export class SystemStoreService extends BaseStore {
   private readonly api = inject(SystemApiService);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly startRequests = new Subject<void>();
 
-  private readonly jobIdSignal = signal<string | null>(null);
-  private readonly statusSignal = signal<SystemJobStatus | null>(null);
-  private readonly progressSignal = signal(0);
-  private readonly resultSignal = signal<PingJobResult | null>(null);
-  private readonly errorSignal = signal<string | null>(null);
-  private readonly runningSignal = signal(false);
-  private readonly historySignal = signal<SystemJobSnapshot[]>([]);
+  private readonly jobIdState = signal<string | null>(null);
+  private readonly statusState = signal<SystemJobStatus | null>(null);
+  private readonly progressState = signal(0);
+  private readonly resultState = signal<PingJobResult | null>(null);
+  private readonly historyState = signal<SystemJobSnapshot[]>([]);
 
-  readonly jobId = this.jobIdSignal.asReadonly();
-  readonly status = this.statusSignal.asReadonly();
-  readonly progress = this.progressSignal.asReadonly();
-  readonly result = this.resultSignal.asReadonly();
-  readonly error = this.errorSignal.asReadonly();
-  readonly running = this.runningSignal.asReadonly();
-  readonly history = this.historySignal.asReadonly();
+  readonly jobId = this.jobIdState.asReadonly();
+  readonly status = this.statusState.asReadonly();
+  readonly progress = this.progressState.asReadonly();
+  readonly result = this.resultState.asReadonly();
+  readonly history = this.historyState.asReadonly();
 
-  constructor() {
-    this.startRequests
-      .pipe(
-        exhaustMap(() => {
-          this.reset();
-          this.runningSignal.set(true);
-
-          return this.api.enqueuePing({}).pipe(
-            switchMap((response) => {
-              this.jobIdSignal.set(response.jobId);
-              this.statusSignal.set(response.status);
-              return this.api.streamPing(response.jobId);
-            }),
-            tap((snapshot) => {
-              this.statusSignal.set(snapshot.status);
-              this.progressSignal.set(snapshot.progress);
-              this.historySignal.update((history) => [
-                ...history.slice(-19),
-                snapshot,
-              ]);
-
-              if (snapshot.result) {
-                this.resultSignal.set(snapshot.result);
-              }
-            }),
-            catchError((error: unknown) => {
-              this.errorSignal.set(toErrorMessage(error));
-              return EMPTY;
-            }),
-            finalize(() => {
-              this.runningSignal.set(false);
-            }),
-          );
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe();
-  }
+  /**
+   * The command stays pending for the whole enqueue + SSE lifetime, so it is a
+   * more reliable signal than the last status: an SSE error must re-enable the
+   * button even if the last snapshot was `active`.
+   */
+  readonly running = computed(() => this.pending());
 
   start(): void {
-    this.startRequests.next();
+    if (this.running()) {
+      return;
+    }
+
+    void this.command('ping', () =>
+      defer(() => {
+        this.reset();
+        return this.api.enqueuePing({});
+      }).pipe(
+        switchMap((response) => {
+          this.jobIdState.set(response.jobId);
+          this.statusState.set(response.status);
+          return this.api.streamPing(response.jobId);
+        }),
+        tap((snapshot) => {
+          this.statusState.set(snapshot.status);
+          this.progressState.set(snapshot.progress);
+          this.historyState.update((history) => [...history.slice(-19), snapshot]);
+
+          if (snapshot.result) {
+            this.resultState.set(snapshot.result);
+          }
+        }),
+      ),
+    ).then((snapshot) => {
+      if (!snapshot) {
+        this.statusState.set('failed');
+      }
+    });
   }
 
   private reset(): void {
-    this.jobIdSignal.set(null);
-    this.statusSignal.set(null);
-    this.progressSignal.set(0);
-    this.resultSignal.set(null);
-    this.errorSignal.set(null);
-    this.historySignal.set([]);
+    this.jobIdState.set(null);
+    this.statusState.set(null);
+    this.progressState.set(0);
+    this.resultState.set(null);
+    this.historyState.set([]);
   }
 }

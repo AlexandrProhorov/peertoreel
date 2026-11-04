@@ -1,20 +1,11 @@
-import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import {
-  readinessResponseSchema,
-  type ReadinessResponse,
-} from '@kadence/contracts';
-import { map, type Observable } from 'rxjs';
-import { API_BASE_URL } from '../../../core/config/api.config';
+import { Injectable } from '@angular/core';
+import { readinessResponseSchema, type ReadinessResponse } from '@kadence/contracts';
+import type { Observable } from 'rxjs';
+import { BaseApiService } from '../../../core/api/base-api.service';
 
 @Injectable({ providedIn: 'root' })
-export class HealthApiService {
-  private readonly http = inject(HttpClient);
-  private readonly baseUrl = inject(API_BASE_URL);
-
+export class HealthApiService extends BaseApiService {
   getReadiness(): Observable<ReadinessResponse> {
-    return this.http
-      .get<ReadinessResponse>(`${this.baseUrl}/health/ready`)
-      .pipe(map((data) => readinessResponseSchema.parse(data)));
+    return this.get('/health/ready', readinessResponseSchema);
   }
 }

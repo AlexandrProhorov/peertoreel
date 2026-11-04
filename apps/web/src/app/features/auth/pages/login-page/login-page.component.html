@@ -2,9 +2,7 @@
   <header class="login__header">
     <p class="login__eyebrow">Доступ</p>
     <h1>Вход в Kadence</h1>
-    <p class="login__subtitle">
-      Панель управления фабрикой доступна только участникам проекта.
-    </p>
+    <p class="login__subtitle">Панель управления фабрикой доступна только участникам проекта.</p>
   </header>
 
   <mat-card class="login__card" appearance="outlined">
@@ -42,16 +40,11 @@
           <p class="login__error" role="alert">{{ error }}</p>
         }
 
-        <button
-          mat-flat-button
-          type="submit"
-          class="login__submit"
-          [disabled]="store.loading()"
-        >
-          {{ store.loading() ? 'Проверяем…' : 'Войти' }}
+        <button mat-flat-button type="submit" class="login__submit" [disabled]="store.pending()">
+          {{ store.pending() ? 'Проверяем…' : 'Войти' }}
         </button>
 
-        @if (store.loading()) {
+        @if (store.pending()) {
           <mat-progress-bar mode="indeterminate" aria-label="Проверка учётных данных" />
         }
       </form>

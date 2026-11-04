@@ -1,10 +1,6 @@
 import { DatePipe } from '@angular/common';
-import { Component, effect, inject } from '@angular/core';
-import {
-  NonNullableFormBuilder,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { Component, inject, OnInit } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,12 +8,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router, RouterLink } from '@angular/router';
-import {
-  runStageLabel,
-  runStateLabel,
-  runStateTone,
-} from '../../data-access/run-labels';
-import { RunsStoreService } from '../../data-access/runs-store.service';
+import { runStageLabel, runStateLabel, runStateTone } from '../../data-access/run-labels';
+import { RunsListStoreService } from '../../data-access/runs-list-store.service';
 
 @Component({
   selector: 'app-runs-page',
@@ -35,8 +27,8 @@ import { RunsStoreService } from '../../data-access/runs-store.service';
   templateUrl: './runs-page.component.html',
   styleUrl: './runs-page.component.scss',
 })
-export class RunsPageComponent {
-  protected readonly store = inject(RunsStoreService);
+export class RunsPageComponent implements OnInit {
+  protected readonly store = inject(RunsListStoreService);
   protected readonly stateLabel = runStateLabel;
   protected readonly stageLabel = runStageLabel;
   protected readonly stateTone = runStateTone;
@@ -48,18 +40,8 @@ export class RunsPageComponent {
     topic: ['', [Validators.required, Validators.maxLength(300)]],
   });
 
-  constructor() {
-    this.store.loadRuns();
-
-    effect(() => {
-      const created = this.store.created();
-
-      if (created) {
-        this.form.reset();
-        this.store.clearCreated();
-        void this.router.navigate(['/runs', created.id]);
-      }
-    });
+  ngOnInit(): void {
+    this.store.load();
   }
 
   protected create(): void {
@@ -68,6 +50,13 @@ export class RunsPageComponent {
       return;
     }
 
-    this.store.create(this.form.getRawValue().topic);
+    void this.store.create(this.form.getRawValue().topic).then((run) => {
+      if (!run) {
+        return;
+      }
+
+      this.form.reset();
+      void this.router.navigate(['/runs', run.id]);
+    });
   }
 }
