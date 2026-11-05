@@ -7,9 +7,9 @@
 
 | ID | Milestone | Результат | Оценка | Статус |
 |---|---|---|---|---|
-| M0 | Walking Skeleton | Монорепо, infra, contracts, API+web, auth, CI | 30–45 ч | DOING |
+| M0 | Walking Skeleton | Монорепо, infra, contracts, API+web, auth, CI | 30–45 ч | DONE |
 | M1 | Publish Risk Spike | Один MP4 → R2 → private TikTok post → статус | 20–35 ч | TODO |
-| M2 | Factory Core | Тема → research → script → TTS → visuals → render → QC → review → MP4 | 70–110 ч | TODO |
+| M2 | Factory Core | Тема → research → script → TTS → visuals → render → QC → review → MP4 | 70–110 ч | DOING |
 | M3 | Quality & Ops | Шаблоны, regeneration, cost dashboard, monitoring | 40–60 ч | TODO |
 | M4 | Scale & Monetization | Batch, A/B, analytics, multi-platform | 40–80 ч | TODO |
 
@@ -36,12 +36,17 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 - `pnpm infra:up` поднимает Postgres, Redis, S3.
 - `pnpm db:migrate` применяет миграции.
 - `pnpm dev` поднимает API, web и worker.
-- `/api/v1/health/live` и `/api/v1/health/ready` работают.
-- `POST /api/v1/system/ping` ставит job, worker обрабатывает, статус читается.
-- Web показывает статус API/Postgres/Redis.
+- `/api/v1/health/live` и `/api/v1/health/ready` работают; readiness проверяет Postgres,
+  Redis и наличие worker'а.
+- `POST /api/v1/system/ping` ставит job, worker обрабатывает, статус и SSE-прогресс читаются.
+- Web показывает статус API/Postgres/Redis/Worker.
 - `pnpm check` зелёный.
-- CI зелёный.
-- Секретов в репозитории нет.
+- CI workflow повторяет локальные гейты (install → migrate → lint → typecheck → test → build).
+- Секретов в репозитории нет: `.env` в `.gitignore`, в репозитории только `.env.example`.
+
+**M0 закрыт 2026-11-05.** Локально проверено: `pnpm install --frozen-lockfile`,
+`pnpm db:migrate`, `pnpm check` (134 теста), `/health/ready` → 200 с `worker: up`,
+ping job → `completed` за ~0.5 с.
 
 ## Следующие сессии
 

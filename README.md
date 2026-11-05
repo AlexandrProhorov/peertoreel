@@ -3,9 +3,9 @@
 Kadence — pipeline-платформа для производства коротких вертикальных видео: тема → исследование →
 сценарий → озвучка → визуалы → рендер → QC → публикация.
 
-Сейчас проект находится на этапе **M0 — Walking Skeleton**. Реализованы фундамент,
-health-check, локальная инфраструктура, async-путь через BullMQ и вход по сессии.
-AI-стадии и TikTok появятся в следующих milestone'ах.
+**M0 — Walking Skeleton закрыт.** Текущий этап — **M2 — Factory Core**: работают стадии
+`script`, `voiceover` и `render` (до `REVIEW`), run detail с восстановлением прогресса стадии,
+health-check с проверкой worker'а и вход по сессии. Дальше — `visuals`, QC и публикация.
 
 ## Стек
 
@@ -15,7 +15,7 @@ AI-стадии и TikTok появятся в следующих milestone'ах.
 - **Queue/cache:** Redis 8, BullMQ 6
 - **Storage:** Cloudflare R2 в production, SeaweedFS локально
 - **Worker:** Node.js 24 + BullMQ worker
-- **Media:** FFmpeg (следующий milestone)
+- **Media:** FFmpeg (render stage)
 - **Monorepo:** pnpm workspaces
 
 ## Быстрый старт
@@ -30,7 +30,7 @@ pnpm dev
 ```
 
 - Web: http://localhost:4200 (вход: `/login`)
-- API health: http://localhost:3000/api/v1/health/ready
+- API health: http://localhost:3000/api/v1/health/ready — Postgres, Redis и worker
 - API liveness: http://localhost:3000/api/v1/health/live
 - Auth: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`
 - Ping job: `POST /api/v1/system/ping` → `GET /api/v1/system/ping/:jobId`
@@ -44,10 +44,11 @@ pnpm dev
 
 ```bash
 BOOTSTRAP_ADMIN_EMAIL=owner@kadence.local
-BOOTSTRAP_ADMIN_PASSWORD=kadence-dev-password
+BOOTSTRAP_ADMIN_PASSWORD=change-me-before-first-run
 SESSION_TTL_HOURS=168
 ```
 
+Реальный пароль хранится только в локальном `.env` (он в `.gitignore`); не коммить его.
 После успешного входа эти переменные можно убрать. Существующие пользователи не
 перезаписываются: bootstrap срабатывает только на пустой таблице.
 
@@ -99,14 +100,15 @@ SeaweedFS с S3-совместимым API на `http://localhost:8333`. Product
 
 ## Ограничения текущего этапа
 
-- Нет AI-провайдеров.
-- Нет TikTok-интеграции.
-- Нет загрузки медиа.
+- Нет стадии `visuals` (Pixabay) — рендер пока использует синтетический фон `testsrc2`.
+- Нет QC и TikTok-интеграции.
+- `topic-discovery` и `research` не автоматизированы: run создаётся с темой вручную.
 - Auth-защита есть у `/system` и `/runs`; остальные бизнес-роуты появятся вместе со своими
   таблицами и сразу под `SessionAuthGuard`.
 - Нет rate limit на логин и аудита неудачных попыток (запланировано).
 
-Это сознательно: M0 проверяет фундамент, health и базовый async-путь.
+Это осознанный срез M2: сначала проверяем production-путь до готового черновика, затем
+добавляем визуалы, QC и публикацию.
 
 ## Troubleshooting
 

@@ -1,6 +1,6 @@
 # ARCHITECTURE
 
-## Текущий срез: M0
+## Текущий срез: M0 закрыт, M2 в работе
 
 ```text
 ┌─────────────┐      HTTP/JSON       ┌──────────────┐
@@ -25,7 +25,8 @@
 ```
 
 Redis используется как транспорт BullMQ. Worker — отдельный процесс, который забирает jobs
-из очереди `system`. S3 пока поднят, но приложением не используется.
+из очередей `system`, `script`, `voiceover` и `render`. S3 используется для артефактов стадий
+(`voiceover_mp3`, `word_timings`, `draft_mp4`) и отдаёт их по presigned URL.
 
 ## System queue (S0.2a)
 
@@ -135,18 +136,20 @@ FAILED → resume_state (только туда)
   `runs`: история не может разойтись с состоянием.
 - `GET /runs` (последние 50), `GET /runs/:id` (+ история), всё под `SessionAuthGuard`.
 
-## Стадии в очереди (M2.2)
+## Стадии в очереди (M2.2–M2.3)
 
 ```text
 POST /api/v1/runs/:id/stages/:stage   (202)
   → StagesService: run.state === STAGE_REQUIRED_STATE[stage] ? 409 иначе
   → Queue.add(stage, { runId }, { jobId: "<stage>-<runId>", attempts: 3, backoff })
-  → Worker (script ×2, voiceover ×1)
+  → Worker (script ×2, voiceover ×1, render ×1)
       1. loadRun → guard по состоянию
-      2. провайдер (LLM / TTS)
+      2. провайдер (LLM / TTS) или FFmpeg
       3. объекты в S3 (runs/<runId>/<stage>/<file>)
       4. saveArtifact (upsert по object_key)
       5. transitionRun: runs + run_events в одной транзакции
+         script → SCRIPT_READY, voiceover → VOICE_READY,
+         render → RENDERING → REVIEW
   → GET /api/v1/runs/:id/stages/:stage/job → status / progress / result / failedReason
 ```
 
@@ -235,8 +238,9 @@ Worker не ходит в БД напрямую; в будущем stage-про�
 
 - `GET /api/v1/health/live` — процесс жив. Не проверяет зависимости. Если проверять БД,
   временный сбой Postgres вызовет рестарт API, хотя сам API исправен.
-- `GET /api/v1/health/ready` — API готов принимать трафик. Проверяет Postgres и Redis.
-  При недоступности зависимости возвращает `503` и `status: degraded`.
+- `GET /api/v1/health/ready` — API готов принимать трафик. Проверяет Postgres, Redis и наличие
+  подключённого BullMQ worker'а. При недоступности зависимости или без worker'а возвращает
+  `503` и `status: degraded`; в `checks` есть `database`, `redis` и `worker`.
 
 Web показывает readiness и умеет отобразить degraded-состояние, потому что API парсит тело
 ответа даже при `503`.
@@ -279,6 +283,7 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. S1: TikTok OAuth + token vault + один приватный publish.
-2. Provider ports (`LlmProvider`, `TtsProvider`, …) и cost ledger.
-3. Стадийные исполнители (research/script/tts) в worker.
+1. M2.4: стадия `visuals` — Pixabay за портом `StockProvider`, кеш 24 ч, `scenes` в S3.
+2. M2.5: QC и review gate — проверки длительности, громкости, синхронизации и стоп-слов.
+3. S1: TikTok OAuth + token vault + один приватный publish.
+4. Provider ports (`LlmProvider`, `TtsProvider`, `StockProvider`, …) и `provider_usage`/cost ledger.
