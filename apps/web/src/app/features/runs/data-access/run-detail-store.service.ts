@@ -43,6 +43,28 @@ interface StageWatch {
 
 const STAGE_POLL_MS = 1500;
 
+/**
+ * A regeneration starts from REVIEW. The path is the list of transitions that
+ * brings the run back to the state the chosen stage expects.
+ */
+const REGENERATION_PATH: Record<StageQueueName, readonly RunState[]> = {
+  script: ['SCRIPT_READY', 'RESEARCHING'],
+  voiceover: ['SCRIPT_READY'],
+  visuals: ['VOICE_READY'],
+  render: ['VISUALS_READY'],
+};
+
+/**
+ * Stages that run automatically after the chosen one. Script stops at the
+ * SCRIPT_READY human gate; the rest continue to a fresh draft in REVIEW.
+ */
+const REGENERATION_CHAIN: Record<StageQueueName, readonly StageQueueName[]> = {
+  script: ['script'],
+  voiceover: ['voiceover', 'visuals', 'render'],
+  visuals: ['visuals', 'render'],
+  render: ['render'],
+};
+
 function isTerminal(status: StageJobSnapshot['status']): boolean {
   return status === 'completed' || status === 'failed';
 }
@@ -62,6 +84,8 @@ export class RunDetailStoreService extends BaseStore {
   private readonly artifactsState = signal<Artifact[]>([]);
   private readonly stageJobState = signal<StageJobSnapshot | null>(null);
   private readonly watchingStageState = signal<StageQueueName | null>(null);
+  /** Remaining stages of a regeneration; empty for normal one-shot starts. */
+  private chain: StageQueueName[] = [];
 
   readonly selected = this.runState.asReadonly();
   readonly artifacts = this.artifactsState.asReadonly();
@@ -137,6 +161,7 @@ export class RunDetailStoreService extends BaseStore {
   }
 
   protected override onRelativeIdChanged(id: string | null): void {
+    this.chain = [];
     this.runState.set(null);
     this.artifactsState.set([]);
     this.stageJobState.set(null);
@@ -163,6 +188,14 @@ export class RunDetailStoreService extends BaseStore {
   }
 
   async transition(to: RunState, reason?: string): Promise<boolean> {
+    this.chain = [];
+    return this.applyTransition(to, reason);
+  }
+
+  private async applyTransition(
+    to: RunState,
+    reason?: string,
+  ): Promise<boolean> {
     const id = this.relativeId();
 
     if (!id) {
@@ -184,17 +217,69 @@ export class RunDetailStoreService extends BaseStore {
     return true;
   }
 
-  async runStage(stage: StageQueueName): Promise<void> {
+  async runStage(stage: StageQueueName): Promise<boolean> {
+    this.chain = [];
+    return this.startStage(stage);
+  }
+
+  /**
+   * Regenerates the chosen stage and everything after it up to the review gate.
+   * The user sees one button, but the stages still run one by one through
+   * BullMQ; `chain` only decides which stage to start after the previous one
+   * completes.
+   */
+  async regenerate(stage: StageQueueName): Promise<boolean> {
+    const id = this.relativeId();
+    const run = this.runState();
+
+    if (!id || !run) {
+      return false;
+    }
+
+    const allowedFrom =
+      run.state === 'REVIEW' ||
+      (stage === 'visuals' && run.state === 'VISUALS_READY');
+
+    if (!allowedFrom) {
+      return false;
+    }
+
+    this.chain = [...REGENERATION_CHAIN[stage]];
+
+    for (const to of REGENERATION_PATH[stage]) {
+      if (!(await this.applyTransition(to)) || this.relativeId() !== id) {
+        this.chain = [];
+        return false;
+      }
+    }
+
+    const first = this.chain.shift();
+
+    if (!first) {
+      this.chain = [];
+      return false;
+    }
+
+    const started = await this.startStage(first);
+
+    if (!started) {
+      this.chain = [];
+    }
+
+    return started;
+  }
+
+  private async startStage(stage: StageQueueName): Promise<boolean> {
     const id = this.relativeId();
 
     if (!id || this.stageRunning()) {
-      return;
+      return false;
     }
 
     const started = await this.command('stage', () => this.api.startStage(id, stage));
 
     if (!started || this.relativeId() !== id) {
-      return;
+      return false;
     }
 
     // Show queued immediately so the button stays disabled between the POST
@@ -206,6 +291,7 @@ export class RunDetailStoreService extends BaseStore {
       progress: 0,
     });
     this.stageWatches.next({ id, stage });
+    return true;
   }
 
   private watchStage(
@@ -237,6 +323,7 @@ export class RunDetailStoreService extends BaseStore {
 
     let shouldReload = false;
     let failedReason: string | null = null;
+    let completed = false;
 
     return read().pipe(
       switchMap((first) => {
@@ -267,6 +354,7 @@ export class RunDetailStoreService extends BaseStore {
 
         if (isTerminal(snapshot.status)) {
           shouldReload = true;
+          completed = snapshot.status === 'completed';
           failedReason =
             snapshot.status === 'failed'
               ? (snapshot.failedReason ?? 'Стадия завершилась ошибкой')
@@ -293,6 +381,31 @@ export class RunDetailStoreService extends BaseStore {
         if (failedReason) {
           this.setError(failedReason);
         }
+
+        if (!completed) {
+          this.chain = [];
+          return;
+        }
+
+        const next = this.chain.shift();
+
+        if (!next) {
+          return;
+        }
+
+        // Defer the next stage until the current watch has fully finalized;
+        // otherwise switchMap re-enters the stream that is closing right now.
+        queueMicrotask(() => {
+          if (this.destroyRef.destroyed || this.relativeId() !== id) {
+            return;
+          }
+
+          void this.startStage(next).then((started) => {
+            if (!started) {
+              this.chain = [];
+            }
+          });
+        });
       }),
     );
   }

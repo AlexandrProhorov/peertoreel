@@ -31,6 +31,7 @@ describe('run contracts', () => {
   it('allows regenerating from an earlier stage but not skipping ahead', () => {
     expect(canTransition('REVIEW', 'SCRIPT_READY')).toBe(true);
     expect(canTransition('REVIEW', 'VISUALS_READY')).toBe(true);
+    expect(canTransition('REVIEW', 'RENDERING')).toBe(false);
     expect(canTransition('DRAFT', 'REVIEW')).toBe(false);
     expect(canTransition('SCRIPT_READY', 'RENDERING')).toBe(false);
   });

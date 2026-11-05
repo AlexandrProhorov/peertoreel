@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { TtsAlignment } from './elevenlabs.js';
 
 export interface DerivedWord {
@@ -5,6 +6,14 @@ export interface DerivedWord {
   startSec: number;
   endSec: number;
 }
+
+export const derivedWordSchema = z.object({
+  text: z.string().min(1),
+  startSec: z.number().nonnegative(),
+  endSec: z.number().nonnegative(),
+});
+
+export const derivedWordsSchema = z.array(derivedWordSchema);
 
 /**
  * Character alignment → word timings. A word starts when its first character

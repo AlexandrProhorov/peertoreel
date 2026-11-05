@@ -13,7 +13,6 @@ import {
   artifactLabel,
   formatBytes,
   isAudio,
-  isVideo,
   sortArtifacts,
 } from '../../data-access/artifact-labels';
 import {
@@ -23,6 +22,51 @@ import {
   transitionLabel,
 } from '../../data-access/run-labels';
 import { RunDetailStoreService } from '../../data-access/run-detail-store.service';
+
+interface RegenerationAction {
+  stage: StageQueueName;
+  label: string;
+  hint: string;
+}
+
+const REGENERATION_ACTIONS: readonly RegenerationAction[] = [
+  {
+    stage: 'script',
+    label: 'Перегенерировать сценарий',
+    hint: 'Сценарий; остановится на проверке сценария.',
+  },
+  {
+    stage: 'voiceover',
+    label: 'Перегенерировать озвучку',
+    hint: 'Озвучка → визуалы → рендер.',
+  },
+  {
+    stage: 'visuals',
+    label: 'Перегенерировать визуалы',
+    hint: 'Визуалы → рендер.',
+  },
+];
+
+/**
+ * These edges belong to stage processors. Showing them as manual buttons
+ * creates dead ends: the state changes but no job starts.
+ */
+const STAGE_OWNED_TRANSITIONS = new Set<string>([
+  'RESEARCHING:SCRIPT_READY',
+  'SCRIPT_READY:VOICE_READY',
+  'VOICE_READY:VISUALS_READY',
+  'VISUALS_READY:RENDERING',
+  'RENDERING:REVIEW',
+  'RENDERING:VISUALS_READY',
+  // Defensive: older contracts allowed this dead-end edge from REVIEW.
+  'REVIEW:RENDERING',
+]);
+
+const REVIEW_REGENERATION_TARGETS = new Set<RunState>([
+  'SCRIPT_READY',
+  'VOICE_READY',
+  'VISUALS_READY',
+]);
 
 @Component({
   selector: 'app-run-page',
@@ -50,9 +94,42 @@ export class RunPageComponent {
   protected readonly transitionLabel = transitionLabel;
   protected readonly artifactLabel = artifactLabel;
   protected readonly formatBytes = formatBytes;
-  protected readonly isVideo = isVideo;
   protected readonly isAudio = isAudio;
   protected readonly artifacts = computed(() => sortArtifacts(this.store.artifacts()));
+  /** The draft gets its own block above the history; the rest stay in artifacts. */
+  protected readonly draft = computed(
+    () => this.artifacts().find((artifact) => artifact.type === 'draft_mp4') ?? null,
+  );
+  protected readonly otherArtifacts = computed(() =>
+    this.artifacts().filter((artifact) => artifact.type !== 'draft_mp4'),
+  );
+  protected readonly regenerationActions = REGENERATION_ACTIONS;
+  protected readonly canRegenerate = computed(
+    () => this.store.selected()?.state === 'REVIEW',
+  );
+  /** Human decisions and "back" edges; stage-owned transitions are hidden. */
+  protected readonly regularActions = computed<RunState[]>(() => {
+    const run = this.store.selected();
+
+    if (!run) {
+      return [];
+    }
+
+    return this.store.allowed().filter((to) => {
+      if (STAGE_OWNED_TRANSITIONS.has(`${run.state}:${to}`)) {
+        return false;
+      }
+
+      if (
+        run.state === 'REVIEW' &&
+        REVIEW_REGENERATION_TARGETS.has(to)
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  });
   protected readonly reason = new FormControl('', { nonNullable: true });
 
   constructor() {
@@ -69,12 +146,22 @@ export class RunPageComponent {
     void this.store.runStage(stage);
   }
 
+  protected regenerate(stage: StageQueueName): void {
+    if (this.store.pending() || this.store.stageRunning()) {
+      return;
+    }
+
+    void this.store.regenerate(stage);
+  }
+
   protected stageTitle(stage: StageQueueName): string {
     switch (stage) {
       case 'script':
         return 'Генерация сценария';
       case 'voiceover':
         return 'Генерация озвучки';
+      case 'visuals':
+        return 'Подбор визуалов';
       case 'render':
         return 'Сборка черновика';
     }
@@ -86,13 +173,24 @@ export class RunPageComponent {
         return 'LLM соберёт сценарий из темы и сохранит его JSON-артефактом.';
       case 'voiceover':
         return 'ElevenLabs озвучит сценарий и вернёт тайминги слов для субтитров.';
+      case 'visuals':
+        return 'Pixabay подберёт вертикальные клипы и фото под каждый beat; если ассет не найден, сцена соберётся с fallback-фоном.';
       case 'render':
-        return 'FFmpeg соберёт вертикальный черновик из озвучки и караоке-субтитров.';
+        return 'FFmpeg соберёт вертикальный черновик из визуалов, озвучки и караоке-субтитров.';
     }
   }
 
   protected transition(to: RunState): void {
     if (this.store.pending()) {
+      return;
+    }
+
+    const run = this.store.selected();
+
+    // VISUALS_READY → VOICE_READY is the visuals regeneration edge; run the
+    // stage instead of leaving the user on a bare state transition.
+    if (run?.state === 'VISUALS_READY' && to === 'VOICE_READY') {
+      this.regenerate('visuals');
       return;
     }
 

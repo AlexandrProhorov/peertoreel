@@ -12,6 +12,12 @@ export type ScriptBeat = z.infer<typeof scriptBeatSchema>;
 
 export const scriptSchema = z.object({
   title: z.string().min(3).max(100),
+  /**
+   * Main visual subject repeated across scenes (e.g. "dog", "black hole").
+   * Optional for scripts generated before the anchor was introduced; the
+   * visuals stage derives one from the beat directions in that case.
+   */
+  visualAnchor: z.string().min(2).max(80).optional(),
   hook: z.string().min(5).max(200),
   beats: z.array(scriptBeatSchema).min(2).max(12),
   cta: z.string().min(3).max(200),

@@ -81,7 +81,32 @@
       <mat-card-content>
         <h2>Действия</h2>
 
-        @if (store.allowed().length > 0) {
+        @if (canRegenerate()) {
+          <div class="run__regenerate">
+            <h3>Перегенерировать</h3>
+            <p class="run__hint">
+              Стадия запустится сразу. Дальнейшие шаги выполнятся автоматически до возврата
+              на ревью; сценарий остановится на проверке сценария.
+            </p>
+            <ul class="run__regen-list">
+              @for (action of regenerationActions; track action.stage) {
+                <li>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="store.pending() || store.stageRunning()"
+                    (click)="regenerate(action.stage)"
+                  >
+                    {{ action.label }}
+                  </button>
+                  <span class="run__regen-hint">{{ action.hint }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        @if (regularActions().length > 0) {
           <mat-form-field appearance="outline" class="run__reason">
             <mat-label>Комментарий</mat-label>
             <input
@@ -97,7 +122,7 @@
           }
 
           <div class="run__buttons">
-            @for (to of store.allowed(); track to) {
+            @for (to of regularActions(); track to) {
               <button
                 mat-stroked-button
                 type="button"
@@ -114,6 +139,37 @@
         }
       </mat-card-content>
     </mat-card>
+
+    @if (draft(); as draftArtifact) {
+      <mat-card class="run__draft" appearance="outlined">
+        <mat-card-content>
+          <div class="run__draft-head">
+            <div>
+              <h2>Черновик</h2>
+              <p class="run__hint">
+                {{ formatBytes(draftArtifact.sizeBytes) }} ·
+                {{ draftArtifact.createdAt | date: 'dd.MM HH:mm' }}
+              </p>
+            </div>
+            <a
+              class="run__artifact-link"
+              [href]="draftArtifact.url"
+              target="_blank"
+              rel="noopener"
+            >
+              Открыть
+            </a>
+          </div>
+
+          <video
+            class="run__draft-video"
+            [src]="draftArtifact.url + '#' + draftArtifact.createdAt"
+            controls
+            preload="metadata"
+          ></video>
+        </mat-card-content>
+      </mat-card>
+    }
 
     <section class="run__history">
       <h2>История ({{ run.events.length }})</h2>
@@ -139,11 +195,11 @@
       </ol>
     </section>
     <section class="run__artifacts">
-      <h2>Артефакты ({{ artifacts().length }})</h2>
+      <h2>Артефакты ({{ otherArtifacts().length }})</h2>
 
-      @if (artifacts().length > 0) {
+      @if (otherArtifacts().length > 0) {
         <ul class="run__artifact-list">
-          @for (artifact of artifacts(); track artifact.id) {
+          @for (artifact of otherArtifacts(); track artifact.id) {
             <li class="run__artifact">
               <div class="run__artifact-head">
                 <span class="run__artifact-type">
@@ -158,14 +214,7 @@
                 </a>
               </div>
 
-              @if (isVideo(artifact)) {
-                <video
-                  class="run__artifact-video"
-                  [src]="artifact.url"
-                  controls
-                  preload="metadata"
-                ></video>
-              } @else if (isAudio(artifact)) {
+              @if (isAudio(artifact)) {
                 <audio
                   class="run__artifact-audio"
                   [src]="artifact.url"

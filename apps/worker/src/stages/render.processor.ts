@@ -1,43 +1,166 @@
-import { artifacts, type Database } from '@kadence/db';
-import { stageJobDataSchema, type StageJobResult } from '@kadence/contracts';
-import { buildArtifactKey, type ObjectStorage } from '@kadence/storage';
+import {
+  stageJobDataSchema,
+  visualsArtifactSchema,
+  type StageJobResult,
+  type VisualsArtifact,
+} from '@kadence/contracts';
+import { buildArtifactKey } from '@kadence/storage';
 import type { Job } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WorkerEnv } from '../config/env.js';
-import { renderDraft, runFfmpeg } from '../media/ffmpeg.js';
-import { buildKaraokeAss, type WordTiming } from '../media/karaoke.js';
+import { renderDraft } from '../media/ffmpeg.js';
+import { buildKaraokeAss } from '../media/karaoke.js';
+import {
+  buildVisualTrack,
+  type VisualTrackScene,
+} from '../media/visual-track.js';
+import { derivedWordsSchema } from '../tts/word-timings.js';
 import type { StageDeps } from './context.js';
+import { findArtifactObjectKey, loadArtifactBuffer } from './load-artifact.js';
 import { saveArtifact } from './save-artifact.js';
 import { loadRun, transitionRun } from './transition.js';
 
-async function loadArtifact(
-  db: Database,
-  storage: ObjectStorage,
-  runId: string,
-  type: string,
-): Promise<Buffer> {
-  const [row] = await db
-    .select({ objectKey: artifacts.objectKey })
-    .from(artifacts)
-    .where(and(eq(artifacts.runId, runId), eq(artifacts.type, type)))
-    .limit(1);
+const MIN_SCENE_SEC = 0.05;
 
-  if (!row) {
-    throw new Error(
-      `У run ${runId} нет артефакта ${type} — предыдущая стадия не завершена`,
-    );
+function extensionForContentType(contentType: string): string | null {
+  switch (contentType.split(';')[0]?.trim().toLowerCase()) {
+    case 'video/mp4':
+      return 'mp4';
+    case 'image/jpeg':
+      return 'jpg';
+    case 'image/png':
+      return 'png';
+    case 'image/webp':
+      return 'webp';
+    case 'image/gif':
+      return 'gif';
+    default:
+      return null;
+  }
+}
+
+async function loadVisualsManifest(
+  deps: StageDeps<WorkerEnv>,
+  runId: string,
+): Promise<VisualsArtifact | null> {
+  const objectKey = await findArtifactObjectKey(
+    deps.db,
+    runId,
+    'visuals_json',
+  );
+
+  if (!objectKey) {
+    return null;
   }
 
-  return Buffer.from(await storage.getObject(row.objectKey));
+  const body = Buffer.from(await deps.storage.getObject(objectKey)).toString(
+    'utf8',
+  );
+
+  return visualsArtifactSchema.parse(JSON.parse(body));
+}
+
+async function prepareVisualScenes(
+  deps: StageDeps<WorkerEnv>,
+  workDir: string,
+  manifest: VisualsArtifact | null,
+  targetDurationSec: number,
+): Promise<VisualTrackScene[]> {
+  if (!manifest) {
+    return [
+      {
+        idx: 0,
+        kind: 'fallback',
+        fileName: null,
+        durationSec: targetDurationSec,
+      },
+    ];
+  }
+
+  const scenes: VisualTrackScene[] = [];
+
+  for (const scene of manifest.scenes) {
+    const durationSec = Math.max(
+      MIN_SCENE_SEC,
+      scene.endSec - scene.startSec,
+    );
+
+    if (scene.asset.kind === 'fallback') {
+      scenes.push({
+        idx: scene.idx,
+        kind: 'fallback',
+        fileName: null,
+        durationSec,
+      });
+      continue;
+    }
+
+    const extension = extensionForContentType(scene.asset.contentType);
+
+    if (!extension) {
+      deps.logger.warn(
+        { sceneIdx: scene.idx, contentType: scene.asset.contentType },
+        'unsupported visual content type; using fallback',
+      );
+      scenes.push({
+        idx: scene.idx,
+        kind: 'fallback',
+        fileName: null,
+        durationSec,
+      });
+      continue;
+    }
+
+    const fileName = `scene-${scene.idx}.${extension}`;
+
+    try {
+      const body = Buffer.from(
+        await deps.storage.getObject(scene.asset.objectKey),
+      );
+      await writeFile(path.join(workDir, fileName), body);
+      scenes.push({
+        idx: scene.idx,
+        kind: scene.asset.kind,
+        fileName,
+        durationSec,
+      });
+    } catch (error: unknown) {
+      deps.logger.warn(
+        {
+          sceneIdx: scene.idx,
+          reason: error instanceof Error ? error.message : 'unknown error',
+        },
+        'visual scene object is unavailable; using fallback',
+      );
+      scenes.push({
+        idx: scene.idx,
+        kind: 'fallback',
+        fileName: null,
+        durationSec,
+      });
+    }
+  }
+
+  if (scenes.length === 0) {
+    return [
+      {
+        idx: 0,
+        kind: 'fallback',
+        fileName: null,
+        durationSec: targetDurationSec,
+      },
+    ];
+  }
+
+  return scenes;
 }
 
 /**
- * VISUALS_READY → RENDERING → REVIEW: assembles the draft MP4 from the voiceover
- * and karaoke subtitles. The background is still synthetic until the visuals
- * stage produces real scenes.
+ * VISUALS_READY → RENDERING → REVIEW: assembles the draft MP4 from the
+ * voiceover, karaoke subtitles and the visual track produced by `visuals`.
+ * Runs without a visuals manifest keep the old synthetic testsrc2 background.
  */
 export async function processRenderStage(
   job: Job,
@@ -60,11 +183,15 @@ export async function processRenderStage(
   await job.updateProgress(5);
 
   const [audio, timings] = await Promise.all([
-    loadArtifact(deps.db, deps.storage, runId, 'voiceover_mp3'),
-    loadArtifact(deps.db, deps.storage, runId, 'word_timings'),
+    loadArtifactBuffer(deps.db, deps.storage, runId, 'voiceover_mp3'),
+    loadArtifactBuffer(deps.db, deps.storage, runId, 'word_timings'),
   ]);
-  const words = JSON.parse(timings.toString('utf8')) as WordTiming[];
+  const words = derivedWordsSchema.parse(
+    JSON.parse(timings.toString('utf8')),
+  );
   const lastWordEnd = words.at(-1)?.endSec ?? 10;
+  const targetDurationSec = lastWordEnd + 1;
+  const manifest = await loadVisualsManifest(deps, runId);
 
   await job.updateProgress(25);
 
@@ -81,26 +208,29 @@ export async function processRenderStage(
 
     await transitionRun(deps.db, runId, 'RENDERING');
 
-    await runFfmpeg(
-      [
-        '-hide_banner',
-        '-y',
-        '-f',
-        'lavfi',
-        '-i',
-        `testsrc2=size=1080x1920:rate=30:duration=${(lastWordEnd + 1).toFixed(2)}`,
-        '-pix_fmt',
-        'yuv420p',
-        'clip.mp4',
-      ],
-      { ffmpegBin: deps.env.FFMPEG_BIN, workDir },
+    const visualScenes = await prepareVisualScenes(
+      deps,
+      workDir,
+      manifest,
+      targetDurationSec,
     );
 
-    await job.updateProgress(40);
+    await job.updateProgress(35);
+
+    await buildVisualTrack(
+      {
+        scenes: visualScenes,
+        targetDurationSec,
+        workDir,
+      },
+      { ffmpegBin: deps.env.FFMPEG_BIN },
+    );
+
+    await job.updateProgress(60);
 
     await renderDraft(
       {
-        clipPath: 'clip.mp4',
+        clipPath: 'visuals.mp4',
         audioPath: 'voiceover.mp3',
         outputName: 'draft.mp4',
         workDir,
@@ -115,6 +245,9 @@ export async function processRenderStage(
 
     await deps.storage.putObject(key, draft, 'video/mp4');
 
+    const hasRealAsset = visualScenes.some(
+      (scene) => scene.kind !== 'fallback',
+    );
     const artifact = await saveArtifact(deps.db, {
       runId,
       stage: 'render',
@@ -122,7 +255,17 @@ export async function processRenderStage(
       objectKey: key,
       contentType: 'video/mp4',
       sizeBytes: draft.byteLength,
-      meta: { durationSec: lastWordEnd, background: 'testsrc2' },
+      meta: {
+        durationSec: lastWordEnd,
+        background: hasRealAsset ? 'visuals' : 'fallback_testsrc2',
+        visualSources:
+          manifest?.scenes.map((scene) => ({
+            idx: scene.idx,
+            kind: scene.asset.kind,
+            provider: scene.asset.provider,
+            pageUrl: scene.asset.pageUrl,
+          })) ?? [],
+      },
     });
 
     await job.updateProgress(95);

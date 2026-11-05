@@ -40,6 +40,8 @@ export async function saveArtifact(
     .onConflictDoUpdate({
       target: artifacts.objectKey,
       set: {
+        stage: input.stage,
+        type: input.type,
         sizeBytes: input.sizeBytes,
         contentType: input.contentType,
         meta: input.meta ?? {},

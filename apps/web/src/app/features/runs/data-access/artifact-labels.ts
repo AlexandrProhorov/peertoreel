@@ -6,6 +6,9 @@ const TYPE_LABELS: Record<string, string> = {
   voiceover_mp3: 'Озвучка',
   word_timings: 'Тайминги слов',
   subtitles_ass: 'Субтитры',
+  visuals_json: 'Визуалы (манифест)',
+  visual_clip: 'Стоковый клип',
+  visual_image: 'Стоковое изображение',
   draft_mp4: 'Черновик видео',
 };
 
@@ -23,10 +26,6 @@ export function formatBytes(bytes: number): string {
   }
 
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
-}
-
-export function isVideo(artifact: Artifact): boolean {
-  return artifact.contentType.startsWith('video/');
 }
 
 export function isAudio(artifact: Artifact): boolean {

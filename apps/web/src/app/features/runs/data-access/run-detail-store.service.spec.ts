@@ -1,6 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { Run, RunDetail, StageJobSnapshot } from '@kadence/contracts';
+import type {
+  Run,
+  RunDetail,
+  StageJobSnapshot,
+  StageQueueName,
+  TransitionRunRequest,
+} from '@kadence/contracts';
 import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { RunsApiService } from '../api/runs-api.service';
@@ -29,6 +35,18 @@ const renderingDetail: RunDetail = {
   ...run,
   state: 'RENDERING',
   currentStage: 'render',
+  events: [],
+};
+const voiceReadyDetail: RunDetail = {
+  ...run,
+  state: 'VOICE_READY',
+  currentStage: 'voiceover',
+  events: [],
+};
+const reviewDetail: RunDetail = {
+  ...run,
+  state: 'REVIEW',
+  currentStage: 'qc',
   events: [],
 };
 
@@ -227,6 +245,21 @@ describe('RunDetailStoreService', () => {
     expect(store.stageRunning()).toBe(true);
   });
 
+  it('offers visuals from VOICE_READY and rehydrates its progress', () => {
+    vi.useFakeTimers();
+
+    const stageJob = vi.fn().mockReturnValue(of(activeJob('visuals')));
+    const detail = vi.fn().mockReturnValue(of(voiceReadyDetail));
+    const store = setup({ detail, stageJob });
+
+    store.setRelativeId(run.id);
+
+    expect(store.stageToRun()).toBe('visuals');
+    expect(stageJob).toHaveBeenCalledWith(run.id, 'visuals');
+    expect(store.watchingStage()).toBe('visuals');
+    expect(store.stageRunning()).toBe(true);
+  });
+
   it('keeps a stage failure visible after refreshing the run', async () => {
     vi.useFakeTimers();
 
@@ -337,6 +370,110 @@ describe('RunDetailStoreService', () => {
     store.setRelativeId(run.id);
     await store.runStage('script');
 
+    expect(startStage).not.toHaveBeenCalled();
+  });
+
+  it('regenerates visuals and then chains render automatically', async () => {
+    vi.useFakeTimers();
+
+    const transition = vi.fn((_id: string, request: TransitionRunRequest) =>
+      of({ ...run, state: request.to } as Run),
+    );
+    const startStage = vi.fn((_id: string, stage: StageQueueName) =>
+      of({
+        jobId: `${stage}-job`,
+        stage,
+        status: 'queued' as const,
+      }),
+    );
+    const visualsActive = activeJob('visuals');
+    const visualsDone: StageJobSnapshot = {
+      ...visualsActive,
+      status: 'completed',
+      progress: 100,
+    };
+    const renderActive = activeJob('render');
+    const renderDone: StageJobSnapshot = {
+      ...renderActive,
+      status: 'completed',
+      progress: 100,
+    };
+    const stageJob = vi
+      .fn()
+      .mockReturnValueOnce(of(visualsActive))
+      .mockReturnValueOnce(of(visualsDone))
+      .mockReturnValueOnce(of(renderActive))
+      .mockReturnValueOnce(of(renderDone));
+    const store = setup({
+      detail: vi.fn().mockReturnValue(of(reviewDetail)),
+      transition,
+      startStage,
+      stageJob,
+    });
+
+    store.setRelativeId(run.id);
+    const ok = await store.regenerate('visuals');
+
+    expect(ok).toBe(true);
+    expect(transition).toHaveBeenCalledWith(run.id, {
+      to: 'VOICE_READY',
+      reason: undefined,
+    });
+    expect(startStage).toHaveBeenNthCalledWith(1, run.id, 'visuals');
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await Promise.resolve();
+
+    expect(startStage).toHaveBeenNthCalledWith(2, run.id, 'render');
+
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(store.stageJob()).toBeNull();
+    expect(store.watchingStage()).toBeNull();
+  });
+
+  it('regenerates the script through RESEARCHING and stops at SCRIPT_READY', async () => {
+    const transition = vi.fn((_id: string, request: TransitionRunRequest) =>
+      of({ ...run, state: request.to } as Run),
+    );
+    const startStage = vi.fn((_id: string, stage: StageQueueName) =>
+      of({
+        jobId: `${stage}-job`,
+        stage,
+        status: 'queued' as const,
+      }),
+    );
+    const store = setup({
+      detail: vi.fn().mockReturnValue(of(reviewDetail)),
+      transition,
+      startStage,
+      stageJob: vi.fn().mockReturnValue(of(activeJob('script'))),
+    });
+
+    store.setRelativeId(run.id);
+    const ok = await store.regenerate('script');
+
+    expect(ok).toBe(true);
+    expect(transition.mock.calls.map(([, request]) => request.to)).toEqual([
+      'SCRIPT_READY',
+      'RESEARCHING',
+    ]);
+    expect(startStage).toHaveBeenCalledWith(run.id, 'script');
+  });
+
+  it('does not regenerate outside REVIEW', async () => {
+    const transition = vi.fn();
+    const startStage = vi.fn();
+    const store = setup({
+      detail: vi.fn().mockReturnValue(of(researchingDetail)),
+      transition,
+      startStage,
+    });
+
+    store.setRelativeId(run.id);
+
+    expect(await store.regenerate('visuals')).toBe(false);
+    expect(transition).not.toHaveBeenCalled();
     expect(startStage).not.toHaveBeenCalled();
   });
 });

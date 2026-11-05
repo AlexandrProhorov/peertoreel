@@ -21,6 +21,12 @@ describe('script contracts', () => {
     expect(scriptSchema.safeParse(script).success).toBe(true);
   });
 
+  it('accepts an optional visual anchor', () => {
+    expect(
+      scriptSchema.safeParse({ ...script, visualAnchor: 'sunlight' }).success,
+    ).toBe(true);
+  });
+
   it('rejects a script without beats', () => {
     expect(scriptSchema.safeParse({ ...script, beats: [] }).success).toBe(false);
   });

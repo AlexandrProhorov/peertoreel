@@ -28,6 +28,8 @@ describe('stage contracts', () => {
     expect(STAGE_PRODUCED_STATE.script).toBe('SCRIPT_READY');
     expect(STAGE_REQUIRED_STATE.voiceover).toBe('SCRIPT_READY');
     expect(STAGE_PRODUCED_STATE.voiceover).toBe('VOICE_READY');
+    expect(STAGE_REQUIRED_STATE.visuals).toBe('VOICE_READY');
+    expect(STAGE_PRODUCED_STATE.visuals).toBe('VISUALS_READY');
     expect(STAGE_REQUIRED_STATE.render).toBe('VISUALS_READY');
     expect(STAGE_PRODUCED_STATE.render).toBe('REVIEW');
   });
@@ -35,6 +37,7 @@ describe('stage contracts', () => {
   it('maps run states to the stage job worth observing', () => {
     expect(stageForProgress('RESEARCHING')).toBe('script');
     expect(stageForProgress('SCRIPT_READY')).toBe('voiceover');
+    expect(stageForProgress('VOICE_READY')).toBe('visuals');
     expect(stageForProgress('VISUALS_READY')).toBe('render');
     expect(stageForProgress('RENDERING')).toBe('render');
     expect(stageForProgress('DRAFT')).toBeNull();
@@ -44,6 +47,7 @@ describe('stage contracts', () => {
 
   it('validates payloads', () => {
     expect(stageQueueNameSchema.safeParse('script').success).toBe(true);
+    expect(stageQueueNameSchema.safeParse('visuals').success).toBe(true);
     expect(stageQueueNameSchema.safeParse('render').success).toBe(true);
     expect(stageQueueNameSchema.safeParse('qc').success).toBe(false);
     expect(
@@ -52,5 +56,12 @@ describe('stage contracts', () => {
       }).success,
     ).toBe(true);
     expect(stageJobDataSchema.safeParse({ runId: 'nope' }).success).toBe(false);
+  });
+
+  it('builds a deterministic visuals job id', () => {
+    const runId = '11111111-1111-4111-8111-111111111111';
+
+    expect(stageJobId('visuals', runId)).toBe(`visuals-${runId}`);
+    expect(stageJobId('visuals', runId)).not.toContain(':');
   });
 });

@@ -48,7 +48,21 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 `pnpm db:migrate`, `pnpm check` (134 теста), `/health/ready` → 200 с `worker: up`,
 ping job → `completed` за ~0.5 с.
 
+## M2 — Factory Core (в работе)
+
+| ID | Задача | Статус |
+|---|---|---|
+| M2.1 | Storage + artifacts + S3 | DONE |
+| M2.2 | Стадии `script` и `voiceover` в очереди | DONE |
+| M2.3 | Стадия `render` до `REVIEW` | DONE |
+| M2.4 | Стадия `visuals` (Pixabay, кеш 24 ч, fallback) | DONE |
+| M2.5 | QC + review gate | TODO |
+
+**M2.4 закрыт 2026-11-05.** Проверено: `pnpm check` (208 тестов), живой прогон
+`VOICE_READY → VISUALS_READY → REVIEW` с 8 Pixabay-клипами, повторный запуск visuals без
+дублей, `draft.mp4` 1080×1920/30 fps из реальных сцен.
+
 ## Следующие сессии
 
-1. M2.4 — стадия `visuals` (Pixabay + стратегия вертикали) вместо синтетического фона.
+1. M2.5 — QC и review gate: длительность, громкость, синхронизация, стоп-слова, вердикт.
 2. S1 — publish risk spike (TikTok private publish + manual export).

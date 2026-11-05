@@ -5,23 +5,28 @@ import { RUN_STAGES, RUN_STATES, runStageSchema, type RunState } from './run.js'
 export const STAGE_QUEUES = {
   script: 'script',
   voiceover: 'voiceover',
-  render: 'render',
-} as const;
-
-export const STAGE_JOB_NAMES = {
-  script: 'script',
-  voiceover: 'voiceover',
+  visuals: 'visuals',
   render: 'render',
 } as const;
 
 export type StageQueueName = keyof typeof STAGE_QUEUES;
 
-export const stageQueueNameSchema = z.enum(['script', 'voiceover', 'render']);
+export const STAGE_JOB_NAMES = {
+  script: 'script',
+  voiceover: 'voiceover',
+  visuals: 'visuals',
+  render: 'render',
+} as const satisfies Record<StageQueueName, string>;
+
+export const stageQueueNameSchema = z.enum(
+  Object.keys(STAGE_QUEUES) as [StageQueueName, ...StageQueueName[]],
+);
 
 /** Queue name → pipeline stage it belongs to. */
 export const STAGE_OF_QUEUE = {
   script: 'script',
   voiceover: 'voiceover',
+  visuals: 'visuals',
   render: 'render',
 } as const satisfies Record<StageQueueName, (typeof RUN_STAGES)[number]>;
 
@@ -69,19 +74,22 @@ export type EnqueueStageResponse = z.infer<typeof enqueueStageResponseSchema>;
 export const STAGE_REQUIRED_STATE = {
   script: 'RESEARCHING',
   voiceover: 'SCRIPT_READY',
+  visuals: 'VOICE_READY',
   render: 'VISUALS_READY',
-} as const;
+} as const satisfies Record<StageQueueName, RunState>;
 
 export const STAGE_PRODUCED_STATE = {
   script: 'SCRIPT_READY',
   voiceover: 'VOICE_READY',
+  visuals: 'VISUALS_READY',
   render: 'REVIEW',
-} as const;
+} as const satisfies Record<StageQueueName, RunState>;
 
 /** Which stage a user can run from a given state (drives the UI buttons). */
 export const STAGE_FOR_STATE = {
   RESEARCHING: 'script',
   SCRIPT_READY: 'voiceover',
+  VOICE_READY: 'visuals',
   VISUALS_READY: 'render',
 } as const satisfies Partial<Record<(typeof RUN_STATES)[number], StageQueueName>>;
 

@@ -69,8 +69,8 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 | 2 | research | topic | `research_brief` (facts, theses, 2–3 hooks, sources) | LLM |
 | 3 | script | brief + template | `script` (hook → beats[] → CTA; per beat: text, duration, visual_direction) | LLM (Zod-validated) |
 | 4 | voiceover | beat texts | `voiceover.mp3` + character alignment → derived `word_timings` | ElevenLabs |
-| 5 | visuals | visual_direction per beat | `scenes[]` stock clips / generated images (Runway scenes = M4) | Pixabay, fal.ai |
-| 6 | render | scenes + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
+| 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` objects | Pixabay (fal.ai scenes = M3) |
+| 6 | render | `visuals_json` + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
 | 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | LLM + rules |
 | 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API |
 
@@ -95,15 +95,20 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 users, sessions, tiktok_accounts (encrypted tokens), projects, templates, topics,
 runs (state, current_stage, failed_stage, failure_reason, resume_state, cost_estimate),
 run_events (run_id, from_state, to_state, stage, reason, created_at), artifacts (stage, type, r2_key, meta),
-scenes (idx, text, duration_sec, visual_direction, visual_asset_id, transition),
 publish_cards (title, hashtags, privacy_level, is_aigc, scheduled_at, state,
                publish_id, post_id, fail_reason),
 jobs_audit (queue, job_id, run_id, state, attempts, error),
 provider_usage (provider, model, units, cost_usd, run_id)
 ```
 
-`provider_usage` is written on every external call — dashboard cost views and budget
-warnings read from it. Never estimate costs; record real usage.
+`scenes` is not a table yet: M2.4 stores the scene list in the `visuals_json` artifact
+(`runs/<runId>/visuals/visuals.json`). Add a table only when the review UI needs to query
+individual scenes.
+
+`provider_usage` (future ledger) will be written on every external call — dashboard cost views
+and budget warnings read from it. Never estimate costs; record real usage. The visuals stage
+already writes real `providerRequests` / `cacheHits` counters into `visuals_json`; the full
+ledger is a separate milestone.
 
 ## 6. Queues and limits
 
@@ -111,7 +116,7 @@ warnings read from it. Never estimate costs; record real usage.
 | --- | --- | --- |
 | research, script | 4–8 | validate LLM output against Zod schema; 3 retries on parse failure |
 | tts | 2–4 | ElevenLabs rate limits |
-| stock-search | 1 | Pixabay **100 req/60 s**, cache every query result for **24 h**; no systematic mass downloads |
+| visuals | 1 | Pixabay **100 req/60 s**, cache every search for **24 h**; download only the selected asset; fallback to `testsrc2` per scene |
 | image-gen | 2 | fal.ai pay-per-use; record usage |
 | render | 1–2 | FFmpeg is CPU-heavy (1–3 min per video); clean tmp files; report progress |
 | publish | 1 | TikTok **6 req/min per token**, **~15 posts/day per account**, status fetch 30/min |
@@ -265,7 +270,9 @@ warnings read from it. Never estimate costs; record real usage.
 - Must-have test targets: stage contract schemas (including `stageForProgress`), run state
   machine transitions (including every failed-stage path), worker job idempotency (run twice,
   assert one result), publish error classification, token refresh flow, web base store/api and
-  per-entity store lifecycle (relative id, rehydration, cancellation).
+  per-entity store lifecycle (relative id, rehydration, cancellation). For `visuals`:
+  beat timings, Pixabay error classification/cache/limiter, scene selection, visual-track
+  FFmpeg arguments and processor idempotency.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.
@@ -284,7 +291,7 @@ warnings read from it. Never estimate costs; record real usage.
 
 1. No TikTok publish without `is_aigc: true`.
 2. Never retry terminal provider errors; always retry transient ones with backoff.
-3. Cache Pixabay queries — the 200/h limit is real and shared across the whole app.
+3. Cache Pixabay queries — the 100 req/60 s limit is real and shared across the whole app.
 4. Never log or commit tokens, API keys, cookies or full OAuth payloads.
 5. Stage re-entry must be idempotent; if you cannot make it idempotent, do not ship it.
 6. No `any` in public interfaces; no vendor SDK imports outside provider adapters.

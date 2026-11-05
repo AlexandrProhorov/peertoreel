@@ -24,6 +24,9 @@ export const ARTIFACT_TYPES = [
   'voiceover_mp3',
   'word_timings',
   'subtitles_ass',
+  'visuals_json',
+  'visual_clip',
+  'visual_image',
   'draft_mp4',
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];

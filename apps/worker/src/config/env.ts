@@ -28,6 +28,7 @@ const envSchema = z.object({
   ELEVENLABS_API_KEY: z.string().min(1).optional(),
   ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
   ELEVENLABS_MODEL_ID: z.string().min(1).default('eleven_multilingual_v2'),
+  PIXABAY_API_KEY: z.string().min(1).optional(),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;

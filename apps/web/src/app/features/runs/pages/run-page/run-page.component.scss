@@ -96,6 +96,41 @@ h2 {
   width: min(28rem, 100%);
 }
 
+.run__regenerate {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.run__regenerate h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.run__regenerate .run__hint {
+  margin: 0;
+}
+
+.run__regen-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run__regen-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.run__regen-hint {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+}
+
 .run__stage-head {
   display: flex;
   align-items: flex-start;
@@ -216,10 +251,25 @@ h2 {
   text-decoration: underline;
 }
 
-.run__artifact-video {
+.run__draft-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.run__draft-head h2 {
+  margin-bottom: 0.35rem;
+}
+
+.run__draft-head .run__hint {
+  margin: 0;
+}
+
+.run__draft-video {
   display: block;
-  width: min(100%, 320px);
-  margin-top: 0.75rem;
+  width: min(100%, 360px);
+  margin-top: 1rem;
   border-radius: 0.5rem;
   background: #000;
 }

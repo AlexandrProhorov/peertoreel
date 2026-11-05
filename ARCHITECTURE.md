@@ -24,9 +24,11 @@
                                      └────────────┘
 ```
 
-Redis используется как транспорт BullMQ. Worker — отдельный процесс, который забирает jobs
-из очередей `system`, `script`, `voiceover` и `render`. S3 используется для артефактов стадий
-(`voiceover_mp3`, `word_timings`, `draft_mp4`) и отдаёт их по presigned URL.
+Redis используется как транспорт BullMQ и как кеш поиска Pixabay. Worker — отдельный
+процесс, который забирает jobs из очередей `system`, `script`, `voiceover`, `visuals` и
+`render`. S3 используется для артефактов стадий (`script_json`, `voiceover_mp3`,
+`word_timings`, `visuals_json`, `visual_clip`, `visual_image`, `draft_mp4`) и отдаёт их по
+presigned URL.
 
 ## System queue (S0.2a)
 
@@ -121,7 +123,7 @@ SCRIPT_READY → VOICE_READY | RESEARCHING
 VOICE_READY → VISUALS_READY | SCRIPT_READY
 VISUALS_READY → RENDERING | VOICE_READY
 RENDERING → REVIEW | VISUALS_READY
-REVIEW → SCHEDULED | SCRIPT_READY | VOICE_READY | VISUALS_READY | RENDERING
+REVIEW → SCHEDULED | SCRIPT_READY | VOICE_READY | VISUALS_READY
 SCHEDULED → PUBLISHING | REVIEW
 PUBLISHING → PUBLISHED
 любое незавершённое → FAILED (с reason)
@@ -130,35 +132,46 @@ FAILED → resume_state (только туда)
 
 - Один `FAILED`, а не `FAILED_<STAGE>`: стадия живёт в `failed_stage`, точка возврата — в
   `resume_state`, см. `docs/adr/0005-run-state-machine.md`.
-- Правый вектор (`REVIEW → SCRIPT_READY`, `… → VOICE_READY`) — это regeneration с выбранной
-  стадии после отказа ревьюера.
+- Правый вектор (`REVIEW → SCRIPT_READY`, `… → VOICE_READY`, `… → VISUALS_READY`) — это
+  regeneration с выбранной стадии после отказа ревьюера. Web-слой после перехода сразу
+  запускает нужную стадию и продолжает цепочку: script останавливается на `SCRIPT_READY`,
+  voiceover/visuals/render идут до нового `REVIEW`. `REVIEW → RENDERING` не существует:
+  render всегда стартует из `VISUALS_READY`.
 - Создание run и каждый переход пишут `run_events` в той же транзакции, что и обновление
   `runs`: история не может разойтись с состоянием.
 - `GET /runs` (последние 50), `GET /runs/:id` (+ история), всё под `SessionAuthGuard`.
 
-## Стадии в очереди (M2.2–M2.3)
+## Стадии в очереди (M2.2–M2.4)
 
 ```text
 POST /api/v1/runs/:id/stages/:stage   (202)
   → StagesService: run.state === STAGE_REQUIRED_STATE[stage] ? 409 иначе
   → Queue.add(stage, { runId }, { jobId: "<stage>-<runId>", attempts: 3, backoff })
-  → Worker (script ×2, voiceover ×1, render ×1)
+  → Worker (script ×2, voiceover ×1, visuals ×1, render ×1)
       1. loadRun → guard по состоянию
-      2. провайдер (LLM / TTS) или FFmpeg
+      2. провайдер (LLM / TTS / Pixabay) или FFmpeg
       3. объекты в S3 (runs/<runId>/<stage>/<file>)
       4. saveArtifact (upsert по object_key)
       5. transitionRun: runs + run_events в одной транзакции
          script → SCRIPT_READY, voiceover → VOICE_READY,
-         render → RENDERING → REVIEW
+         visuals → VISUALS_READY, render → RENDERING → REVIEW
   → GET /api/v1/runs/:id/stages/:stage/job → status / progress / result / failedReason
 ```
 
 - `jobId` детерминирован (`script-<runId>`), BullMQ не допускает `:` в кастомных id.
-- Повторный запуск стадии идемпотентен: состояние `SCRIPT_READY`/`VOICE_READY` возвращает
-  результат без повторного вызова провайдера; `object_key` уникален, поэтому ретрай
-  перезаписывает объект, а не плодит строки.
+- Повторный запуск стадии идемпотентен: состояние `SCRIPT_READY`/`VOICE_READY`/
+  `VISUALS_READY` возвращает результат без повторного вызова провайдера; `object_key`
+  уникален, поэтому ретрай перезаписывает объект, а не плодит строки.
+- `visuals` пишет `visuals_json` и по одному объекту на сцену
+  (`runs/<runId>/visuals/scene-<idx>`), удаляет устаревшие сцены и переиспользует
+  детерминированные ключи. Поиск Pixabay кешируется в Redis на 24 ч, лимит 100/60 с
+  защищён in-process limiter'ом при `concurrency: 1`.
+- `render` собирает беззвучный `visuals.mp4` из сцен (видео/фото/fallback `testsrc2`),
+  склеивает сегменты concat demuxer'ом и отдаёт его в `renderDraft`; для run'ов без
+  `visuals_json` остаётся старый синтетический фон.
 - `FAILED` ставится только на последней попытке (`attemptsMade >= attempts`), транзиентные
-  429/5xx уходят в retry с экспоненциальным backoff.
+  429/5xx уходят в retry с экспоненциальным backoff. Терминальные ошибки провайдеров
+  (`retryable: false`) превращаются в BullMQ `UnrecoverableError` и завершают run сразу.
 - Ключи провайдеров опциональны при старте worker'а: стадия падает с явным сообщением, если
   ключ не задан.
 
@@ -172,7 +185,12 @@ POST /api/v1/runs/:id/stages/:stage   (202)
 - `auth.ts` — login request, session payload, user/role;
 - `errors.ts` — единый error envelope;
 - `system.ts` — ping job, status snapshot, enqueue request/response;
-- `queues.ts` — имена очередей и jobs.
+- `queues.ts` — имена очередей и jobs;
+- `run.ts` — состояния, стадии, разрешённые переходы;
+- `script.ts` — сценарий, beat'ы, `visualDirection`;
+- `stages.ts` — очереди стадий, требуемые/производимые состояния, job id;
+- `artifact.ts` — типы артефактов;
+- `visuals.ts` — `StockProvider`, `StockAsset`, `VisualScene`, `VisualsArtifact`.
 
 Схемы описаны Zod. API, web и worker импортируют один и тот же пакет. Пакет собирается в ESM
 (`dist/index.js` + `dist/index.d.ts`), потому что NestJS 12 и Angular 22 работают в ESM.
@@ -207,13 +225,19 @@ POST /api/v1/runs/:id/stages/:stage   (202)
 ### `apps/worker`
 
 - отдельный Node.js-процесс, не Nest-приложение;
-- `config/env.ts` — Zod-валидация env;
+- `config/env.ts` — Zod-валидация env (ключи провайдеров опциональны);
 - `redis-connection.ts` — BullMQ connection options из `REDIS_URL`;
 - `processors/ping.processor.ts` — чистая функция обработки job;
-- `main.ts` — Worker, логирование, graceful shutdown.
+- `stages/` — процессоры `script`, `voiceover`, `visuals`, `render`, переходы run'а,
+  запись артефактов;
+- `llm/`, `tts/`, `stock/` — адаптеры провайдеров за портами; `stock/` содержит Pixabay,
+  Redis-кеш поиска и rate limiter;
+- `visuals/` — `deriveBeatTimings` и планировщик сцен;
+- `media/` — FFmpeg-хелперы, ASS-караоке и сборка визуального трека;
+- `main.ts` — Worker'ы, Redis-кеш Pixabay, логирование, graceful shutdown.
 
-Worker не ходит в БД напрямую; в будущем stage-процессоры будут использовать
-`DatabaseService`/repository через отдельный composition layer.
+Worker использует `@kadence/db` и `@kadence/storage` напрямую; репозиториев и Nest-слоя
+там нет, composition — это `StageDeps` в `main.ts`.
 
 ### `apps/web`
 
@@ -283,7 +307,8 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. M2.4: стадия `visuals` — Pixabay за портом `StockProvider`, кеш 24 ч, `scenes` в S3.
-2. M2.5: QC и review gate — проверки длительности, громкости, синхронизации и стоп-слов.
-3. S1: TikTok OAuth + token vault + один приватный publish.
-4. Provider ports (`LlmProvider`, `TtsProvider`, `StockProvider`, …) и `provider_usage`/cost ledger.
+1. M2.5: QC и review gate — проверки длительности, громкости, синхронизации и стоп-слов.
+2. S1: TikTok OAuth + token vault + один приватный publish.
+3. Provider ports (`LlmProvider`, `TtsProvider`, …) и `provider_usage`/cost ledger;
+   `StockProvider` уже вынесен, но полный ledger по-прежнему отдельный milestone.
+4. `scenes` table — только когда review UI начнёт запрашивать отдельные сцены.
