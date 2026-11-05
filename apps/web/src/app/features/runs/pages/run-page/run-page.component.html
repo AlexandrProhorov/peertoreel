@@ -48,6 +48,7 @@
         <mat-card-content>
           <div class="run__stage-head">
             <div>
+              <p class="run__stage-label">Следующий шаг</p>
               <h2>{{ stageTitle(stage) }}</h2>
               <p class="run__hint">{{ stageHint(stage) }}</p>
             </div>
@@ -81,12 +82,49 @@
       <mat-card-content>
         <h2>Действия</h2>
 
-        @if (canRegenerate()) {
-          <div class="run__regenerate">
-            <h3>Перегенерировать</h3>
+        @if (primaryActions().length > 0) {
+          <div class="run__primary-actions">
+            @for (to of primaryActions(); track to) {
+              <button
+                mat-flat-button
+                type="button"
+                [disabled]="store.pending()"
+                (click)="transition(to)"
+              >
+                {{ transitionLabel(run.state, to) }}
+              </button>
+            }
+          </div>
+
+          @if (run.state === 'REVIEW') {
             <p class="run__hint">
-              Стадия запустится сразу. Дальнейшие шаги выполнятся автоматически до возврата
-              на ревью; сценарий остановится на проверке сценария.
+              Проверьте черновик ниже, затем одобрите или перегенерируйте.
+            </p>
+          }
+        }
+
+        @if (secondaryActions().length > 0) {
+          <div class="run__secondary-actions">
+            @for (to of secondaryActions(); track to) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="store.pending()"
+                (click)="transition(to)"
+              >
+                {{ transitionLabel(run.state, to) }}
+              </button>
+            }
+          </div>
+        }
+
+        @if (canRegenerate()) {
+          <details class="run__regenerate">
+            <summary>Перегенерировать</summary>
+            <p class="run__hint">
+              Если черновик не устраивает: сценарий, озвучка или визуалы. Стадия запустится
+              сразу, следующие шаги выполнятся автоматически до возврата на ревью; сценарий
+              остановится на проверке сценария.
             </p>
             <ul class="run__regen-list">
               @for (action of regenerationActions; track action.stage) {
@@ -103,38 +141,45 @@
                 </li>
               }
             </ul>
-          </div>
+          </details>
         }
 
-        @if (regularActions().length > 0) {
-          <mat-form-field appearance="outline" class="run__reason">
-            <mat-label>Комментарий</mat-label>
-            <input
-              matInput
-              [formControl]="reason"
-              maxlength="500"
-              placeholder="Нужен для остановки и отказа на ревью"
-            />
-          </mat-form-field>
+        @if (canStop()) {
+          <details class="run__danger-zone">
+            <summary>Остановить с ошибкой</summary>
+            <p class="run__hint">Опишите причину — она попадёт в историю run'а.</p>
+            <mat-form-field appearance="outline" class="run__reason">
+              <mat-label>Причина</mat-label>
+              <input
+                matInput
+                [formControl]="reason"
+                maxlength="500"
+                placeholder="Например, ошибка провайдера"
+              />
+            </mat-form-field>
 
-          @if (reason.touched && reason.value.trim().length === 0) {
-            <p class="run__field-error" role="alert">Для остановки run'а укажите причину.</p>
-          }
-
-          <div class="run__buttons">
-            @for (to of regularActions(); track to) {
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="store.pending()"
-                [class.run__danger]="to === 'FAILED'"
-                (click)="transition(to)"
-              >
-                {{ transitionLabel(run.state, to) }}
-              </button>
+            @if (reason.touched && reason.value.trim().length === 0) {
+              <p class="run__field-error" role="alert">Укажите причину остановки.</p>
             }
-          </div>
-        } @else {
+
+            <button
+              mat-stroked-button
+              type="button"
+              class="run__danger"
+              [disabled]="store.pending()"
+              (click)="transition('FAILED')"
+            >
+              Остановить с ошибкой
+            </button>
+          </details>
+        }
+
+        @if (
+          primaryActions().length === 0 &&
+          secondaryActions().length === 0 &&
+          !canRegenerate() &&
+          !canStop()
+        ) {
           <p class="run__hint">Из этого состояния переходов нет.</p>
         }
       </mat-card-content>

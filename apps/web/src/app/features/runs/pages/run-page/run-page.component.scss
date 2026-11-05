@@ -96,19 +96,45 @@ h2 {
   width: min(28rem, 100%);
 }
 
-.run__regenerate {
-  margin-bottom: 1.25rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-}
-
-.run__regenerate h3 {
+.run__stage-label {
   margin: 0 0 0.35rem;
-  font-size: 1rem;
+  color: var(--mat-sys-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.run__regenerate .run__hint {
-  margin: 0;
+.run__primary-actions,
+.run__secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.run__regenerate,
+.run__danger-zone {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.run__regenerate summary,
+.run__danger-zone summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--mat-sys-primary);
+}
+
+.run__regenerate summary:hover,
+.run__danger-zone summary:hover {
+  text-decoration: underline;
+}
+
+.run__regenerate .run__hint,
+.run__danger-zone .run__hint {
+  margin: 0.75rem 0 0;
 }
 
 .run__regen-list {
@@ -129,6 +155,10 @@ h2 {
 .run__regen-hint {
   color: var(--mat-sys-on-surface-variant);
   font-size: 0.8125rem;
+}
+
+.run__danger-zone summary {
+  color: var(--mat-sys-error);
 }
 
 .run__stage-head {
@@ -156,12 +186,6 @@ h2 {
   margin: 0 0 0.75rem;
   color: var(--mat-sys-error);
   font-size: 0.8125rem;
-}
-
-.run__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .run__danger {

@@ -68,6 +68,14 @@ const REVIEW_REGENERATION_TARGETS = new Set<RunState>([
   'VISUALS_READY',
 ]);
 
+/** Forward edges rendered as the single filled primary button. */
+const PRIMARY_TRANSITIONS = new Set<string>([
+  'DRAFT:RESEARCHING',
+  'REVIEW:SCHEDULED',
+  'SCHEDULED:PUBLISHING',
+  'PUBLISHING:PUBLISHED',
+]);
+
 @Component({
   selector: 'app-run-page',
   imports: [
@@ -104,9 +112,7 @@ export class RunPageComponent {
     this.artifacts().filter((artifact) => artifact.type !== 'draft_mp4'),
   );
   protected readonly regenerationActions = REGENERATION_ACTIONS;
-  protected readonly canRegenerate = computed(
-    () => this.store.selected()?.state === 'REVIEW',
-  );
+  protected readonly canRegenerate = computed(() => this.store.selected()?.state === 'REVIEW');
   /** Human decisions and "back" edges; stage-owned transitions are hidden. */
   protected readonly regularActions = computed<RunState[]>(() => {
     const run = this.store.selected();
@@ -120,17 +126,31 @@ export class RunPageComponent {
         return false;
       }
 
-      if (
-        run.state === 'REVIEW' &&
-        REVIEW_REGENERATION_TARGETS.has(to)
-      ) {
-        return false;
-      }
-
-      return true;
+      return !(run.state === 'REVIEW' && REVIEW_REGENERATION_TARGETS.has(to));
     });
   });
   protected readonly reason = new FormControl('', { nonNullable: true });
+  protected readonly primaryActions = computed<RunState[]>(() => {
+    const run = this.store.selected();
+
+    if (!run) {
+      return [];
+    }
+
+    return this.regularActions().filter((to) => {
+      if (run.state === 'FAILED') {
+        return to !== 'FAILED';
+      }
+
+      return PRIMARY_TRANSITIONS.has(`${run.state}:${to}`);
+    });
+  });
+  protected readonly secondaryActions = computed<RunState[]>(() => {
+    const primary = new Set(this.primaryActions());
+
+    return this.regularActions().filter((to) => to !== 'FAILED' && !primary.has(to));
+  });
+  protected readonly canStop = computed(() => this.regularActions().includes('FAILED'));
 
   constructor() {
     // The route is scoped to the store, but Angular reuses the component when

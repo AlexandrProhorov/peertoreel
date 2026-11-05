@@ -1,9 +1,4 @@
-import type {
-  StockAsset,
-  StockAssetKind,
-  VisualScene,
-  VisualSceneAsset,
-} from '@kadence/contracts';
+import type { StockAsset, StockAssetKind, VisualScene, VisualSceneAsset } from '@kadence/contracts';
 import type { BeatTiming } from './beat-timings.js';
 
 export type VisualScenePlan = Omit<VisualScene, 'asset'>;
@@ -20,9 +15,7 @@ export const FALLBACK_ASSET: VisualSceneAsset = {
   pageUrl: null,
 };
 
-export function planVisualScenes(
-  timings: readonly BeatTiming[],
-): VisualScenePlan[] {
+export function planVisualScenes(timings: readonly BeatTiming[]): VisualScenePlan[] {
   return timings.map((timing, idx) => ({
     idx,
     part: timing.part,
@@ -34,10 +27,7 @@ export function planVisualScenes(
   }));
 }
 
-export function withAsset(
-  plan: VisualScenePlan,
-  asset: VisualSceneAsset,
-): VisualScene {
+export function withAsset(plan: VisualScenePlan, asset: VisualSceneAsset): VisualScene {
   return { ...plan, asset };
 }
 
@@ -58,9 +48,7 @@ export interface SelectStockAssetOptions {
 }
 
 function isVertical(asset: StockAsset): boolean {
-  return (
-    asset.width !== null && asset.height !== null && asset.height > asset.width
-  );
+  return asset.width !== null && asset.height !== null && asset.height > asset.width;
 }
 
 function score(asset: StockAsset): number {
@@ -82,10 +70,7 @@ function score(asset: StockAsset): number {
   return value;
 }
 
-function matchesTagTokens(
-  asset: StockAsset,
-  tokens: readonly string[],
-): boolean {
+function matchesTagTokens(asset: StockAsset, tokens: readonly string[]): boolean {
   if (tokens.length === 0) {
     return true;
   }
@@ -100,21 +85,12 @@ function isUsable(asset: StockAsset, options: SelectStockAssetOptions): boolean 
     return false;
   }
 
-  if (asset.sizeBytes !== null && asset.sizeBytes > options.maxBytes) {
-    return false;
-  }
-
-  return true;
+  return !(asset.sizeBytes !== null && asset.sizeBytes > options.maxBytes);
 }
 
-function hasEnoughFootage(
-  asset: StockAsset,
-  minDurationSec: number,
-): boolean {
+function hasEnoughFootage(asset: StockAsset, minDurationSec: number): boolean {
   return (
-    asset.kind !== 'video' ||
-    asset.durationSec === null ||
-    asset.durationSec >= minDurationSec
+    asset.kind !== 'video' || asset.durationSec === null || asset.durationSec >= minDurationSec
   );
 }
 
@@ -129,9 +105,7 @@ export function selectStockAsset(
 ): StockAsset | null {
   const tagTokens = options.requiredTagTokens ?? [];
   const usable = candidates.filter(
-    (candidate) =>
-      isUsable(candidate, options) &&
-      matchesTagTokens(candidate, tagTokens),
+    (candidate) => isUsable(candidate, options) && matchesTagTokens(candidate, tagTokens),
   );
 
   if (usable.length === 0) {
@@ -139,16 +113,13 @@ export function selectStockAsset(
   }
 
   const unused = usable.filter(
-    (candidate) =>
-      !options.usedProviderAssetIds?.has(candidate.providerAssetId),
+    (candidate) => !options.usedProviderAssetIds?.has(candidate.providerAssetId),
   );
   const fresh = unused.filter(
-    (candidate) =>
-      !options.avoidProviderAssetIds?.has(candidate.providerAssetId),
+    (candidate) => !options.avoidProviderAssetIds?.has(candidate.providerAssetId),
   );
   const notAvoided = usable.filter(
-    (candidate) =>
-      !options.avoidProviderAssetIds?.has(candidate.providerAssetId),
+    (candidate) => !options.avoidProviderAssetIds?.has(candidate.providerAssetId),
   );
   let pool = usable;
 
@@ -169,6 +140,5 @@ export function selectStockAsset(
   );
   const preferred = withFootage.length > 0 ? withFootage : pool;
 
-  return [...preferred].sort((left, right) => score(right) - score(left))[0] ??
-    null;
+  return [...preferred].sort((left, right) => score(right) - score(left))[0] ?? null;
 }
