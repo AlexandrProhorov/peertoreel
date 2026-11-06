@@ -9,6 +9,7 @@ import { AppConfigModule } from './config/config.module.js';
 import type { AppEnv } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
+import { PublishModule } from './publish/publish.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { RunsModule } from './runs/runs.module.js';
 import { StorageModule } from './storage/storage.module.js';
@@ -46,6 +47,7 @@ import { SystemModule } from './system/system.module.js';
     AuthModule,
     HealthModule,
     RunsModule,
+    PublishModule,
     SystemModule,
   ],
   providers: [

@@ -72,7 +72,7 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 | 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` objects | Pixabay (fal.ai scenes = M3) |
 | 6 | render | `visuals_json` + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
 | 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | rules + FFmpeg |
-| 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API |
+| 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API (manual export in M1.1) |
 
 ### Run state machine
 
@@ -95,11 +95,16 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 users, sessions, tiktok_accounts (encrypted tokens), projects, templates, topics,
 runs (state, current_stage, failed_stage, failure_reason, resume_state, cost_estimate),
 run_events (run_id, from_state, to_state, stage, reason, created_at), artifacts (stage, type, r2_key, meta),
-publish_cards (title, hashtags, privacy_level, is_aigc, scheduled_at, state,
-               publish_id, post_id, fail_reason),
+publish_cards (run_id unique, title, hashtags jsonb, privacy_level, is_aigc, scheduled_at,
+               exported_at, published_at, state, publish_id, post_id, fail_reason),
 jobs_audit (queue, job_id, run_id, state, attempts, error),
 provider_usage (provider, model, units, cost_usd, run_id)
 ```
+
+`publish_cards` is created automatically in the same transaction as `REVIEW → SCHEDULED`
+(title from the script title, fallback to the run topic) and is the manual-export card until
+TikTok is connected (ADR-0010). `is_aigc` is always `true`; the API never accepts it from the
+client, and a check constraint rejects `false`.
 
 `scenes` is not a table yet: M2.4 stores the scene list in the `visuals_json` artifact
 (`runs/<runId>/visuals/visuals.json`). Add a table only when the review UI needs to query
@@ -125,6 +130,10 @@ ledger is a separate milestone.
 
 ## 7. TikTok integration rules
 
+- **TikTok is not connected yet (M1.1).** The publish card only supports manual export:
+  download the draft, copy the caption, download the card JSON, then mark the run published
+  manually (`SCHEDULED → PUBLISHING → PUBLISHED`, reason «Ручной экспорт»). No TikTok call is
+  made from this path (ADR-0010). `tiktok_accounts` arrives with M1.2.
 - OAuth (Login Kit): scopes `user.info.basic` + `video.publish`. Access token ≈24 h,
   refresh token 365 days — a background job must refresh proactively; tokens are encrypted
   at rest and never logged.
@@ -274,7 +283,9 @@ ledger is a separate milestone.
   per-entity store lifecycle (relative id, rehydration, cancellation). For `visuals`:
   beat timings, Pixabay error classification/cache/limiter, scene selection, visual-track
   FFmpeg arguments and processor idempotency. For `qc`: duration, loudness, audio-gap/sync,
-  stop-words, AIGC, readability and the review gate.
+  stop-words, AIGC, readability and the review gate. For `publish`: card defaults and hashtag
+  normalization, `isAigc` not settable from the client, `GET` 404, upsert, edit restrictions,
+  first-export timestamp, manual publish (two audit rows), and the web card form/export helpers.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.

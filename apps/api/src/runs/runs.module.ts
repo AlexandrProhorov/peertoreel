@@ -17,5 +17,6 @@ import { StagesService } from './stages.service.js';
     StagesQueue,
     StagesService,
   ],
+  exports: [RunsRepository],
 })
 export class RunsModule {}

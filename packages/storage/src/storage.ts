@@ -81,11 +81,29 @@ export class ObjectStorage {
     );
   }
 
-  /** Signed, time-limited URL for downloads (UI, TikTok PULL_FROM_URL later). */
-  async presignGet(key: string, expiresInSec = 3600): Promise<string> {
+  /**
+   * Signed, time-limited URL for downloads (UI, TikTok PULL_FROM_URL later).
+   * `downloadName` adds `Content-Disposition: attachment`, which is the only
+   * way to force a download from a cross-origin presigned URL.
+   */
+  async presignGet(
+    key: string,
+    expiresInSec = 3600,
+    downloadName?: string,
+  ): Promise<string> {
+    const safeDownloadName = downloadName?.replace(SAFE_NAME, '_');
+
     return getSignedUrl(
       this.client,
-      new GetObjectCommand({ Bucket: this.config.bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+        ...(safeDownloadName
+          ? {
+              ResponseContentDisposition: `attachment; filename="${safeDownloadName}"`,
+            }
+          : {}),
+      }),
       { expiresIn: expiresInSec },
     );
   }

@@ -11,6 +11,8 @@ export const artifactSchema = z.object({
   createdAt: z.iso.datetime(),
   /** Short-lived signed URL for reading the object. */
   url: z.url(),
+  /** Same object, signed with `Content-Disposition: attachment`, when a download is intended. */
+  downloadUrl: z.url().optional(),
 });
 export type Artifact = z.infer<typeof artifactSchema>;
 

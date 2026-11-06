@@ -216,6 +216,16 @@
       </mat-card>
     }
 
+    @if (run.state === 'SCHEDULED' || run.state === 'PUBLISHING') {
+      <app-publish-card
+        [runId]="run.id"
+        [runState]="run.state"
+        [defaultTitle]="run.topic"
+        [draft]="draft()"
+        (published)="onPublished()"
+      />
+    }
+
     @if (run.state === 'REVIEW') {
       @if (store.qcReport(); as qc) {
         <mat-card class="run__qc" appearance="outlined">
