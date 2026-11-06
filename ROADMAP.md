@@ -8,7 +8,7 @@
 | ID | Milestone | Результат | Оценка | Статус |
 |---|---|---|---|---|
 | M0 | Walking Skeleton | Монорепо, infra, contracts, API+web, auth, CI | 30–45 ч | DONE |
-| M1 | Publish Risk Spike | Один MP4 → R2 → private TikTok post → статус | 20–35 ч | TODO |
+| M1 | Publish Risk Spike | Один MP4 → R2 → private TikTok post → статус | 20–35 ч | DOING |
 | M2 | Factory Core | Тема → research → script → TTS → visuals → render → QC → review → MP4 | 70–110 ч | DOING |
 | M3 | Quality & Ops | Шаблоны, regeneration, cost dashboard, monitoring | 40–60 ч | TODO |
 | M4 | Scale & Monetization | Batch, A/B, analytics, multi-platform | 40–80 ч | TODO |
@@ -48,6 +48,22 @@ MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
 `pnpm db:migrate`, `pnpm check` (134 теста), `/health/ready` → 200 с `worker: up`,
 ping job → `completed` за ~0.5 с.
 
+## M1 — Publish Risk Spike (в работе)
+
+| ID | Задача | Статус |
+|---|---|---|
+| M1.1 | Publish card + manual export (без TikTok API) | DONE |
+| M1.2 | TikTok OAuth, token vault, `video/init`, статус/webhooks, rate limiter | TODO |
+
+**M1.1 закрыт 2026-11-06.** Проверено: миграции `0005`/`0006` (enum `publish_card_state`,
+`publish_cards`, unique `run_id`, check `is_aigc = true` и длины title, backfill существующих
+run'ов); `pnpm check`; живые запросы — 401 без сессии, 404 без карточки, upsert с
+`isAigc: false` сохраняет `true` и нормализует хештеги, PUT вне `SCHEDULED/PUBLISHING` → 409,
+прямой переход в `PUBLISHING` → 409, повторная отметка экспорта не двигает `exported_at`,
+`downloadUrl` отдаёт `Content-Disposition: attachment`; одноразовый run прошёл
+`REVIEW → SCHEDULED` (карточка создана автоматически) и `manual-publish` (две audit-записи,
+`PUBLISHED`). Браузерный click-through скачивания/буфера/JSON остаётся на ручную проверку.
+
 ## M2 — Factory Core (в работе)
 
 | ID | Задача | Статус |
@@ -68,6 +84,7 @@ ping job → `completed` за ~0.5 с.
 
 ## Следующие сессии
 
-1. S1 — publish risk spike (TikTok private publish + manual export).
+1. M1.2 — TikTok OAuth + token vault + приватная публикация; publish card получает
+   `publish_id`/`post_id`, статус и webhooks.
 2. M3 — quality/ops: style templates, image generation, music/ducking, cost ledger, manual
    scene replacement.

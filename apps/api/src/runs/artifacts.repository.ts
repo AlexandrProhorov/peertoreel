@@ -50,6 +50,7 @@ export class ArtifactsRepository {
       })
       .from(artifacts)
       .where(and(eq(artifacts.runId, runId), eq(artifacts.type, type)))
+      .orderBy(desc(artifacts.createdAt))
       .limit(1);
 
     return row ?? null;

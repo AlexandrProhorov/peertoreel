@@ -22,7 +22,7 @@ export class StorageService {
     return this.storage.getObject(key);
   }
 
-  presignGet(key: string, expiresInSec = 3600): Promise<string> {
-    return this.storage.presignGet(key, expiresInSec);
+  presignGet(key: string, downloadName?: string): Promise<string> {
+    return this.storage.presignGet(key, 3600, downloadName);
   }
 }

@@ -1,0 +1,170 @@
+<mat-card class="publish" appearance="outlined">
+  <mat-card-content>
+    <header class="publish__head">
+      <div>
+        <h2>Публикация</h2>
+        <p class="publish__hint">
+          TikTok ещё не подключён; используйте ручную публикацию.
+        </p>
+      </div>
+
+      <div class="publish__badges">
+        <span class="publish__badge publish__badge--aigc">AI-generated: да</span>
+        @if (store.card(); as card) {
+          <span class="publish__badge">{{ stateLabel(card.state) }}</span>
+        }
+      </div>
+    </header>
+
+    @if (store.error(); as error) {
+      <p class="publish__error" role="alert">{{ error }}</p>
+      @if (!store.loaded()) {
+        <button mat-stroked-button type="button" (click)="retry()">
+          Повторить загрузку
+        </button>
+      }
+    }
+
+    @if (store.loading() && !store.loaded()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Загрузка карточки публикации" />
+    }
+
+    @if (store.loaded()) {
+      @if (store.missing()) {
+        <p class="publish__hint">
+          Карточка ещё не создана. Заполните поля и сохраните — она появится здесь.
+        </p>
+      }
+
+      <form class="publish__form" [formGroup]="form" (ngSubmit)="save()">
+        <mat-form-field appearance="outline">
+          <mat-label>Заголовок</mat-label>
+          <input matInput formControlName="title" [maxlength]="titleMaxLength" />
+          <mat-hint align="end">
+            {{ form.controls.title.value.length }}/{{ titleMaxLength }}
+          </mat-hint>
+          @if (form.controls.title.touched && form.controls.title.invalid) {
+            <mat-error>Укажите заголовок до {{ titleMaxLength }} символов.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Хештеги</mat-label>
+          <input matInput formControlName="hashtags" placeholder="#собаки #породы" />
+          <mat-hint>Через запятую или пробел, до 30 штук.</mat-hint>
+          @if (
+            form.controls.hashtags.touched &&
+            form.controls.hashtags.hasError('hashtagsCount')
+          ) {
+            <mat-error>Не больше 30 хештегов.</mat-error>
+          }
+          @if (
+            form.controls.hashtags.touched &&
+            form.controls.hashtags.hasError('hashtagFormat')
+          ) {
+            <mat-error>
+              Только буквы, цифры и подчёркивание, до 50 символов.
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <div class="publish__row">
+          <mat-form-field appearance="outline">
+            <mat-label>Приватность</mat-label>
+            <mat-select formControlName="privacyLevel">
+              <mat-option [value]="null">Не выбрано</mat-option>
+              @for (level of privacyLevels; track level) {
+                <mat-option [value]="level">{{ privacyLabel(level) }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Значение не выбирается по умолчанию.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Напоминание о публикации</mat-label>
+            <input matInput type="datetime-local" formControlName="scheduledAt" />
+            <mat-hint>
+              Локальное время. У TikTok нет параметра планирования.
+            </mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="publish__actions">
+          @if (!readOnly()) {
+            <button mat-flat-button type="submit" [disabled]="store.pending()">
+              Сохранить
+            </button>
+          }
+
+          @if (draft(); as draftArtifact) {
+            <a
+              mat-stroked-button
+              [href]="draftArtifact.downloadUrl ?? draftArtifact.url"
+              download
+              (click)="downloadVideo()"
+            >
+              Скачать видео
+            </a>
+          } @else {
+            <span class="publish__hint">Черновик не найден.</span>
+          }
+
+          <button mat-stroked-button type="button" (click)="copyText()">
+            Скопировать текст
+          </button>
+
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="!store.card()"
+            (click)="downloadJson()"
+          >
+            Скачать карточку JSON
+          </button>
+        </div>
+
+        @if (copied()) {
+          <p class="publish__ok" role="status">Текст скопирован.</p>
+        }
+        @if (copyError(); as error) {
+          <p class="publish__error" role="alert">{{ error }}</p>
+        }
+      </form>
+
+      @if (store.card(); as card) {
+        @if (card.exportedAt || card.publishedAt) {
+          <p class="publish__meta">
+            @if (card.exportedAt) {
+              <span>Выгружено {{ card.exportedAt | date: 'dd.MM HH:mm' }}</span>
+            }
+            @if (card.publishedAt) {
+              <span>Опубликовано {{ card.publishedAt | date: 'dd.MM HH:mm' }}</span>
+            }
+          </p>
+        }
+      }
+
+      @if (canPublish()) {
+        <details class="publish__manual">
+          <summary>Я опубликовал видео вручную</summary>
+          <p class="publish__hint">
+            Run перейдёт в «Опубликовано», в историю добавятся две записи.
+            Отменить это нельзя.
+          </p>
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="store.pending()"
+            (click)="publishManually()"
+          >
+            Отметить опубликованным вручную
+          </button>
+        </details>
+      } @else if (readOnly()) {
+        <p class="publish__hint">
+          Карточка доступна только для чтения, пока run находится в публикации.
+        </p>
+      }
+    }
+  </mat-card-content>
+</mat-card>

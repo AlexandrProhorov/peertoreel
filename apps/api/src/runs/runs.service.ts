@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import {
   canTransition,
+  derivePublishDefaults,
   qcReportSchema,
+  scriptSchema,
   stageForState,
   type Artifact,
   type CreateRunRequest,
@@ -23,6 +25,7 @@ import {
 } from './artifacts.repository.js';
 import {
   RunsRepository,
+  type DefaultPublishCard,
   type RunEventRecord,
   type RunPatch,
   type RunRecord,
@@ -90,10 +93,17 @@ export class RunsService {
     await this.findRun(id);
 
     const records = await this.artifacts.listByRun(id);
+    const downloadName = `kadence-draft-${id.slice(0, 8)}.mp4`;
 
-    return Promise.all(records.map((record) => this.toArtifact(record)));
+    return Promise.all(
+      records.map((record) =>
+        this.toArtifact(
+          record,
+          record.type === 'draft_mp4' ? downloadName : undefined,
+        ),
+      ),
+    );
   }
-
   async qcReport(id: string): Promise<QcReport> {
     await this.findRun(id);
 
@@ -110,7 +120,15 @@ export class RunsService {
     return qcReportSchema.parse(JSON.parse(body));
   }
 
-  private async toArtifact(record: ArtifactRecord): Promise<Artifact> {
+  private async toArtifact(
+    record: ArtifactRecord,
+    downloadName?: string,
+  ): Promise<Artifact> {
+    const url = await this.storage.presignGet(record.objectKey);
+    const downloadUrl = downloadName
+      ? await this.storage.presignGet(record.objectKey, downloadName)
+      : null;
+
     return {
       id: record.id,
       stage: record.stage,
@@ -118,7 +136,8 @@ export class RunsService {
       contentType: record.contentType,
       sizeBytes: record.sizeBytes,
       createdAt: record.createdAt.toISOString(),
-      url: await this.storage.presignGet(record.objectKey),
+      url,
+      ...(downloadUrl ? { downloadUrl } : {}),
     };
   }
 
@@ -129,6 +148,14 @@ export class RunsService {
 
     if (to === 'FAILED' && !reason) {
       throw new BadRequestException('Укажите причину ошибки');
+    }
+
+    // Publishing is owned by the publish card: it writes both audit rows in
+    // one transaction. A raw transition would leave PUBLISHING without a job.
+    if (to === 'PUBLISHING' || to === 'PUBLISHED') {
+      throw new ConflictException(
+        'Публикация выполняется через карточку публикации',
+      );
     }
 
     if (!canTransition(run.state, to, run.resumeState)) {
@@ -152,14 +179,60 @@ export class RunsService {
       updatedAt: now,
     };
 
-    const updated = await this.repository.applyTransition(id, patch, {
-      fromState: run.state,
-      toState: to,
-      stage,
-      reason,
-    });
+    const updated = await this.repository.applyTransition(
+      id,
+      patch,
+      {
+        fromState: run.state,
+        toState: to,
+        stage,
+        reason,
+      },
+      to === 'SCHEDULED' ? await this.publishCardOptions(run) : {},
+    );
+
+    if (!updated) {
+      throw new ConflictException(
+        'Run уже изменился: обновите страницу и повторите действие',
+      );
+    }
 
     return toRun(updated);
+  }
+
+  /**
+   * Defaults for the card created by REVIEW → SCHEDULED. Reading the script
+   * from S3 is best-effort: a missing or malformed artifact must not block the
+   * transition, so the topic is the fallback title. The draft timestamp lets
+   * the repository reset a stale export when the video was re-rendered.
+   */
+  private async publishCardOptions(run: RunRecord): Promise<{
+    defaultCard: DefaultPublishCard;
+    resetExportBefore?: Date;
+  }> {
+    let scriptTitle: string | null = null;
+
+    try {
+      const record = await this.artifacts.findByType(run.id, 'script_json');
+
+      if (record) {
+        const body = Buffer.from(
+          await this.storage.getObject(record.objectKey),
+        ).toString('utf8');
+        scriptTitle = scriptSchema.parse(JSON.parse(body)).title;
+      }
+    } catch {
+      scriptTitle = null;
+    }
+
+    const draft = await this.artifacts
+      .findByType(run.id, 'draft_mp4')
+      .catch(() => null);
+
+    return {
+      defaultCard: derivePublishDefaults({ topic: run.topic, scriptTitle }),
+      ...(draft ? { resetExportBefore: draft.createdAt } : {}),
+    };
   }
 
   private async findRun(id: string): Promise<RunRecord> {

@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  check,
   index,
   jsonb,
   pgEnum,
@@ -10,6 +11,8 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import type { PublishPrivacyLevel } from '@kadence/contracts';
 
 /**
  * Mirrors `runStateSchema` / `runStageSchema` from `@kadence/contracts`.
@@ -89,8 +92,19 @@ export const sessions = pgTable(
   ],
 );
 
+export const publishCardStateValues = [
+  'draft',
+  'exported',
+  'published',
+  'failed',
+] as const;
+
 export const runStateEnum = pgEnum('run_state', runStateValues);
 export const runStageEnum = pgEnum('run_stage', runStageValues);
+export const publishCardStateEnum = pgEnum(
+  'publish_card_state',
+  publishCardStateValues,
+);
 
 export const runs = pgTable(
   'runs',
@@ -164,6 +178,47 @@ export const artifacts = pgTable(
   ],
 );
 
+/**
+ * One publish card per run. Video and script stay in `artifacts`; this row is
+ * the text the human exports manually until TikTok is connected (ADR-0010).
+ * `publish_id` / `post_id` / `fail_reason` are reserved for M1.2 and stay null.
+ */
+export const publishCards = pgTable(
+  'publish_cards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => runs.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    hashtags: jsonb('hashtags').$type<string[]>().notNull().default([]),
+    privacyLevel: text('privacy_level').$type<PublishPrivacyLevel>(),
+    /** Product rule: never false. Enforced by the API and a check constraint. */
+    isAigc: boolean('is_aigc').notNull().default(true),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    exportedAt: timestamp('exported_at', { withTimezone: true }),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    state: publishCardStateEnum('state').notNull().default('draft'),
+    publishId: text('publish_id'),
+    postId: text('post_id'),
+    failReason: text('fail_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('publish_cards_run_id_unique').on(table.runId),
+    check('publish_cards_is_aigc_true', sql`${table.isAigc} = true`),
+    check(
+      'publish_cards_title_length',
+      sql`char_length(${table.title}) between 1 and 150`,
+    ),
+  ],
+);
+
 export const schema = {
   appMeta,
   users,
@@ -171,4 +226,5 @@ export const schema = {
   runs,
   runEvents,
   artifacts,
+  publishCards,
 };

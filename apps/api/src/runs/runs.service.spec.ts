@@ -116,6 +116,7 @@ describe('RunsService', () => {
         stage: 'research',
         reason: 'Pixabay 429',
       }),
+      {},
     );
   });
 
@@ -145,6 +146,7 @@ describe('RunsService', () => {
         resumeState: null,
       }),
       expect.objectContaining({ fromState: 'FAILED', toState: 'RENDERING' }),
+      {},
     );
   });
 
@@ -223,6 +225,187 @@ describe('RunsService', () => {
 
     await expect(service.qcReport(runId)).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('creates the default publish card when the run is scheduled', async () => {
+    const review = makeRun({
+      state: 'REVIEW',
+      currentStage: 'qc',
+      topic: 'топ 5 пород собак',
+    });
+    const scheduled = makeRun({ state: 'SCHEDULED', currentStage: 'publish' });
+    const { service, artifacts, storage, repository } = setup(
+      review,
+      scheduled,
+    );
+
+    const scriptCreatedAt = new Date('2026-11-06T09:00:00.000Z');
+    const draftCreatedAt = new Date('2026-11-06T11:00:00.000Z');
+
+    vi.mocked(artifacts.findByType).mockImplementation((_id, type) => {
+      if (type === 'script_json') {
+        return Promise.resolve({
+          id: '88888888-8888-4888-8888-888888888888',
+          stage: 'script',
+          type: 'script_json',
+          objectKey: `runs/${runId}/script/script.json`,
+          contentType: 'application/json',
+          sizeBytes: 512,
+          createdAt: scriptCreatedAt,
+        });
+      }
+
+      if (type === 'draft_mp4') {
+        return Promise.resolve({
+          id: '99999999-9999-4999-8999-999999999999',
+          stage: 'render',
+          type: 'draft_mp4',
+          objectKey: `runs/${runId}/render/draft.mp4`,
+          contentType: 'video/mp4',
+          sizeBytes: 1024,
+          createdAt: draftCreatedAt,
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+    vi.mocked(storage.getObject).mockResolvedValue(
+      Buffer.from(
+        JSON.stringify({
+          title: 'Топ 5 пород собак для квартиры',
+          hook: 'Собака в квартире — это реально',
+          beats: [
+            { text: 'Первая порода', visualDirection: 'small dog', durationSec: 5 },
+            { text: 'Вторая порода', visualDirection: 'big dog', durationSec: 5 },
+          ],
+          cta: 'Выбирайте осознанно',
+        }),
+      ),
+    );
+
+    await service.transition(runId, { to: 'SCHEDULED' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({ state: 'SCHEDULED' }),
+      expect.objectContaining({ fromState: 'REVIEW', toState: 'SCHEDULED' }),
+      {
+        defaultCard: {
+          title: 'Топ 5 пород собак для квартиры',
+          hashtags: ['пород', 'собак'],
+        },
+        resetExportBefore: draftCreatedAt,
+      },
+    );
+  });
+
+  it('falls back to the run topic when the script title is unavailable', async () => {
+    const review = makeRun({ state: 'REVIEW' });
+    const scheduled = makeRun({ state: 'SCHEDULED' });
+    const { service, artifacts, storage, repository } = setup(
+      review,
+      scheduled,
+    );
+
+    vi.mocked(artifacts.findByType).mockImplementation((_id, type) =>
+      Promise.resolve(
+        type === 'script_json'
+          ? {
+              id: '88888888-8888-4888-8888-888888888888',
+              stage: 'script' as const,
+              type: 'script_json',
+              objectKey: `runs/${runId}/script/script.json`,
+              contentType: 'application/json',
+              sizeBytes: 512,
+              createdAt: new Date('2026-11-06T09:00:00.000Z'),
+            }
+          : null,
+      ),
+    );
+    vi.mocked(storage.getObject).mockRejectedValue(new Error('S3 is down'));
+
+    await service.transition(runId, { to: 'SCHEDULED' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.anything(),
+      expect.anything(),
+      {
+        defaultCard: {
+          title: 'Почему небо синее',
+          hashtags: ['почему', 'небо', 'синее'],
+        },
+      },
+    );
+  });
+
+  it('rejects raw publish transitions', async () => {
+    const { service, repository } = setup(
+      makeRun({ state: 'SCHEDULED', currentStage: 'publish' }),
+    );
+
+    await expect(
+      service.transition(runId, { to: 'PUBLISHING' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.transition(runId, { to: 'PUBLISHED' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(repository.applyTransition).not.toHaveBeenCalled();
+  });
+
+  it('reports a transition that lost the state race', async () => {
+    const { service, repository } = setup(makeRun());
+
+    vi.mocked(repository.applyTransition).mockResolvedValue(null);
+
+    await expect(
+      service.transition(runId, { to: 'RESEARCHING' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('signs the draft twice: inline and as a download', async () => {
+    const { service, artifacts, storage } = setup(makeRun());
+    const objectKey = `runs/${runId}/render/draft.mp4`;
+
+    vi.mocked(artifacts.listByRun).mockResolvedValue([
+      {
+        id: '99999999-9999-4999-8999-999999999999',
+        stage: 'render',
+        type: 'draft_mp4',
+        objectKey,
+        contentType: 'video/mp4',
+        sizeBytes: 1024,
+        createdAt: new Date('2026-11-06T11:00:00.000Z'),
+      },
+    ]);
+    vi.mocked(storage.presignGet)
+      .mockResolvedValueOnce('http://storage.test/draft')
+      .mockResolvedValueOnce('http://storage.test/download');
+
+    const result = await service.artifactsFor(runId);
+
+    expect(storage.presignGet).toHaveBeenNthCalledWith(1, objectKey);
+    expect(storage.presignGet).toHaveBeenNthCalledWith(
+      2,
+      objectKey,
+      `kadence-draft-${runId.slice(0, 8)}.mp4`,
+    );
+    expect(result[0]?.url).toBe('http://storage.test/draft');
+    expect(result[0]?.downloadUrl).toBe('http://storage.test/download');
+  });
+
+  it('does not touch the publish card on other transitions', async () => {
+    const { service, repository } = setup(makeRun());
+
+    await service.transition(runId, { to: 'RESEARCHING' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.anything(),
+      expect.anything(),
+      {},
     );
   });
 });

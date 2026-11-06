@@ -34,6 +34,10 @@ class TestApiService extends BaseApiService {
     return this.post('/things', body, payloadSchema);
   }
 
+  replace(body: unknown): Observable<Payload> {
+    return this.put('/things/one', body, payloadSchema);
+  }
+
   remove(): Observable<void> {
     return this.postVoid('/things/one');
   }
@@ -86,6 +90,22 @@ describe('BaseApiService', () => {
     expect(request.request.withCredentials).toBe(true);
 
     request.flush({ id: 'two' });
+  });
+
+  it('puts a body and validates the response', () => {
+    let result: Payload | undefined;
+
+    api.replace({ name: 'updated' }).subscribe((value) => {
+      result = value;
+    });
+
+    const request = http.expectOne('http://api.test/api/v1/things/one');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ name: 'updated' });
+    expect(request.request.withCredentials).toBe(true);
+
+    request.flush({ id: 'three' });
+    expect(result).toEqual({ id: 'three' });
   });
 
   it('rejects a malformed payload instead of leaking it to the store', () => {

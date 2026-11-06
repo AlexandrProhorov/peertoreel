@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { PublishCardStoreService } from './data-access/publish-card-store.service';
 import { RunDetailStoreService } from './data-access/run-detail-store.service';
 import { RunsListStoreService } from './data-access/runs-list-store.service';
 
@@ -13,7 +14,7 @@ export const RUNS_ROUTES: Routes = [
   {
     path: ':id',
     title: 'Прогон',
-    providers: [RunDetailStoreService],
+    providers: [RunDetailStoreService, PublishCardStoreService],
     loadComponent: () =>
       import('./pages/run-page/run-page.component').then((module) => module.RunPageComponent),
   },

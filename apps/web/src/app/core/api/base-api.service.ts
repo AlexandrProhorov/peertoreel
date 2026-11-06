@@ -36,6 +36,12 @@ export abstract class BaseApiService {
       .pipe(map((data) => schema.parse(data)));
   }
 
+  protected put<T>(path: string, body: unknown, schema: ResponseSchema<T>): Observable<T> {
+    return this.http
+      .put<unknown>(this.url(path), body, { withCredentials: true })
+      .pipe(map((data) => schema.parse(data)));
+  }
+
   protected postVoid(path: string, body: unknown = null): Observable<void> {
     return this.http.post<void>(this.url(path), body, {
       withCredentials: true,

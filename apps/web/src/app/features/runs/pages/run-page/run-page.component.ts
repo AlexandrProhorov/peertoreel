@@ -27,6 +27,7 @@ import {
   qcVerdictLabel,
 } from '../../data-access/qc-labels';
 import { RunDetailStoreService } from '../../data-access/run-detail-store.service';
+import { PublishCardComponent } from '../../ui/publish-card/publish-card.component';
 
 interface RegenerationAction {
   stage: StageQueueName;
@@ -73,12 +74,19 @@ const REVIEW_REGENERATION_TARGETS = new Set<RunState>([
   'VISUALS_READY',
 ]);
 
+/**
+ * Manual export owns these edges: the publish card renders one action and
+ * writes two audit rows, so raw buttons would create a PUBLISHING dead end.
+ */
+const PUBLISH_OWNED_TRANSITIONS = new Set<string>([
+  'SCHEDULED:PUBLISHING',
+  'PUBLISHING:PUBLISHED',
+]);
+
 /** Forward edges rendered as the single filled primary button. */
 const PRIMARY_TRANSITIONS = new Set<string>([
   'DRAFT:RESEARCHING',
   'REVIEW:SCHEDULED',
-  'SCHEDULED:PUBLISHING',
-  'PUBLISHING:PUBLISHED',
 ]);
 
 @Component({
@@ -93,6 +101,7 @@ const PRIMARY_TRANSITIONS = new Set<string>([
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    PublishCardComponent,
   ],
   templateUrl: './run-page.component.html',
   styleUrl: './run-page.component.scss',
@@ -135,6 +144,10 @@ export class RunPageComponent {
 
     return this.store.allowed().filter((to) => {
       if (STAGE_OWNED_TRANSITIONS.has(`${run.state}:${to}`)) {
+        return false;
+      }
+
+      if (PUBLISH_OWNED_TRANSITIONS.has(`${run.state}:${to}`)) {
         return false;
       }
 
@@ -190,6 +203,11 @@ export class RunPageComponent {
     }
 
     void this.store.regenerate(stage);
+  }
+
+  /** The publish card wrote two audit rows; re-read the run and its history. */
+  protected onPublished(): void {
+    this.store.reload();
   }
 
   protected stageTitle(stage: StageQueueName): string {

@@ -1,6 +1,6 @@
 # ARCHITECTURE
 
-## Текущий срез: M0 закрыт, M2 в работе
+## Текущий срез: M0 закрыт, M2 в работе, M1.1 — ручной экспорт
 
 ```text
 ┌─────────────┐      HTTP/JSON       ┌──────────────┐
@@ -182,6 +182,35 @@ POST /api/v1/runs/:id/stages/:stage   (202)
 - Ключи провайдеров опциональны при старте worker'а: стадия падает с явным сообщением, если
   ключ не задан.
 
+## Publish card и ручной экспорт (M1.1)
+
+```text
+REVIEW --«Одобрить»--> SCHEDULED
+  RunsService.transition()
+  → title = script_json.title, иначе run.topic
+  → hashtags = до 3 слов темы, privacy/scheduled = null
+  → одна транзакция: runs + run_events + INSERT publish_cards ON CONFLICT DO NOTHING
+
+GET  /api/v1/runs/:id/publish-card              → карточка (404, пока её нет)
+PUT  /api/v1/runs/:id/publish-card              → upsert (только SCHEDULED | PUBLISHING)
+POST /api/v1/runs/:id/publish-card/mark-exported → exported_at первой выгрузки
+POST /api/v1/runs/:id/manual-publish            → SCHEDULED → PUBLISHING → PUBLISHED
+                                                   две audit-записи, state=published
+```
+
+- `publish_cards` — одна строка на run (`run_id` unique), `is_aigc` всегда `true`
+  (check constraint в БД). TikTok-поля `publish_id`/`post_id`/`fail_reason` nullable и
+  заполнятся в M1.2.
+- Никаких вызовов TikTok в этом срезе. `draft_mp4` отдаётся существующим presigned URL;
+  отдельный `downloadUrl` подписан с `Content-Disposition: attachment`, чтобы кросс-доменная
+  ссылка действительно скачивала файл, а инлайновый `url` продолжал работать в `<video>`.
+- Прямые переходы `PUBLISHING`/`PUBLISHED` через `/transitions` отклоняются (409): эти рёбра
+  выполняет только `manual-publish`.
+- Web: `PublishCardStoreService` в `providers` роута `:id`; карточка показывается в
+  `SCHEDULED` (редактирование) и `PUBLISHING` (read-only). Экспорт: видео, текст в буфер,
+  JSON. Ручная публикация — одно действие в карточке, сырые кнопки
+  `SCHEDULED → PUBLISHING`/`PUBLISHING → PUBLISHED` скрыты. Полный разбор — ADR-0010.
+
 ## Packages
 
 ### `packages/contracts`
@@ -198,7 +227,9 @@ POST /api/v1/runs/:id/stages/:stage   (202)
 - `stages.ts` — очереди стадий, требуемые/производимые состояния, job id;
 - `artifact.ts` — типы артефактов;
 - `visuals.ts` — `StockProvider`, `StockAsset`, `VisualScene`, `VisualsArtifact`;
-- `qc.ts` — `qc_report`: checks, metrics, verdict.
+- `qc.ts` — `qc_report`: checks, metrics, verdict;
+- `publish.ts` — publish card, privacy levels, card states, hashtag normalization and
+  default title/hashtags for the approval transition.
 
 Схемы описаны Zod. API, web и worker импортируют один и тот же пакет. Пакет собирается в ESM
 (`dist/index.js` + `dist/index.d.ts`), потому что NestJS 12 и Angular 22 работают в ESM.
@@ -220,7 +251,10 @@ POST /api/v1/runs/:id/stages/:stage   (202)
 
 - `config/` — Zod-валидация env, ConfigModule;
 - `auth/` — login/logout/me, `SessionAuthGuard`, Argon2id, сессии и пользователи;
-- `runs/` — состояние run, переходы, история (`run_events`), реестр `artifacts`;
+- `runs/` — состояние run, переходы, история (`run_events`), реестр `artifacts`,
+  создание publish card при `REVIEW → SCHEDULED`;
+- `publish/` — карточка публикации: чтение/upsert, отметка экспорта, ручная публикация
+  двумя переходами;
 - `database/` — `pg.Pool`, Drizzle client, ping, lifecycle;
 - `redis/` — `ioredis`, lazy connect, ping;
 - `health/` — liveness/readiness;
@@ -254,7 +288,8 @@ Worker использует `@kadence/db` и `@kadence/storage` напрямую
 - `core/` — API base URL, нормализация ошибок;
 - `features/auth/` — `api/` (login/me/logout), `data-access/` (session store),
   `pages/login-page/`, `authGuard`;
-- `features/runs/` — список прогонов, карточка run'а, гейты и история переходов;
+- `features/runs/` — список прогонов, карточка run'а, гейты и история переходов,
+  publish card с ручным экспортом;
 - `features/health/` — `api/` (transport), `data-access/` (store + domain helper),
   `pages/` (route page);
 - `features/system/` — ping UI, SSE stream, progress store;
@@ -317,7 +352,8 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. S1: TikTok OAuth + token vault + один приватный publish.
+1. M1.2: TikTok OAuth + token vault + `video/init`/статус; publish card получает
+   `publish_id`/`post_id`, появляется `tiktok_accounts` и rate limiter.
 2. Provider ports (`LlmProvider`, `TtsProvider`, …) и `provider_usage`/cost ledger;
    `StockProvider` уже вынесен, но полный ledger по-прежнему отдельный milestone.
 3. `scenes` table — только когда review UI начнёт запрашивать отдельные сцены.
