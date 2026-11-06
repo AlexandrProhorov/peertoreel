@@ -38,15 +38,19 @@ function setup(run: RunRecord | null, applied?: RunRecord) {
 
   const artifacts = {
     listByRun: vi.fn().mockResolvedValue([]),
+    findByType: vi.fn().mockResolvedValue(null),
   } as unknown as ArtifactsRepository;
 
   const storage = {
     presignGet: vi.fn().mockResolvedValue('http://storage.test/file'),
+    getObject: vi.fn().mockResolvedValue(new Uint8Array()),
   } as unknown as StorageService;
 
   return {
     service: new RunsService(repository, artifacts, storage),
     repository,
+    artifacts,
+    storage,
   };
 }
 
@@ -169,6 +173,55 @@ describe('RunsService', () => {
     const { service } = setup(null);
 
     await expect(service.detail(runId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('returns the QC report from the qc_report artifact', async () => {
+    const { service, artifacts, storage } = setup(makeRun({ state: 'REVIEW' }));
+    const report = {
+      verdict: 'pass',
+      checks: [{ id: 'duration', status: 'pass', message: '47.9 с' }],
+      metrics: {
+        durationSec: 47.9,
+        audioDurationSec: 47.9,
+        videoDurationSec: 47.9,
+        integratedLufs: -14.2,
+        truePeakDb: -1.3,
+        loudnessRange: 7.2,
+        words: 150,
+        wordsPerMinute: 188,
+        maxSentenceWords: 12,
+        audioGaps: [0.08],
+        stopWords: [],
+        isAigc: true,
+      },
+      createdAt: '2026-11-05T16:00:00.000Z',
+    };
+
+    vi.mocked(artifacts.findByType).mockResolvedValue({
+      id: '77777777-7777-4777-8777-777777777777',
+      stage: 'qc',
+      type: 'qc_report',
+      objectKey: `runs/${runId}/qc/qc_report.json`,
+      contentType: 'application/json',
+      sizeBytes: 200,
+      createdAt: new Date('2026-11-05T16:00:00.000Z'),
+    });
+    vi.mocked(storage.getObject).mockResolvedValue(
+      Buffer.from(JSON.stringify(report)),
+    );
+
+    const result = await service.qcReport(runId);
+
+    expect(result.verdict).toBe('pass');
+    expect(artifacts.findByType).toHaveBeenCalledWith(runId, 'qc_report');
+  });
+
+  it('returns 404 when the QC report is missing', async () => {
+    const { service } = setup(makeRun({ state: 'REVIEW' }));
+
+    await expect(service.qcReport(runId)).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import {
   enqueueStageResponseSchema,
+  qcReportSchema,
   runArtifactsResponseSchema,
   runDetailSchema,
   runListResponseSchema,
@@ -9,6 +10,7 @@ import {
   type Artifact,
   type CreateRunRequest,
   type EnqueueStageResponse,
+  type QcReport,
   type Run,
   type RunDetail,
   type StageJobSnapshot,
@@ -32,6 +34,10 @@ export class RunsApiService extends BaseApiService {
     return this.get(`/runs/${id}/artifacts`, runArtifactsResponseSchema).pipe(
       map((response) => response.artifacts),
     );
+  }
+
+  qc(id: string): Observable<QcReport> {
+    return this.get(`/runs/${id}/qc`, qcReportSchema);
   }
 
   create(topic: string): Observable<Run> {

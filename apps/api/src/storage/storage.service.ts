@@ -18,6 +18,10 @@ export class StorageService {
     });
   }
 
+  getObject(key: string): Promise<Uint8Array> {
+    return this.storage.getObject(key);
+  }
+
   presignGet(key: string, expiresInSec = 3600): Promise<string> {
     return this.storage.presignGet(key, expiresInSec);
   }

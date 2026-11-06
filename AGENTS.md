@@ -71,7 +71,7 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 | 4 | voiceover | beat texts | `voiceover.mp3` + character alignment → derived `word_timings` | ElevenLabs |
 | 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` objects | Pixabay (fal.ai scenes = M3) |
 | 6 | render | `visuals_json` + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
-| 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | LLM + rules |
+| 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | rules + FFmpeg |
 | 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API |
 
 ### Run state machine
@@ -119,6 +119,7 @@ ledger is a separate milestone.
 | visuals | 1 | Pixabay **100 req/60 s**, cache every search for **24 h**; download only the selected asset; fallback to `testsrc2` per scene |
 | image-gen | 2 | fal.ai pay-per-use; record usage |
 | render | 1–2 | FFmpeg is CPU-heavy (1–3 min per video); clean tmp files; report progress |
+| qc | 1 | read-only checks on the current draft; a new render invalidates the old `qc_report` |
 | publish | 1 | TikTok **6 req/min per token**, **~15 posts/day per account**, status fetch 30/min |
 | analytics-cron | 1 | periodic metrics pull |
 
@@ -272,7 +273,8 @@ ledger is a separate milestone.
   assert one result), publish error classification, token refresh flow, web base store/api and
   per-entity store lifecycle (relative id, rehydration, cancellation). For `visuals`:
   beat timings, Pixabay error classification/cache/limiter, scene selection, visual-track
-  FFmpeg arguments and processor idempotency.
+  FFmpeg arguments and processor idempotency. For `qc`: duration, loudness, audio-gap/sync,
+  stop-words, AIGC, readability and the review gate.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.

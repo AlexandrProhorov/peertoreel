@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import type {
+  QcReport,
   Run,
   RunDetail,
   StageJobSnapshot,
@@ -50,6 +51,26 @@ const reviewDetail: RunDetail = {
   events: [],
 };
 
+const qcReport: QcReport = {
+  verdict: 'pass',
+  checks: [{ id: 'duration', status: 'pass', message: '47.9 с' }],
+  metrics: {
+    durationSec: 47.9,
+    audioDurationSec: 47.9,
+    videoDurationSec: 47.9,
+    integratedLufs: -14.2,
+    truePeakDb: -1.3,
+    loudnessRange: 7.2,
+    words: 150,
+    wordsPerMinute: 188,
+    maxSentenceWords: 12,
+    audioGaps: [0.08],
+    stopWords: [],
+    isAigc: true,
+  },
+  createdAt: '2026-11-05T16:00:00.000Z',
+};
+
 const notFound = new HttpErrorResponse({
   status: 404,
   error: {
@@ -90,6 +111,7 @@ function setup(api: Partial<RunsApiService> = {}): RunDetailStoreService {
         useValue: {
           detail: vi.fn().mockReturnValue(of(draftDetail)),
           artifacts: vi.fn().mockReturnValue(of([])),
+          qc: vi.fn().mockReturnValue(throwError(() => notFound)),
           stageJob: vi.fn().mockReturnValue(throwError(() => notFound)),
           ...api,
         },
@@ -400,6 +422,7 @@ describe('RunDetailStoreService', () => {
     };
     const stageJob = vi
       .fn()
+      .mockReturnValueOnce(throwError(() => notFound))
       .mockReturnValueOnce(of(visualsActive))
       .mockReturnValueOnce(of(visualsDone))
       .mockReturnValueOnce(of(renderActive))
@@ -412,6 +435,7 @@ describe('RunDetailStoreService', () => {
     });
 
     store.setRelativeId(run.id);
+    await Promise.resolve();
     const ok = await store.regenerate('visuals');
 
     expect(ok).toBe(true);
@@ -447,10 +471,14 @@ describe('RunDetailStoreService', () => {
       detail: vi.fn().mockReturnValue(of(reviewDetail)),
       transition,
       startStage,
-      stageJob: vi.fn().mockReturnValue(of(activeJob('script'))),
+      stageJob: vi
+        .fn()
+        .mockReturnValueOnce(throwError(() => notFound))
+        .mockReturnValue(of(activeJob('script'))),
     });
 
     store.setRelativeId(run.id);
+    await Promise.resolve();
     const ok = await store.regenerate('script');
 
     expect(ok).toBe(true);
@@ -476,4 +504,35 @@ describe('RunDetailStoreService', () => {
     expect(transition).not.toHaveBeenCalled();
     expect(startStage).not.toHaveBeenCalled();
   });
+
+  it('offers the qc stage at REVIEW until a report exists', () => {
+    const stageJob = vi.fn().mockReturnValue(throwError(() => notFound));
+    const store = setup({
+      detail: vi.fn().mockReturnValue(of(reviewDetail)),
+      qc: vi.fn().mockReturnValue(throwError(() => notFound)),
+      stageJob,
+    });
+
+    store.setRelativeId(run.id);
+
+    expect(store.qcReport()).toBeNull();
+    expect(store.stageToRun()).toBe('qc');
+    expect(stageJob).toHaveBeenCalledWith(run.id, 'qc');
+  });
+
+  it('hides the qc stage when the report is already there', () => {
+    const stageJob = vi.fn();
+    const store = setup({
+      detail: vi.fn().mockReturnValue(of(reviewDetail)),
+      qc: vi.fn().mockReturnValue(of(qcReport)),
+      stageJob,
+    });
+
+    store.setRelativeId(run.id);
+
+    expect(store.qcReport()).toEqual(qcReport);
+    expect(store.stageToRun()).toBeNull();
+    expect(stageJob).not.toHaveBeenCalled();
+  });
 });
+

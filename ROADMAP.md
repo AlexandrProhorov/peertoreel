@@ -56,13 +56,18 @@ ping job → `completed` за ~0.5 с.
 | M2.2 | Стадии `script` и `voiceover` в очереди | DONE |
 | M2.3 | Стадия `render` до `REVIEW` | DONE |
 | M2.4 | Стадия `visuals` (Pixabay, кеш 24 ч, fallback) | DONE |
-| M2.5 | QC + review gate | TODO |
+| M2.5 | QC + review gate (`qc_report`, проверки, verdict) | DONE |
 
-**M2.4 закрыт 2026-11-05.** Проверено: `pnpm check` (208 тестов), живой прогон
+**M2.4 закрыт 2026-11-05.** Проверено: `pnpm check` (228 тестов), живой прогон
 `VOICE_READY → VISUALS_READY → REVIEW` с 8 Pixabay-клипами, повторный запуск visuals без
 дублей, `draft.mp4` 1080×1920/30 fps из реальных сцен.
 
+**M2.5 закрыт 2026-11-05.** Живой QC на dog-run: `qc_report` создан, verdict `warn`
+(true peak −1.0 dBTP), duration/sync/stop-words/AIGC/readability — pass; run остался в
+`REVIEW`. «Одобрить» доступно только при наличии отчёта и не при `fail`.
+
 ## Следующие сессии
 
-1. M2.5 — QC и review gate: длительность, громкость, синхронизация, стоп-слова, вердикт.
-2. S1 — publish risk spike (TikTok private publish + manual export).
+1. S1 — publish risk spike (TikTok private publish + manual export).
+2. M3 — quality/ops: style templates, image generation, music/ducking, cost ledger, manual
+   scene replacement.

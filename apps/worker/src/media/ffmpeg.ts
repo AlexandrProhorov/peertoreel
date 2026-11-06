@@ -140,6 +140,8 @@ export async function measureLoudness(
       '-nostats',
       '-i',
       audioPath,
+      '-map',
+      '0:a',
       '-af',
       `loudnorm=I=${loudnessI}:TP=${loudnessTp}:LRA=${loudnessLra}:print_format=json`,
       '-f',

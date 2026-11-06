@@ -27,6 +27,7 @@ export const ARTIFACT_TYPES = [
   'visuals_json',
   'visual_clip',
   'visual_image',
+  'qc_report',
   'draft_mp4',
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];

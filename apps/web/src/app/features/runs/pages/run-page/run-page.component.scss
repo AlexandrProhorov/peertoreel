@@ -298,6 +298,47 @@ h2 {
   background: #000;
 }
 
+.run__qc-metrics {
+  margin-top: 1rem;
+}
+
+.run__qc-warning {
+  margin: 1rem 0 0;
+  color: var(--mat-sys-error);
+  font-size: 0.875rem;
+}
+
+.run__qc-checks {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run__qc-check {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.run__qc-status {
+  min-width: 4.5rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.run__qc-check--warn .run__qc-status {
+  color: var(--mat-sys-secondary);
+}
+
+.run__qc-check--fail .run__qc-status {
+  color: var(--mat-sys-error);
+  font-weight: 700;
+}
+
 .run__artifact-audio {
   display: block;
   width: min(100%, 420px);

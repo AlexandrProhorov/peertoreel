@@ -9,6 +9,7 @@ const TYPE_LABELS: Record<string, string> = {
   visuals_json: 'Визуалы (манифест)',
   visual_clip: 'Стоковый клип',
   visual_image: 'Стоковое изображение',
+  qc_report: 'Проверка качества',
   draft_mp4: 'Черновик видео',
 };
 

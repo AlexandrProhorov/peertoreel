@@ -16,6 +16,7 @@ import {
   type AuthSession,
   type CreateRunRequest,
   type EnqueueStageResponse,
+  type QcReport,
   type Run,
   type RunArtifactsResponse,
   type RunDetail,
@@ -61,6 +62,11 @@ export class RunsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<RunArtifactsResponse> {
     return { artifacts: await this.runs.artifactsFor(id) };
+  }
+
+  @Get(':id/qc')
+  qc(@Param('id', ParseUUIDPipe) id: string): Promise<QcReport> {
+    return this.runs.qcReport(id);
   }
 
   @Post(':id/stages/:stage')

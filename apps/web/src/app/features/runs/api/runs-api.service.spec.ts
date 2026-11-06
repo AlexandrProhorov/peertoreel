@@ -4,7 +4,7 @@ import {
 } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { Run, RunDetail } from '@kadence/contracts';
+import type { QcReport, Run, RunDetail } from '@kadence/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { RunsApiService } from './runs-api.service';
 
@@ -21,6 +21,26 @@ const run: Run = {
 };
 
 const detail: RunDetail = { ...run, events: [] };
+
+const qcReport: QcReport = {
+  verdict: 'pass',
+  checks: [{ id: 'duration', status: 'pass', message: '47.9 с' }],
+  metrics: {
+    durationSec: 47.9,
+    audioDurationSec: 47.9,
+    videoDurationSec: 47.9,
+    integratedLufs: -14.2,
+    truePeakDb: -1.3,
+    loudnessRange: 7.2,
+    words: 150,
+    wordsPerMinute: 188,
+    maxSentenceWords: 12,
+    audioGaps: [0.08],
+    stopWords: [],
+    isAigc: true,
+  },
+  createdAt: '2026-11-05T16:00:00.000Z',
+};
 
 describe('RunsApiService', () => {
   let api: RunsApiService;
@@ -170,5 +190,21 @@ describe('RunsApiService', () => {
       .flush({ artifacts: [{ type: 'voiceover_mp3' }] });
 
     expect(failed).toBe(true);
+  });
+
+  it('reads the QC report', () => {
+    let result: QcReport | undefined;
+
+    api.qc(run.id).subscribe((value) => {
+      result = value;
+    });
+
+    const request = http.expectOne(`http://api.test/api/v1/runs/${run.id}/qc`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+
+    request.flush(qcReport);
+
+    expect(result?.verdict).toBe('pass');
   });
 });

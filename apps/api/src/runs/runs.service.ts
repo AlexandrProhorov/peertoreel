@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import {
   canTransition,
+  qcReportSchema,
   stageForState,
   type Artifact,
   type CreateRunRequest,
+  type QcReport,
   type Run,
   type RunDetail,
   type RunEvent,
@@ -90,6 +92,22 @@ export class RunsService {
     const records = await this.artifacts.listByRun(id);
 
     return Promise.all(records.map((record) => this.toArtifact(record)));
+  }
+
+  async qcReport(id: string): Promise<QcReport> {
+    await this.findRun(id);
+
+    const record = await this.artifacts.findByType(id, 'qc_report');
+
+    if (!record) {
+      throw new NotFoundException(`У run ${id} ещё нет QC-отчёта`);
+    }
+
+    const body = Buffer.from(
+      await this.storage.getObject(record.objectKey),
+    ).toString('utf8');
+
+    return qcReportSchema.parse(JSON.parse(body));
   }
 
   private async toArtifact(record: ArtifactRecord): Promise<Artifact> {

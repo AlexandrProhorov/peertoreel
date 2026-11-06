@@ -6,6 +6,7 @@ import {
   STAGE_OF_QUEUE,
   stageForProgress,
   type Artifact,
+  type QcReport,
   type RunDetail,
   type RunState,
   type StageJobSnapshot,
@@ -47,7 +48,9 @@ const STAGE_POLL_MS = 1500;
  * A regeneration starts from REVIEW. The path is the list of transitions that
  * brings the run back to the state the chosen stage expects.
  */
-const REGENERATION_PATH: Record<StageQueueName, readonly RunState[]> = {
+const REGENERATION_PATH: Partial<
+  Record<StageQueueName, readonly RunState[]>
+> = {
   script: ['SCRIPT_READY', 'RESEARCHING'],
   voiceover: ['SCRIPT_READY'],
   visuals: ['VOICE_READY'],
@@ -58,7 +61,9 @@ const REGENERATION_PATH: Record<StageQueueName, readonly RunState[]> = {
  * Stages that run automatically after the chosen one. Script stops at the
  * SCRIPT_READY human gate; the rest continue to a fresh draft in REVIEW.
  */
-const REGENERATION_CHAIN: Record<StageQueueName, readonly StageQueueName[]> = {
+const REGENERATION_CHAIN: Partial<
+  Record<StageQueueName, readonly StageQueueName[]>
+> = {
   script: ['script'],
   voiceover: ['voiceover', 'visuals', 'render'],
   visuals: ['visuals', 'render'],
@@ -82,6 +87,7 @@ export class RunDetailStoreService extends BaseStore {
 
   private readonly runState = signal<RunDetail | null>(null);
   private readonly artifactsState = signal<Artifact[]>([]);
+  private readonly qcReportState = signal<QcReport | null>(null);
   private readonly stageJobState = signal<StageJobSnapshot | null>(null);
   private readonly watchingStageState = signal<StageQueueName | null>(null);
   /** Remaining stages of a regeneration; empty for normal one-shot starts. */
@@ -89,6 +95,7 @@ export class RunDetailStoreService extends BaseStore {
 
   readonly selected = this.runState.asReadonly();
   readonly artifacts = this.artifactsState.asReadonly();
+  readonly qcReport = this.qcReportState.asReadonly();
   readonly stageJob = this.stageJobState.asReadonly();
   readonly watchingStage = this.watchingStageState.asReadonly();
 
@@ -97,6 +104,11 @@ export class RunDetailStoreService extends BaseStore {
     const run = this.runState();
 
     if (!run) {
+      return null;
+    }
+
+    // REVIEW already has a QC report: no stage card, the review action wins.
+    if (run.state === 'REVIEW' && this.qcReportState()) {
       return null;
     }
 
@@ -132,18 +144,22 @@ export class RunDetailStoreService extends BaseStore {
           const request = forkJoin({
             run: this.api.detail(id),
             artifacts: this.api.artifacts(id).pipe(catchError(() => of([] as Artifact[]))),
+            qc: this.api.qc(id).pipe(catchError(() => of(null))),
           });
 
           return this.query(request).pipe(
-            tap(({ run, artifacts }) => {
+            tap(({ run, artifacts, qc }) => {
               this.runState.set(run);
               this.artifactsState.set(artifacts);
+              this.qcReportState.set(qc);
 
               if (resumeStage) {
-                this.stageWatches.next({
-                  id,
-                  stage: stageForProgress(run.state),
-                });
+                const stage =
+                  run.state === 'REVIEW' && qc
+                    ? null
+                    : stageForProgress(run.state);
+
+                this.stageWatches.next({ id, stage });
               }
             }),
           );
@@ -164,6 +180,7 @@ export class RunDetailStoreService extends BaseStore {
     this.chain = [];
     this.runState.set(null);
     this.artifactsState.set([]);
+    this.qcReportState.set(null);
     this.stageJobState.set(null);
     this.watchingStageState.set(null);
 
@@ -219,6 +236,11 @@ export class RunDetailStoreService extends BaseStore {
 
   async runStage(stage: StageQueueName): Promise<boolean> {
     this.chain = [];
+
+    if (stage === 'qc') {
+      this.qcReportState.set(null);
+    }
+
     return this.startStage(stage);
   }
 
@@ -244,9 +266,16 @@ export class RunDetailStoreService extends BaseStore {
       return false;
     }
 
-    this.chain = [...REGENERATION_CHAIN[stage]];
+    const path = REGENERATION_PATH[stage];
+    const chain = REGENERATION_CHAIN[stage];
 
-    for (const to of REGENERATION_PATH[stage]) {
+    if (!path || !chain) {
+      return false;
+    }
+
+    this.chain = [...chain];
+
+    for (const to of path) {
       if (!(await this.applyTransition(to)) || this.relativeId() !== id) {
         this.chain = [];
         return false;

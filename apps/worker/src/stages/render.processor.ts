@@ -18,6 +18,7 @@ import {
 } from '../media/visual-track.js';
 import { derivedWordsSchema } from '../tts/word-timings.js';
 import type { StageDeps } from './context.js';
+import { deleteArtifactByObjectKey } from './delete-artifact.js';
 import { findArtifactObjectKey, loadArtifactBuffer } from './load-artifact.js';
 import { saveArtifact } from './save-artifact.js';
 import { loadRun, transitionRun } from './transition.js';
@@ -267,6 +268,30 @@ export async function processRenderStage(
           })) ?? [],
       },
     });
+
+    // A new draft invalidates the previous QC report: the review gate must
+    // check this exact file, not the previous render.
+    const previousQcKey = await findArtifactObjectKey(
+      deps.db,
+      runId,
+      'qc_report',
+    );
+
+    if (previousQcKey) {
+      await deleteArtifactByObjectKey(deps.db, previousQcKey);
+
+      try {
+        await deps.storage.deleteObject(previousQcKey);
+      } catch (error: unknown) {
+        deps.logger.warn(
+          {
+            objectKey: previousQcKey,
+            reason: error instanceof Error ? error.message : 'unknown error',
+          },
+          'could not delete the stale QC report object',
+        );
+      }
+    }
 
     await job.updateProgress(95);
 

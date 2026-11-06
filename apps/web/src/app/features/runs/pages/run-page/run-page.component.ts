@@ -1,4 +1,4 @@
-﻿import { DatePipe } from '@angular/common';
+﻿import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, effect, inject, input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,6 +21,11 @@ import {
   runStateTone,
   transitionLabel,
 } from '../../data-access/run-labels';
+import {
+  qcCheckLabel,
+  qcStatusLabel,
+  qcVerdictLabel,
+} from '../../data-access/qc-labels';
 import { RunDetailStoreService } from '../../data-access/run-detail-store.service';
 
 interface RegenerationAction {
@@ -80,6 +85,7 @@ const PRIMARY_TRANSITIONS = new Set<string>([
   selector: 'app-run-page',
   imports: [
     DatePipe,
+    DecimalPipe,
     ReactiveFormsModule,
     MatButtonModule,
     MatCardModule,
@@ -100,6 +106,9 @@ export class RunPageComponent {
   protected readonly stageLabel = runStageLabel;
   protected readonly stateTone = runStateTone;
   protected readonly transitionLabel = transitionLabel;
+  protected readonly qcVerdictLabel = qcVerdictLabel;
+  protected readonly qcStatusLabel = qcStatusLabel;
+  protected readonly qcCheckLabel = qcCheckLabel;
   protected readonly artifactLabel = artifactLabel;
   protected readonly formatBytes = formatBytes;
   protected readonly isAudio = isAudio;
@@ -109,7 +118,10 @@ export class RunPageComponent {
     () => this.artifacts().find((artifact) => artifact.type === 'draft_mp4') ?? null,
   );
   protected readonly otherArtifacts = computed(() =>
-    this.artifacts().filter((artifact) => artifact.type !== 'draft_mp4'),
+    this.artifacts().filter(
+      (artifact) =>
+        artifact.type !== 'draft_mp4' && artifact.type !== 'qc_report',
+    ),
   );
   protected readonly regenerationActions = REGENERATION_ACTIONS;
   protected readonly canRegenerate = computed(() => this.store.selected()?.state === 'REVIEW');
@@ -124,6 +136,12 @@ export class RunPageComponent {
     return this.store.allowed().filter((to) => {
       if (STAGE_OWNED_TRANSITIONS.has(`${run.state}:${to}`)) {
         return false;
+      }
+
+      if (run.state === 'REVIEW' && to === 'SCHEDULED') {
+        const qc = this.store.qcReport();
+
+        return !!qc && qc.verdict !== 'fail';
       }
 
       return !(run.state === 'REVIEW' && REVIEW_REGENERATION_TARGETS.has(to));
@@ -184,6 +202,8 @@ export class RunPageComponent {
         return 'Подбор визуалов';
       case 'render':
         return 'Сборка черновика';
+      case 'qc':
+        return 'Проверка качества';
     }
   }
 
@@ -197,6 +217,8 @@ export class RunPageComponent {
         return 'Pixabay подберёт вертикальные клипы и фото под каждый beat; если ассет не найден, сцена соберётся с fallback-фоном.';
       case 'render':
         return 'FFmpeg соберёт вертикальный черновик из визуалов, озвучки и караоке-субтитров.';
+      case 'qc':
+        return 'Проверит длительность, громкость, синхронизацию, стоп-слова и темп речи перед одобрением.';
     }
   }
 

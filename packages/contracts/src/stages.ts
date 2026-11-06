@@ -7,6 +7,7 @@ export const STAGE_QUEUES = {
   voiceover: 'voiceover',
   visuals: 'visuals',
   render: 'render',
+  qc: 'qc',
 } as const;
 
 export type StageQueueName = keyof typeof STAGE_QUEUES;
@@ -16,6 +17,7 @@ export const STAGE_JOB_NAMES = {
   voiceover: 'voiceover',
   visuals: 'visuals',
   render: 'render',
+  qc: 'qc',
 } as const satisfies Record<StageQueueName, string>;
 
 export const stageQueueNameSchema = z.enum(
@@ -28,6 +30,7 @@ export const STAGE_OF_QUEUE = {
   voiceover: 'voiceover',
   visuals: 'visuals',
   render: 'render',
+  qc: 'qc',
 } as const satisfies Record<StageQueueName, (typeof RUN_STAGES)[number]>;
 
 export const stageJobDataSchema = z.object({
@@ -76,6 +79,7 @@ export const STAGE_REQUIRED_STATE = {
   voiceover: 'SCRIPT_READY',
   visuals: 'VOICE_READY',
   render: 'VISUALS_READY',
+  qc: 'REVIEW',
 } as const satisfies Record<StageQueueName, RunState>;
 
 export const STAGE_PRODUCED_STATE = {
@@ -83,6 +87,7 @@ export const STAGE_PRODUCED_STATE = {
   voiceover: 'VOICE_READY',
   visuals: 'VISUALS_READY',
   render: 'REVIEW',
+  qc: 'REVIEW',
 } as const satisfies Record<StageQueueName, RunState>;
 
 /** Which stage a user can run from a given state (drives the UI buttons). */
@@ -91,6 +96,7 @@ export const STAGE_FOR_STATE = {
   SCRIPT_READY: 'voiceover',
   VOICE_READY: 'visuals',
   VISUALS_READY: 'render',
+  REVIEW: 'qc',
 } as const satisfies Partial<Record<(typeof RUN_STATES)[number], StageQueueName>>;
 
 /**

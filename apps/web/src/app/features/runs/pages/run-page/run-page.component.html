@@ -216,6 +216,70 @@
       </mat-card>
     }
 
+    @if (run.state === 'REVIEW') {
+      @if (store.qcReport(); as qc) {
+        <mat-card class="run__qc" appearance="outlined">
+          <mat-card-content>
+            <div class="run__draft-head">
+              <div>
+                <h2>Проверка качества</h2>
+                <p class="run__hint">{{ qc.createdAt | date: 'dd.MM HH:mm' }}</p>
+              </div>
+              <span
+                class="run__badge"
+                [class.run__badge--ready]="qc.verdict === 'pass'"
+                [class.run__badge--error]="qc.verdict === 'fail'"
+              >
+                {{ qcVerdictLabel(qc.verdict) }}
+              </span>
+            </div>
+
+            @if (qc.verdict === 'fail') {
+              <p class="run__qc-warning" role="alert">
+                QC не пройден: одобрение недоступно, пока не перегенерируете или не
+                перепроверите черновик.
+              </p>
+            }
+
+            <ul class="run__qc-checks">
+              @for (check of qc.checks; track check.id) {
+                <li
+                  class="run__qc-check"
+                  [class.run__qc-check--warn]="check.status === 'warn'"
+                  [class.run__qc-check--fail]="check.status === 'fail'"
+                >
+                  <span class="run__qc-status">{{ qcStatusLabel(check.status) }}</span>
+                  <span>
+                    <strong>{{ qcCheckLabel(check.id) }}:</strong>
+                    {{ check.message }}
+                  </span>
+                </li>
+              }
+            </ul>
+
+            <p class="run__hint run__qc-metrics">
+              {{ qc.metrics.durationSec | number: '1.1-1' }} с ·
+              {{ qc.metrics.integratedLufs | number: '1.1-1' }} LUFS ·
+              true peak {{ qc.metrics.truePeakDb | number: '1.1-1' }} dBTP ·
+              {{ qc.metrics.wordsPerMinute | number: '1.0-0' }} слов/мин
+              @if (qc.metrics.stopWords.length > 0) {
+                · стоп-слова: {{ qc.metrics.stopWords.join(', ') }}
+              }
+            </p>
+
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="store.stageRunning()"
+              (click)="runStage('qc')"
+            >
+              Перепроверить
+            </button>
+          </mat-card-content>
+        </mat-card>
+      }
+    }
+
     <section class="run__history">
       <h2>История ({{ run.events.length }})</h2>
       <ol>

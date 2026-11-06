@@ -21,6 +21,7 @@ import { STOCK_LIMITS } from './stock/limits.js';
 import { createPixabayStockProvider } from './stock/pixabay.js';
 import { SlidingWindowRateLimiter } from './stock/rate-limiter.js';
 import type { StageDeps } from './stages/context.js';
+import { processQcStage } from './stages/qc.processor.js';
 import { processRenderStage } from './stages/render.processor.js';
 import { processScriptStage } from './stages/script.processor.js';
 import {
@@ -139,9 +140,18 @@ const workers: Worker[] = [
       concurrency: 1,
     },
   ),
+  new Worker(
+    STAGE_QUEUES.qc,
+    (job) => withTerminalErrors(() => processQcStage(job, deps)),
+    {
+      connection,
+      concurrency: 1,
+    },
+  ),
 ];
 
-const [, scriptWorker, voiceoverWorker, visualsWorker, renderWorker] = workers;
+const [, scriptWorker, voiceoverWorker, visualsWorker, renderWorker, qcWorker] =
+  workers;
 
 for (const worker of workers) {
   worker.on('completed', (job) => {
@@ -167,6 +177,10 @@ visualsWorker?.on('failed', (job, error) => {
 
 renderWorker?.on('failed', (job, error) => {
   void handleFinalFailure(job, error, 'render');
+});
+
+qcWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'qc');
 });
 
 /**

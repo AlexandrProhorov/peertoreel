@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerEnv } from '../config/env.js';
 import { renderDraft } from '../media/ffmpeg.js';
 import { buildVisualTrack } from '../media/visual-track.js';
+import { deleteArtifactByObjectKey } from './delete-artifact.js';
 import { findArtifactObjectKey, loadArtifactBuffer } from './load-artifact.js';
 import { processRenderStage } from './render.processor.js';
 import { saveArtifact } from './save-artifact.js';
@@ -26,6 +27,10 @@ vi.mock('./load-artifact.js', () => ({
 
 vi.mock('./save-artifact.js', () => ({
   saveArtifact: vi.fn(),
+}));
+
+vi.mock('./delete-artifact.js', () => ({
+  deleteArtifactByObjectKey: vi.fn(),
 }));
 
 vi.mock('../media/ffmpeg.js', () => ({
@@ -119,6 +124,7 @@ function setup(options: { manifest: VisualsArtifact | null }) {
       return new Uint8Array([1, 2, 3]);
     }),
     putObject: vi.fn().mockResolvedValue(undefined),
+    deleteObject: vi.fn().mockResolvedValue(undefined),
   };
 
   vi.mocked(loadRun).mockResolvedValue({
@@ -143,9 +149,11 @@ function setup(options: { manifest: VisualsArtifact | null }) {
       throw new Error(`unexpected artifact ${type}`);
     },
   );
-  vi.mocked(findArtifactObjectKey).mockResolvedValue(
-    options.manifest ? manifestKey : null,
+  vi.mocked(findArtifactObjectKey).mockImplementation(
+    async (_db, _runId, type) =>
+      type === 'visuals_json' && options.manifest ? manifestKey : null,
   );
+  vi.mocked(deleteArtifactByObjectKey).mockResolvedValue(undefined);
   vi.mocked(renderDraft).mockImplementation(async (input) => {
     await writeFile(path.join(input.workDir, input.outputName), 'draft');
     return path.join(input.workDir, input.outputName);
@@ -264,6 +272,26 @@ describe('processRenderStage', () => {
         meta: expect.objectContaining({ background: 'visuals' }),
       }),
     );
+  });
+
+  it('invalidates the previous QC report when a new draft is rendered', async () => {
+    const { deps, storage } = setup({ manifest });
+    const qcKey = `runs/${runId}/qc/qc_report.json`;
+
+    vi.mocked(findArtifactObjectKey).mockImplementation(
+      async (_db, _runId, type) => {
+        if (type === 'visuals_json') {
+          return manifestKey;
+        }
+
+        return type === 'qc_report' ? qcKey : null;
+      },
+    );
+
+    await processRenderStage(fakeJob(), deps);
+
+    expect(deleteArtifactByObjectKey).toHaveBeenCalledWith({}, qcKey);
+    expect(storage.deleteObject).toHaveBeenCalledWith(qcKey);
   });
 });
 

@@ -32,6 +32,8 @@ describe('stage contracts', () => {
     expect(STAGE_PRODUCED_STATE.visuals).toBe('VISUALS_READY');
     expect(STAGE_REQUIRED_STATE.render).toBe('VISUALS_READY');
     expect(STAGE_PRODUCED_STATE.render).toBe('REVIEW');
+    expect(STAGE_REQUIRED_STATE.qc).toBe('REVIEW');
+    expect(STAGE_PRODUCED_STATE.qc).toBe('REVIEW');
   });
 
   it('maps run states to the stage job worth observing', () => {
@@ -40,8 +42,8 @@ describe('stage contracts', () => {
     expect(stageForProgress('VOICE_READY')).toBe('visuals');
     expect(stageForProgress('VISUALS_READY')).toBe('render');
     expect(stageForProgress('RENDERING')).toBe('render');
+    expect(stageForProgress('REVIEW')).toBe('qc');
     expect(stageForProgress('DRAFT')).toBeNull();
-    expect(stageForProgress('REVIEW')).toBeNull();
     expect(stageForProgress('FAILED')).toBeNull();
   });
 
@@ -49,7 +51,8 @@ describe('stage contracts', () => {
     expect(stageQueueNameSchema.safeParse('script').success).toBe(true);
     expect(stageQueueNameSchema.safeParse('visuals').success).toBe(true);
     expect(stageQueueNameSchema.safeParse('render').success).toBe(true);
-    expect(stageQueueNameSchema.safeParse('qc').success).toBe(false);
+    expect(stageQueueNameSchema.safeParse('qc').success).toBe(true);
+    expect(stageQueueNameSchema.safeParse('research').success).toBe(false);
     expect(
       stageJobDataSchema.safeParse({
         runId: '11111111-1111-4111-8111-111111111111',

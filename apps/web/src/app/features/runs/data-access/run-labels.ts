@@ -21,7 +21,7 @@ const STAGE_LABELS: Record<RunStage, string> = {
   voiceover: 'Озвучка',
   visuals: 'Визуалы',
   render: 'Рендер',
-  qc: 'QC',
+  qc: 'Проверка качества',
   publish: 'Публикация',
 };
 
