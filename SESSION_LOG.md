@@ -38,8 +38,13 @@ refresh» висел до таймаута. Заменил на `new Date()` —
   redis, worker `up`; `POST /api/v1/auth/login` → 200 и `Set-Cookie: peertoreel_session=…`.
 
 **Git:** история не переписывалась, переименование — один коммит. Осталось:
-переименовать репозиторий на GitHub в `peertoreel`, обновить remote, push, затем
-переименовать локальную папку.
+переименовать репозиторий на GitHub в `peertoreel`, обновить remote и сделать push.
+
+**Локальная папка:** `Rename-Item` не сработал — каталог держит процесс OpenCode
+(`access denied` даже на пустой папке). Переехали копией: `robocopy` без
+`node_modules/dist/.angular/.idea`, затем `pnpm install`, `pnpm typecheck` и `pnpm test`
+в новой папке (353 теста зелёные), после чего `session_move`. Пустой каталог `Kadence`
+остаётся заблокированным до перезапуска приложения — удалить после рестарта.
 
 ## 2026-11-08 — Roadmap M3 «Animated Factory» + план для агентов
 
