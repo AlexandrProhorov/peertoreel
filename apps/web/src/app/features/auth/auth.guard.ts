@@ -11,7 +11,7 @@ import {
 
 /**
  * Guards are part of the eagerly loaded route table, so the auth feature is
- * imported on demand here. Otherwise `@kadence/contracts` (and Zod) would land
+ * imported on demand here. Otherwise `@peertoreel/contracts` (and Zod) would land
  * in the initial bundle for everyone, including anonymous visitors.
  */
 export const authGuard: CanActivateFn = (): Observable<boolean | UrlTree> => {

@@ -12,7 +12,7 @@
 ## Решение
 
 - Локально используем **SeaweedFS** с S3 API на `http://localhost:8333`.
-- Bucket `kadence` создаётся init-контейнером `amazon/aws-cli`.
+- Bucket `peertoreel` создаётся init-контейнером `amazon/aws-cli`.
 - Production остаётся на **Cloudflare R2**.
 - Приложение работает только через S3 API, без MinIO-специфичных вызовов.
 

@@ -2,7 +2,7 @@ import {
   PUBLISH_CARD_STATES,
   RUN_STAGES,
   RUN_STATES,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   publishCardStateValues,

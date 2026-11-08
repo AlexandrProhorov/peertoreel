@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { ReadinessResponse } from '@kadence/contracts';
+import type { ReadinessResponse } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { HealthApiService } from './health-api.service';
 

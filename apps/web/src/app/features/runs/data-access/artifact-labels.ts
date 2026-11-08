@@ -1,5 +1,5 @@
-import type { Artifact } from '@kadence/contracts';
-import type { RunStage } from '@kadence/contracts';
+import type { Artifact } from '@peertoreel/contracts';
+import type { RunStage } from '@peertoreel/contracts';
 
 const TYPE_LABELS: Record<string, string> = {
   script_json: 'Сценарий',

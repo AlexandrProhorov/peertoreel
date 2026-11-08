@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { readinessResponseSchema, type ReadinessResponse } from '@kadence/contracts';
+import { readinessResponseSchema, type ReadinessResponse } from '@peertoreel/contracts';
 import type { Observable } from 'rxjs';
 import { BaseApiService } from '../../../core/api/base-api.service';
 

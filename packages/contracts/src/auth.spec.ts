@@ -9,7 +9,7 @@ import {
 describe('auth contracts', () => {
   it('accepts a valid login request', () => {
     const result = loginRequestSchema.safeParse({
-      email: 'owner@kadence.local',
+      email: 'owner@peertoreel.local',
       password: 'correct-horse-battery',
     });
 
@@ -27,7 +27,7 @@ describe('auth contracts', () => {
 
   it('rejects a short password', () => {
     const result = loginRequestSchema.safeParse({
-      email: 'owner@kadence.local',
+      email: 'owner@peertoreel.local',
       password: 'short',
     });
 
@@ -38,7 +38,7 @@ describe('auth contracts', () => {
     const result = authSessionSchema.safeParse({
       user: {
         id: '8a5c1a8f-3d38-4d2f-9b63-36b7f5e5f1a2',
-        email: 'owner@kadence.local',
+        email: 'owner@peertoreel.local',
         displayName: 'Owner',
         role: 'admin',
       },
@@ -53,7 +53,7 @@ describe('auth contracts', () => {
     expect(
       authUserSchema.safeParse({
         id: '8a5c1a8f-3d38-4d2f-9b63-36b7f5e5f1a2',
-        email: 'owner@kadence.local',
+        email: 'owner@peertoreel.local',
         displayName: 'Owner',
         role: 'root',
       }).success,

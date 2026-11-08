@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { tiktokAccounts } from '@kadence/db';
+import { tiktokAccounts } from '@peertoreel/db';
 import { desc, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
 

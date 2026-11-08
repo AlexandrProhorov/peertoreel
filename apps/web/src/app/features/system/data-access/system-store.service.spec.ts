@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { PingJobResult, SystemJobSnapshot } from '@kadence/contracts';
+import type { PingJobResult, SystemJobSnapshot } from '@peertoreel/contracts';
 import { concat, of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { SystemApiService } from '../api/system-api.service';

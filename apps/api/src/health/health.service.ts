@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { LivenessResponse, ReadinessResponse } from '@kadence/contracts';
+import type { LivenessResponse, ReadinessResponse } from '@peertoreel/contracts';
 import type { AppEnv } from '../config/env.js';
 import { DatabaseService } from '../database/database.service.js';
 import { RedisService } from '../redis/redis.service.js';

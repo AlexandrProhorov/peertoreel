@@ -1,4 +1,4 @@
-import type { Script } from '@kadence/contracts';
+import type { Script } from '@peertoreel/contracts';
 
 const STOP_WORDS = new Set([
   'a',

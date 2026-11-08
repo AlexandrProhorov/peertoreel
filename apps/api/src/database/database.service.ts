@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createDatabase, type Database } from '@kadence/db';
+import { createDatabase, type Database } from '@peertoreel/db';
 import { sql } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import type { AppEnv } from '../config/env.js';

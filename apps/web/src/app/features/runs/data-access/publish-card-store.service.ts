@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type {
   PublishCard,
   UpdatePublishCardRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import {
   catchError,
   map,

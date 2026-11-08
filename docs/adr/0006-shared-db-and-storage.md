@@ -47,7 +47,7 @@ Two structural questions had to be answered:
 - `AGENTS.md` §2/§3/§8 updated: schema path and package list.
 - drizzle-kit points at `../../packages/db/src/schema.ts`; the enum-parity test moved to
   `packages/db`.
-- Worker gained `@kadence/db`, `@kadence/storage`, `drizzle-orm` and `pg` dependencies.
+- Worker gained `@peertoreel/db`, `@peertoreel/storage`, `drizzle-orm` and `pg` dependencies.
 - The API needs S3 credentials in env (defaults match the local compose stack).
 - Deleting a run cascades to artifact rows; objects in S3 are not deleted automatically yet —
   a cleanup job will be needed before production.

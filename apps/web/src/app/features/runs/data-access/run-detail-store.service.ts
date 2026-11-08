@@ -11,7 +11,7 @@ import {
   type RunState,
   type StageJobSnapshot,
   type StageQueueName,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import {
   catchError,
   concat,

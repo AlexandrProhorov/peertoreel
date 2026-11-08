@@ -9,7 +9,7 @@ import {
   type PingJobResult,
   type SystemJobSnapshot,
   type SystemJobStatus,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import type { AppEnv } from '../config/env.js';

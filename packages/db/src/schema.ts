@@ -12,10 +12,10 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import type { PublishPrivacyLevel } from '@kadence/contracts';
+import type { PublishPrivacyLevel } from '@peertoreel/contracts';
 
 /**
- * Mirrors `runStateSchema` / `runStageSchema` from `@kadence/contracts`.
+ * Mirrors `runStateSchema` / `runStageSchema` from `@peertoreel/contracts`.
  * Duplicated on purpose: drizzle-kit loads this file through CJS require and
  * cannot resolve the ESM-only contracts package. `schema.spec.ts` fails if the
  * two lists drift.

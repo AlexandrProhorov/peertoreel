@@ -1,6 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type { ReadinessResponse } from '@kadence/contracts';
+import type { ReadinessResponse } from '@peertoreel/contracts';
 import { catchError, of, Subject, switchMap, tap, throwError } from 'rxjs';
 import { BaseStore } from '../../../core/state/base-store';
 import { HealthApiService } from '../api/health-api.service';

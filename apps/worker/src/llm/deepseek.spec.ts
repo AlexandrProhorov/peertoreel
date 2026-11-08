@@ -1,4 +1,4 @@
-import { scriptSchema } from '@kadence/contracts';
+import { scriptSchema } from '@peertoreel/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { generateJson, isRetryableStatus, LlmError } from './deepseek.js';
 

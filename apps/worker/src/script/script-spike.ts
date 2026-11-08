@@ -6,7 +6,7 @@ import {
   scriptPlannedDurationSec,
   scriptSchema,
   scriptSpeechText,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { config as loadEnv } from 'dotenv';
 import { generateJson } from '../llm/deepseek.js';
 import { renderDraft, runFfmpeg } from '../media/ffmpeg.js';

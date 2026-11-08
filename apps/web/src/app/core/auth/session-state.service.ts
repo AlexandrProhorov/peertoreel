@@ -1,8 +1,8 @@
 import { computed, Injectable, signal } from '@angular/core';
-import type { AuthSession, AuthUser } from '@kadence/contracts';
+import type { AuthSession, AuthUser } from '@peertoreel/contracts';
 
 /**
- * Session state without any runtime dependency on `@kadence/contracts`
+ * Session state without any runtime dependency on `@peertoreel/contracts`
  * (types are erased at build time). The app shell reads this, so Zod stays out
  * of the initial bundle; `AuthStoreService` in the auth feature owns the
  * transport and writes here.

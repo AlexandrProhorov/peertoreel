@@ -17,18 +17,6 @@ importers:
 
   apps/api:
     dependencies:
-      '@kadence/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@kadence/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@kadence/storage':
-        specifier: workspace:*
-        version: link:../../packages/storage
-      '@kadence/tiktok':
-        specifier: workspace:*
-        version: link:../../packages/tiktok
       '@nestjs/common':
         specifier: ^12.0.1
         version: 12.3.2(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -44,6 +32,18 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
+      '@peertoreel/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@peertoreel/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@peertoreel/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@peertoreel/tiktok':
+        specifier: workspace:*
+        version: link:../../packages/tiktok
       bullmq:
         specifier: ^6.5.2
         version: 6.5.3(ioredis@6.0.0)(pg@8.23.1)
@@ -159,7 +159,7 @@ importers:
       '@fontsource/material-icons':
         specifier: ^5.3.0
         version: 5.3.0
-      '@kadence/contracts':
+      '@peertoreel/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       rxjs:
@@ -196,16 +196,16 @@ importers:
 
   apps/worker:
     dependencies:
-      '@kadence/contracts':
+      '@peertoreel/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@kadence/db':
+      '@peertoreel/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@kadence/storage':
+      '@peertoreel/storage':
         specifier: workspace:*
         version: link:../../packages/storage
-      '@kadence/tiktok':
+      '@peertoreel/tiktok':
         specifier: workspace:*
         version: link:../../packages/tiktok
       bullmq:
@@ -277,7 +277,7 @@ importers:
         specifier: ^8.23.1
         version: 8.23.1
     devDependencies:
-      '@kadence/contracts':
+      '@peertoreel/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@types/node':
@@ -320,7 +320,7 @@ importers:
 
   packages/tiktok:
     dependencies:
-      '@kadence/contracts':
+      '@peertoreel/contracts':
         specifier: workspace:*
         version: link:../contracts
       zod:

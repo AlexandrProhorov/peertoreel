@@ -3,8 +3,8 @@ import {
   scriptSchema,
   stageJobDataSchema,
   type StageJobResult,
-} from '@kadence/contracts';
-import { buildArtifactKey } from '@kadence/storage';
+} from '@peertoreel/contracts';
+import { buildArtifactKey } from '@peertoreel/storage';
 import type { Job } from 'bullmq';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -48,7 +48,7 @@ export async function processQcStage(
   const words = derivedWordsSchema.parse(
     JSON.parse(timingsBody.toString('utf8')),
   );
-  const workDir = path.join(tmpdir(), 'kadence-qc', runId);
+  const workDir = path.join(tmpdir(), 'peertoreel-qc', runId);
 
   await mkdir(workDir, { recursive: true });
 

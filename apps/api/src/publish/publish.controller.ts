@@ -14,7 +14,7 @@ import {
   updatePublishCardRequestSchema,
   type PublishCard,
   type UpdatePublishCardRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { SessionAuthGuard } from '../auth/session-auth.guard.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { PublishService } from './publish.service.js';

@@ -1,5 +1,46 @@
 # SESSION LOG
 
+## 2026-11-08 — Переименование Kadence → Peer to Reel
+
+**Цель:** уйти от бренда `kadence` (конфликт с Kadence Themes/kadencewp.com и HR-брендом
+Kadence International) до старта M3.1, пока контракт раскадровки не отгружен.
+
+**Сделано:**
+
+- 137 файлов: скоупы `@kadence/*` → `@peertoreel/*`, корневой пакет `peertoreel`,
+  `pnpm-lock.yaml` перегенерирован через `pnpm install`.
+- Cookie `kadence_session` → `peertoreel_session`; id контракта
+  `peertoreel.storyboard.v1`; bootstrap-админ `owner@peertoreel.local`.
+- UI: `<title>`, meta description, бренд в шапке (марка `P2R`), футер,
+  «Вход в Peer to Reel»; спека `App` обновлена.
+- Инфра: compose-проект `peertoreel`, Postgres user/db `peertoreel`, volumes
+  `peertoreel-*`, bucket и ключи S3 `peertoreel`; CI и env-дефолты синхронно.
+- Локальная инфра пересоздана: старые контейнеры и volumes `kadence-*` удалены вручную
+  (проект compose переименован, поэтому `down -v` их уже не находил), затем `up -d`,
+  `db:migrate`, bucket создан init-джобой.
+- `docs/ignore/**` (gitignored research/prompts) намеренно не трогали — там исторический
+  материал.
+
+**Найденный баг (не связан с переименованием):** в `tiktok-token.service.spec.ts`
+фикстура `now` была захардкожена на `2026-11-07T10:00:00Z`. После этой даты токен в
+фикстуре считается протухшим: тест «fresh token» падал по ассерту, а «waits for another
+refresh» висел до таймаута. Заменил на `new Date()` — оба теста снова зелёные.
+
+**Проверки:**
+
+- `pnpm lint` — ок (осталось одно старое warning про неиспользуемый `TikTokAccount`
+  в `tiktok.controller.ts`).
+- `pnpm typecheck` — ок.
+- `pnpm test` — 353 теста: storage 3, contracts 58, tiktok 26, db 3, web 113, worker 91,
+  api 59.
+- `pnpm build` — ок.
+- Smoke на живом API: `/api/v1/health/live` → 200; `/api/v1/health/ready` → database,
+  redis, worker `up`; `POST /api/v1/auth/login` → 200 и `Set-Cookie: peertoreel_session=…`.
+
+**Git:** история не переписывалась, переименование — один коммит. Осталось:
+переименовать репозиторий на GitHub в `peertoreel`, обновить remote, push, затем
+переименовать локальную папку.
+
 ## 2026-11-08 — Roadmap M3 «Animated Factory» + план для агентов
 
 **Цель:** после исследования нарезать ближайшие фичи, дополнить ROADMAP и подготовить
@@ -28,7 +69,7 @@
 - Очередь `scene-render` — не stage-очередь (payload `{runId, sceneIdx}`), оркестрация
   остаётся в `visuals`; ADR-0012 + обновление AGENTS §10 входят в слайс M3.1 (hard rule 8).
 
-**Следующая сессия:** M3.1 — контракт `kadence.storyboard.v1` в contracts, перенос
+**Следующая сессия:** M3.1 — контракт `peertoreel.storyboard.v1` в contracts, перенос
 `DerivedWord` в contracts, фикстура «−15°» (6 сцен), ADR-0012, AGENTS §10.
 
 ## 2026-11-08 — Исследование: программная анимация + AI video generation (research only)
@@ -58,7 +99,7 @@
   MIT); сцены рендерятся в mp4 и собираются **существующим** FFmpeg-конвейером без изменений
   (render уже потребляет `scene.asset.objectKey`).
 - Основной путь генерации сцен — библиотека параметрических компонентов + Zod-раскадровка
-  (`kadence.storyboard.v1`), codegen — аварийный люк в песочнице.
+  (`peertoreel.storyboard.v1`), codegen — аварийный люк в песочнице.
 - Себестоимость: программный ролик $0.05–0.25, гибрид $0.8–4.5, полный AI-видео $6–18.
 - Первый эксперимент: тема «−15°» (референс `docs/references/Screenshot_1.png`),
   5–6 различных сцен, ≤$0.5 (≤$2 с видео-сценой), ≤15 мин рендера.
@@ -193,7 +234,7 @@
   - `manual-publish` на `PUBLISHED` run → `409`;
   - `mark-exported` дважды → `state=exported`, `exported_at` не сдвинулся;
   - artifacts для `draft_mp4`: инлайновый `url` без `Content-Disposition` (206, video/mp4),
-    `downloadUrl` с `Content-Disposition: attachment; filename="kadence-draft-<id>.mp4"`;
+    `downloadUrl` с `Content-Disposition: attachment; filename="peertoreel-draft-<id>.mp4"`;
   - после проверок demo-карточка сброшена в `draft` с заголовком сценария и хештегами
     `["пород","собак"]`, privacy/scheduled/exported пустые.
 - Сквозной smoke на одноразовом run (создан, проведён по всем переходам до `SCHEDULED`,
@@ -320,7 +361,7 @@
 
 **Проверено:**
 
-- `pnpm --filter @kadence/web typecheck`, `test` (64), `build` — без предупреждений.
+- `pnpm --filter @peertoreel/web typecheck`, `test` (64), `build` — без предупреждений.
 - `pnpm check` — зелёный: contracts 37, storage 3, db 2, web 64, worker 79, API 23
   (208 тестов).
 - Живой click-through не выполнялся (не передаю сессию/пароль через инструменты);
@@ -452,9 +493,9 @@ errors.
   `run-detail-store.service.spec.ts`.
 
 **Найдено по ходу:** на старом run'е в `VOICE_READY` не было карточки «Подбор визуалов» —
-web-дев-сервер держал старый Vite-прекеш `@kadence/contracts` без `VOICE_READY → visuals`.
+web-дев-сервер держал старый Vite-прекеш `@peertoreel/contracts` без `VOICE_READY → visuals`.
 Кеш `.angular/cache` очищен, web-дев-сервер перезапущен; проверено, что отдаваемый
-`@kadence_contracts.js` содержит `VOICE_READY: "visuals"`. Лейбл `VOICE_READY → SCRIPT_READY`
+`@peertoreel_contracts.js` содержит `VOICE_READY: "visuals"`. Лейбл `VOICE_READY → SCRIPT_READY`
 переименован в «Вернуться к сценарию», чтобы не обещать регенерацию сценария.
 
 ## 2026-11-05 — fix(web): черновик над историей, без встроенных плееров для сцен
@@ -586,11 +627,11 @@ ARCHITECTURE и ROADMAP.
 
 **Цель:** починить красный CI после коммита `992cad7` (render stage + stage retries).
 
-**Причина:** `@kadence/db` и `@kadence/storage` публикуют только `dist` (`exports` → `dist/index.d.ts`).
-Корневой `typecheck` собирал перед проверкой один `@kadence/contracts`, а `db`/`storage` в CI
+**Причина:** `@peertoreel/db` и `@peertoreel/storage` публикуют только `dist` (`exports` → `dist/index.d.ts`).
+Корневой `typecheck` собирал перед проверкой один `@peertoreel/contracts`, а `db`/`storage` в CI
 не собирались — их `dist` не существует на чистом checkout. Отсюда `TS2307` в worker/api
 и каскадные `TS7006` (`tx`, `table`, `eq` выводились как `any` из-за ненайденного `drizzle-orm`
-через `@kadence/db`).
+через `@peertoreel/db`).
 
 **Сделано:**
 
@@ -654,11 +695,11 @@ run'а, починить потерю прогресса стадии при н�
 
 **Проверено:**
 
-- `pnpm --filter @kadence/contracts build` + `test` — 29 тестов.
-- `pnpm --filter @kadence/api test` — 21 тест (включая readiness с worker down).
-- `pnpm --filter @kadence/web typecheck` — без ошибок.
-- `pnpm --filter @kadence/web test` — 12 файлов, 60 тестов.
-- `pnpm --filter @kadence/web lint` и `build` — без ошибок; initial bundle 323.34 kB raw /
+- `pnpm --filter @peertoreel/contracts build` + `test` — 29 тестов.
+- `pnpm --filter @peertoreel/api test` — 21 тест (включая readiness с worker down).
+- `pnpm --filter @peertoreel/web typecheck` — без ошибок.
+- `pnpm --filter @peertoreel/web test` — 12 файлов, 60 тестов.
+- `pnpm --filter @peertoreel/web lint` и `build` — без ошибок; initial bundle 323.34 kB raw /
   ~90.6 kB transfer (production build).
 - `GET /api/v1/health/ready` при живом worker'е — 200,
   `checks: { database: 'up', redis: 'up', worker: 'up' }`.
@@ -667,7 +708,7 @@ run'а, починить потерю прогресса стадии при н�
 **По ходу ручной проверки (после рефакторинга):**
 
 - Ping завис в `queued`, SSE отдавал `queued 0`, потому что dev-воркер (`tsx watch`) остался
-  без дочернего процесса — вероятно, после пересборки `@kadence/contracts`. В Redis
+  без дочернего процесса — вероятно, после пересборки `@peertoreel/contracts`. В Redis
   `bull:system:wait` было 3 job'а, `bull:system:active` — 0.
 - После перезапуска watcher'а (`touch apps/worker/src/main.ts` или рестарт `pnpm dev`) воркер
   забрал очередь; ping прошёл `10 → 50 → 90 → 100 → completed`, SSE отдал те же снапшоты.
@@ -943,7 +984,7 @@ Reload «лечил» потому, что стор пересоздавался
 - API: `StorageModule` (глобальный), `ArtifactsRepository`, `RunsService.artifactsFor()`,
   `GET /api/v1/runs/:id/artifacts` — список с подписанными ссылками (1 час).
   Env получил `S3_ENDPOINT/REGION/BUCKET/ACCESS_KEY/SECRET_KEY/FORCE_PATH_STYLE`.
-- Worker: зависимости `@kadence/db`, `@kadence/storage`, `drizzle-orm`, `pg`; скрипт
+- Worker: зависимости `@peertoreel/db`, `@peertoreel/storage`, `drizzle-orm`, `pg`; скрипт
   `src/storage-spike.ts` — загрузка файла, запись артефакта, проверка подписанной ссылки и
   roundtrip.
 - ADR-0006, обновлены `AGENTS.md` (§2, §3, §8) и `ARCHITECTURE.md`.
@@ -1086,7 +1127,7 @@ Reload «лечил» потому, что стор пересоздавался
 
 **Проверено:**
 
-- `pnpm --filter @kadence/web typecheck` и `test` — успешно, web 32 теста (было 21).
+- `pnpm --filter @peertoreel/web typecheck` и `test` — успешно, web 32 теста (было 21).
 - Браузер, авторизованной сессией:
   - `/runs` показывает список (включая созданные через API) и форму;
   - создание из UI → `201`, редирект на `/runs/:id`;
@@ -1100,7 +1141,7 @@ Reload «лечил» потому, что стор пересоздавался
 
 **Осталось:**
 
-- Vite-прекеш: после добавления новых экспортов в `@kadence/contracts` дев-сервер web нужно
+- Vite-прекеш: после добавления новых экспортов в `@peertoreel/contracts` дев-сервер web нужно
   перезапускать с очисткой `apps/web/.angular/cache`, иначе `does not provide an export named …`.
 - Нет пагинации/фильтров, нет автоперезагрузки списка, нет optimistic-обновления.
 
@@ -1167,7 +1208,7 @@ Reload «лечил» потому, что стор пересоздавался
 - API `auth/`: `AuthService`, `PasswordService` (`@node-rs/argon2`, Argon2id 19 MiB/t=2/p=1),
   `UsersRepository`, `SessionsRepository`, `SessionAuthGuard`, `CurrentUser`,
   `AdminBootstrapService`.
-- Сессия: 32 случайных байта в `kadence_session` (httpOnly, SameSite=Lax, Secure в prod),
+- Сессия: 32 случайных байта в `peertoreel_session` (httpOnly, SameSite=Lax, Secure в prod),
   в БД только `sha256(token)`, TTL `SESSION_TTL_HOURS` (168 ч), `last_seen_at` не чаще
   раза в 5 минут. Логин при неизвестном email тратит хеш на decoy-пароль.
 - Endpoints: `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`.
@@ -1179,27 +1220,27 @@ Reload «лечил» потому, что стор пересоздавался
   `restore()` с дедупликацией запроса), `authGuard`, страница `/login` с типизированной
   формой и состояниями loading/error. Shell показывает пользователя и «Выйти».
 - Состояние сессии вынесено в `core/auth/session-state.service.ts`; guard и кнопка «Выйти»
-  грузят auth-фичу динамическим `import()`, иначе `@kadence/contracts` с Zod попадал в
+  грузят auth-фичу динамическим `import()`, иначе `@peertoreel/contracts` с Zod попадал в
   initial bundle (809 kB → 320 kB).
 - ADR-0004 (серверные сессии), обновлены `README.md`, `ARCHITECTURE.md`, `AGENTS.md` §5.
 
 **Проверено:**
 
-- `pnpm --filter @kadence/contracts build`, `api typecheck` — успешно.
+- `pnpm --filter @peertoreel/contracts build`, `api typecheck` — успешно.
 - Тесты: contracts 12, API 13, worker 2, web 21.
 - `pnpm check` — зелёный (lint/typecheck/test/build), initial bundle 320.21 kB при бюджете
   500 kB.
 - `pnpm db:migrate` — миграция `0002` применена; в БД `users`, `sessions`, `user_role`.
 - API вручную (curl):
   - неверный пароль → `401 UNAUTHORIZED`, тело в едином error envelope;
-  - верный пароль → `200`, `Set-Cookie: kadence_session=…; HttpOnly; SameSite=Lax`;
+  - верный пароль → `200`, `Set-Cookie: peertoreel_session=…; HttpOnly; SameSite=Lax`;
   - `GET /auth/me` с cookie → `200`, без cookie → `401`;
   - `POST /system/ping` без cookie → `401`, с cookie → `202`;
   - SSE `/system/ping/:jobId/events` без cookie → `401`, с cookie → `event: job` + `completed`;
   - `POST /auth/logout` → `204`, после него `/auth/me` → `401`, строк в `sessions` — 0.
 - В БД: `password_hash` = `$argon2id$v=19$m=19456…`, `token_hash` не совпадает с cookie
   (хранится sha256), `role=admin`.
-- Браузер: `/health` без сессии → redirect на `/login`; вход `owner@kadence.local` →
+- Браузер: `/health` без сессии → redirect на `/login`; вход `owner@peertoreel.local` →
   `/health` с «Owner»/«Выйти» в шапке; `/system` → ping прошёл (100%, 471 мс) без console
   errors; «Выйти» → `/login`, защищённые роуты снова редиректят.
 
@@ -1210,7 +1251,7 @@ Reload «лечил» потому, что стор пересоздавался
 - Клиент доверяет локальному сигналу пользователя: истечение сессии обнаруживается ответом
   `401` на реальном запросе, без фонового refresh.
 - В dev-сервере Angular пришлось очистить `.angular/cache` — Vite пре-бандлил старый
-  `@kadence/contracts` без `loginResponseSchema`.
+  `@peertoreel/contracts` без `loginResponseSchema`.
 
 **Следующая сессия:** S0.4 — state machine skeleton + reviewer gate.
 
@@ -1241,7 +1282,7 @@ Reload «лечил» потому, что стор пересоздавался
 **Сделано:**
 
 - Создан pnpm workspace, корневые tsconfig/prettier/editorconfig.
-- Создан `@kadence/contracts` с Zod-схемами health и error.
+- Создан `@peertoreel/contracts` с Zod-схемами health и error.
 - Создан `apps/api` на NestJS 12: config, Postgres, Redis, health, error filter, миграции.
 - Создан `apps/web` на Angular 22: shell, health page, API client, store, Material 3.
 - Поднят `infra/docker-compose.yml`: PostgreSQL 18, Redis 8, SeaweedFS S3.
@@ -1257,11 +1298,11 @@ Reload «лечил» потому, что стор пересоздавался
 **Проверено:**
 
 - `pnpm db:migrate` — applied 0001_init.sql.
-- `pnpm --filter @kadence/contracts build` — успешно.
-- `pnpm --filter @kadence/api typecheck` — успешно.
-- `pnpm --filter @kadence/api test` — 3 теста.
-- `pnpm --filter @kadence/web typecheck` — успешно.
-- `pnpm --filter @kadence/web build` — успешно.
+- `pnpm --filter @peertoreel/contracts build` — успешно.
+- `pnpm --filter @peertoreel/api typecheck` — успешно.
+- `pnpm --filter @peertoreel/api test` — 3 теста.
+- `pnpm --filter @peertoreel/web typecheck` — успешно.
+- `pnpm --filter @peertoreel/web build` — успешно.
 - `docker compose ... up -d --wait` — Postgres, Redis, storage healthy.
 
 - `GET /api/v1/health/live` → 200, `status: ok`.
@@ -1301,7 +1342,7 @@ Reload «лечил» потому, что стор пересоздавался
 - `drizzle-kit migrate` применил 2 миграции.
 - В БД остались `app_meta` и `drizzle.__drizzle_migrations`; `schema_migrations` удалена.
 - `app_meta` сохранила `schema_version = 1`.
-- `pnpm --filter @kadence/api typecheck` и `test` прошли.
+- `pnpm --filter @peertoreel/api typecheck` и `test` прошли.
 - `pnpm check` — lint/typecheck/test/build зелёные.
 - Health endpoint работает через Drizzle (`select 1`): `GET /api/v1/health/ready` → 200.
 - Повторный `db:generate` пишет `No schema changes`.
@@ -1351,7 +1392,7 @@ Reload «лечил» потому, что стор пересоздавался
 
 **Проверено:**
 
-- `pnpm --filter @kadence/web typecheck` и `test` — успешно.
+- `pnpm --filter @peertoreel/web typecheck` и `test` — успешно.
 - Web tests: 12 (включая SystemApiService и SystemStoreService).
 - SSE вручную: `GET /api/v1/system/ping/demo-sse-4/events` отдал `active 90` и
   `completed 100` с result.

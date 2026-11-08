@@ -6,7 +6,7 @@ import {
   type TikTokAccount,
   type TikTokAuthorizeResponse,
   type TikTokCreatorInfo,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { map, type Observable } from 'rxjs';
 import { BaseApiService } from '../../../core/api/base-api.service';
 

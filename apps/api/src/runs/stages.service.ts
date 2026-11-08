@@ -4,7 +4,7 @@ import {
   type EnqueueStageResponse,
   type StageJobSnapshot,
   type StageQueueName,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { RunsRepository } from './runs.repository.js';
 import { StagesQueue } from './stages.queue.js';
 

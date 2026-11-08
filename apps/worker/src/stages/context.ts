@@ -1,6 +1,6 @@
-import type { Database } from '@kadence/db';
-import type { StockProvider } from '@kadence/contracts';
-import type { ObjectStorage } from '@kadence/storage';
+import type { Database } from '@peertoreel/db';
+import type { StockProvider } from '@peertoreel/contracts';
+import type { ObjectStorage } from '@peertoreel/storage';
 import type { Logger } from 'pino';
 
 export interface StageDeps<TEnv> {

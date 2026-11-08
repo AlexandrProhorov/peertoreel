@@ -4,17 +4,17 @@ import type {
   StockProvider,
   StockSearchResult,
   VisualsArtifact,
-} from '@kadence/contracts';
-import { visualsArtifactSchema } from '@kadence/contracts';
-import type { Database } from '@kadence/db';
-import type { ObjectStorage } from '@kadence/storage';
+} from '@peertoreel/contracts';
+import { visualsArtifactSchema } from '@peertoreel/contracts';
+import type { Database } from '@peertoreel/db';
+import type { ObjectStorage } from '@peertoreel/storage';
 import { UnrecoverableError, type Job } from 'bullmq';
 import type { Logger } from 'pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerEnv } from '../config/env.js';
 import { StockError } from '../stock/errors.js';
 import type { DerivedWord } from '../tts/word-timings.js';
-import type { Script } from '@kadence/contracts';
+import type { Script } from '@peertoreel/contracts';
 import { deleteArtifactByObjectKey } from './delete-artifact.js';
 import { findArtifactObjectKey, loadArtifactBuffer } from './load-artifact.js';
 import { saveArtifact } from './save-artifact.js';

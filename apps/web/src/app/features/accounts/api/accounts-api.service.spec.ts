@@ -4,7 +4,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { TikTokAccount, TikTokCreatorInfo } from '@kadence/contracts';
+import type { TikTokAccount, TikTokCreatorInfo } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { AccountsApiService } from './accounts-api.service';
 
@@ -13,7 +13,7 @@ const now = '2026-11-07T10:00:00.000Z';
 const account: TikTokAccount = {
   id: '11111111-1111-4111-8111-111111111111',
   openId: 'open-1',
-  displayName: 'Kadence',
+  displayName: 'Peer to Reel',
   avatarUrl: null,
   scope: 'user.info.basic,video.publish',
   accessExpiresAt: now,
@@ -24,8 +24,8 @@ const account: TikTokAccount = {
 };
 
 const creatorInfo: TikTokCreatorInfo = {
-  username: 'kadence',
-  nickname: 'Kadence',
+  username: 'peertoreel',
+  nickname: 'Peer to Reel',
   avatarUrl: null,
   privacyLevelOptions: ['SELF_ONLY'],
   commentDisabled: false,

@@ -1,4 +1,4 @@
-import type { RunStage, RunState } from '@kadence/contracts';
+import type { RunStage, RunState } from '@peertoreel/contracts';
 
 const STATE_LABELS: Record<RunState, string> = {
   DRAFT: 'Черновик',

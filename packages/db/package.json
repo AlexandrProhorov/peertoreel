@@ -1,5 +1,5 @@
 {
-  "name": "@kadence/db",
+  "name": "@peertoreel/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -25,7 +25,7 @@
     "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@kadence/contracts": "workspace:*",
+    "@peertoreel/contracts": "workspace:*",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.23.1",
     "oxlint": "^1.90.0",

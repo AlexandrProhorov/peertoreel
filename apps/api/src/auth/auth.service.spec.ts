@@ -9,7 +9,7 @@ import type { UsersRepository, UserRecord } from './users.repository.js';
 
 const user: UserRecord = {
   id: '8a5c1a8f-3d38-4d2f-9b63-36b7f5e5f1a2',
-  email: 'owner@kadence.local',
+  email: 'owner@peertoreel.local',
   displayName: 'Owner',
   passwordHash: 'stored-hash',
   role: 'admin',
@@ -65,7 +65,7 @@ describe('AuthService', () => {
   it('issues a session with a hashed token on valid credentials', async () => {
     const { service, sessions } = createService();
 
-    const issued = await service.login(' Owner@Kadence.local ', 'correct-password');
+    const issued = await service.login(' Owner@Peer to Reel.local ', 'correct-password');
 
     expect(issued.session.user).toEqual({
       id: user.id,
@@ -85,7 +85,7 @@ describe('AuthService', () => {
   it('rejects an unknown email without leaking existence', async () => {
     const { service, sessions, passwords } = createService({ user: null });
 
-    await expect(service.login('ghost@kadence.local', 'whatever-password')).rejects.toBeInstanceOf(
+    await expect(service.login('ghost@peertoreel.local', 'whatever-password')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
     expect(passwords.verifyDecoy).toHaveBeenCalledOnce();
@@ -95,7 +95,7 @@ describe('AuthService', () => {
   it('rejects a wrong password', async () => {
     const { service, sessions } = createService({ passwordMatches: false });
 
-    await expect(service.login('owner@kadence.local', 'wrong-password')).rejects.toBeInstanceOf(
+    await expect(service.login('owner@peertoreel.local', 'wrong-password')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
     expect(sessions.create).not.toHaveBeenCalled();

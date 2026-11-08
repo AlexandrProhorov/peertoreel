@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseTokenKey } from '@kadence/tiktok';
+import { parseTokenKey } from '@peertoreel/tiktok';
 
 function emptyToUndefined(value: unknown): unknown {
   return typeof value === 'string' && value.trim() === '' ? undefined : value;
@@ -14,14 +14,14 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1)
-    .default('postgresql://kadence:kadence@localhost:5432/kadence'),
+    .default('postgresql://peertoreel:peertoreel@localhost:5432/peertoreel'),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24 * 365).default(168),
   S3_ENDPOINT: z.string().min(1).default('http://localhost:8333'),
   S3_REGION: z.string().min(1).default('us-east-1'),
-  S3_BUCKET: z.string().min(1).default('kadence'),
-  S3_ACCESS_KEY: z.string().min(1).default('kadence'),
-  S3_SECRET_KEY: z.string().min(1).default('kadence-dev-secret'),
+  S3_BUCKET: z.string().min(1).default('peertoreel'),
+  S3_ACCESS_KEY: z.string().min(1).default('peertoreel'),
+  S3_SECRET_KEY: z.string().min(1).default('peertoreel-dev-secret'),
   S3_FORCE_PATH_STYLE: z
     .enum(['true', 'false'])
     .default('true')

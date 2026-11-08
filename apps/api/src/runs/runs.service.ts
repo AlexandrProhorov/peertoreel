@@ -17,7 +17,7 @@ import {
   type RunDetail,
   type RunEvent,
   type TransitionRunRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { StorageService } from '../storage/storage.service.js';
 import {
   ArtifactsRepository,
@@ -93,7 +93,7 @@ export class RunsService {
     await this.findRun(id);
 
     const records = await this.artifacts.listByRun(id);
-    const downloadName = `kadence-draft-${id.slice(0, 8)}.mp4`;
+    const downloadName = `peertoreel-draft-${id.slice(0, 8)}.mp4`;
 
     return Promise.all(
       records.map((record) =>

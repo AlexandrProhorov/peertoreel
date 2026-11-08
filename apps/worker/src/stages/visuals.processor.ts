@@ -1,4 +1,4 @@
-import { artifacts, type Database } from '@kadence/db';
+import { artifacts, type Database } from '@peertoreel/db';
 import {
   scriptSchema,
   stageJobDataSchema,
@@ -9,8 +9,8 @@ import {
   type VisualScene,
   type VisualSceneAsset,
   type VisualsArtifact,
-} from '@kadence/contracts';
-import { buildArtifactKey } from '@kadence/storage';
+} from '@peertoreel/contracts';
+import { buildArtifactKey } from '@peertoreel/storage';
 import { UnrecoverableError, type Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
 import { requireProviderKey, type WorkerEnv } from '../config/env.js';

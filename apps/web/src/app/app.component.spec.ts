@@ -27,7 +27,7 @@ describe('App', () => {
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.shell__brand')?.textContent).toContain(
-      'Kadence',
+      'Peer to Reel',
     );
   });
 });

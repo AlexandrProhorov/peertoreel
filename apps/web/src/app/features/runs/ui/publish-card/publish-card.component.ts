@@ -22,7 +22,7 @@ import {
   type Artifact,
   type PublishPrivacyLevel,
   type RunState,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { PublishCardStoreService } from '../../data-access/publish-card-store.service';
 import {
   fromDateTimeLocal,

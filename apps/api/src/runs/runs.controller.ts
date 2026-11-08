@@ -24,7 +24,7 @@ import {
   type StageJobSnapshot,
   type StageQueueName,
   type TransitionRunRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { SessionAuthGuard } from '../auth/session-auth.guard.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';

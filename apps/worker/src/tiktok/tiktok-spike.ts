@@ -2,22 +2,22 @@ import {
   PUBLISH_PRIVACY_LEVELS,
   formatHashtags,
   type PublishPrivacyLevel,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import {
   artifacts,
   createDatabase,
   publishCards,
   runs,
   tiktokAccounts,
-} from '@kadence/db';
-import { ObjectStorage } from '@kadence/storage';
+} from '@peertoreel/db';
+import { ObjectStorage } from '@peertoreel/storage';
 import {
   TikTokApi,
   TikTokApiError,
   TokenCipher,
   classifyFailReason,
   planChunks,
-} from '@kadence/tiktok';
+} from '@peertoreel/tiktok';
 import { and, desc, eq } from 'drizzle-orm';
 import { config as loadEnv } from 'dotenv';
 import { Redis } from 'ioredis';
@@ -40,7 +40,7 @@ function arg(name: string): string | undefined {
 
 function usage(): void {
   console.log(
-    'Usage: pnpm --filter @kadence/worker tiktok:spike -- --run <runId> [--account <accountId>] [--privacy SELF_ONLY] [--publish-id <id>] [--dry-run]',
+    'Usage: pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId> [--account <accountId>] [--privacy SELF_ONLY] [--publish-id <id>] [--dry-run]',
   );
 }
 

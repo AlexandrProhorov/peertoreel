@@ -6,7 +6,7 @@ import {
   type StockProvider,
   type StockSearchRequest,
   type StockSearchResult,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { requireProviderKey } from '../config/env.js';

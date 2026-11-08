@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { Run } from '@kadence/contracts';
+import type { Run } from '@peertoreel/contracts';
 import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { RunsApiService } from '../api/runs-api.service';

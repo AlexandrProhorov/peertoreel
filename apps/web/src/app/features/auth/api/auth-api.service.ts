@@ -5,7 +5,7 @@ import {
   type LoginRequest,
   type LoginResponse,
   type MeResponse,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import type { Observable } from 'rxjs';
 import { BaseApiService } from '../../../core/api/base-api.service';
 

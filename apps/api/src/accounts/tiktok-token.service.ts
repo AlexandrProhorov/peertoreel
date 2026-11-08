@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppEnv } from '../config/env.js';
-import { TikTokApi, TokenCipher, TikTokApiError, type TikTokTokenSet } from '@kadence/tiktok';
+import { TikTokApi, TokenCipher, TikTokApiError, type TikTokTokenSet } from '@peertoreel/tiktok';
 import { randomUUID } from 'node:crypto';
 import { RedisService } from '../redis/redis.service.js';
 import {

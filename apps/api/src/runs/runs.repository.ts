@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { MANUAL_PUBLISH_REASON, type RunStage, type RunState } from '@kadence/contracts';
+import { MANUAL_PUBLISH_REASON, type RunStage, type RunState } from '@peertoreel/contracts';
 import { and, desc, eq, isNotNull, lt, ne } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
-import { publishCards, runEvents, runs } from '@kadence/db';
+import { publishCards, runEvents, runs } from '@peertoreel/db';
 import {
   publishCardColumns,
   type PublishCardRecord,

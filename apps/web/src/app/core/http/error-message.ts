@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { apiErrorSchema } from '@kadence/contracts';
+import { apiErrorSchema } from '@peertoreel/contracts';
 
 /** Non-throwing status check for flows where 404 is an expected answer. */
 export function isHttpStatus(error: unknown, status: number): boolean {

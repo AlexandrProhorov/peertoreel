@@ -4,14 +4,14 @@ import {
 } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { AuthSession, LoginRequest } from '@kadence/contracts';
+import type { AuthSession, LoginRequest } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { AuthApiService } from './auth-api.service';
 
 const session: AuthSession = {
   user: {
     id: '8a5c1a8f-3d38-4d2f-9b63-36b7f5e5f1a2',
-    email: 'owner@kadence.local',
+    email: 'owner@peertoreel.local',
     displayName: 'Owner',
     role: 'admin',
   },
@@ -19,7 +19,7 @@ const session: AuthSession = {
 };
 
 const credentials: LoginRequest = {
-  email: 'owner@kadence.local',
+  email: 'owner@peertoreel.local',
   password: 'correct-horse-battery',
 };
 

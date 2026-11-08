@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { AuthSession } from '@kadence/contracts';
+import type { AuthSession } from '@peertoreel/contracts';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthApiService } from '../api/auth-api.service';
@@ -9,7 +9,7 @@ import { AuthStoreService } from './auth-store.service';
 const session: AuthSession = {
   user: {
     id: '8a5c1a8f-3d38-4d2f-9b63-36b7f5e5f1a2',
-    email: 'owner@kadence.local',
+    email: 'owner@peertoreel.local',
     displayName: 'Owner',
     role: 'admin',
   },
@@ -44,10 +44,10 @@ describe('AuthStoreService', () => {
     const store = setup({ login: vi.fn().mockReturnValue(of(session)) });
     expect(store.isAuthenticated()).toBe(false);
 
-    store.login({ email: 'owner@kadence.local', password: 'secret-password' });
+    store.login({ email: 'owner@peertoreel.local', password: 'secret-password' });
 
     await vi.waitFor(() => expect(store.isAuthenticated()).toBe(true));
-    expect(store.user()?.email).toBe('owner@kadence.local');
+    expect(store.user()?.email).toBe('owner@peertoreel.local');
     expect(store.expiresAt()).toBe(session.expiresAt);
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
@@ -58,7 +58,7 @@ describe('AuthStoreService', () => {
       login: vi.fn().mockReturnValue(throwError(() => unauthorized)),
     });
 
-    store.login({ email: 'owner@kadence.local', password: 'wrong-password' });
+    store.login({ email: 'owner@peertoreel.local', password: 'wrong-password' });
 
     await vi.waitFor(() => expect(store.error()).toBe('Неверный email или пароль'));
     expect(store.isAuthenticated()).toBe(false);

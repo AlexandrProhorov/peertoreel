@@ -15,7 +15,7 @@ import {
   type AuthSession,
   type LoginRequest,
   type LoginResponse,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import type { CookieOptions, Response } from 'express';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import type { AppEnv } from '../config/env.js';

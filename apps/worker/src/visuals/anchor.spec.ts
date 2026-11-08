@@ -1,4 +1,4 @@
-import type { Script } from '@kadence/contracts';
+import type { Script } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import { anchorTokens, deriveVisualAnchor } from './anchor.js';
 

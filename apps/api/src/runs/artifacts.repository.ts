@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { artifacts } from '@kadence/db';
-import type { RunStage } from '@kadence/contracts';
+import { artifacts } from '@peertoreel/db';
+import type { RunStage } from '@peertoreel/contracts';
 import { and, desc, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
 

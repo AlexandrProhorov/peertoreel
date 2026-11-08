@@ -102,7 +102,7 @@ describe('TikTokApi', () => {
       envelope({
         user: {
           open_id: 'open-1',
-          display_name: 'Kadence',
+          display_name: 'Peer to Reel',
           avatar_url: 'https://cdn.test/avatar.jpg',
         },
       }),
@@ -111,7 +111,7 @@ describe('TikTokApi', () => {
     await expect(api.getUserInfo('act.token')).resolves.toEqual({
       openId: 'open-1',
       unionId: null,
-      displayName: 'Kadence',
+      displayName: 'Peer to Reel',
       avatarUrl: 'https://cdn.test/avatar.jpg',
     });
   });
@@ -121,7 +121,7 @@ describe('TikTokApi', () => {
       envelope({
         user: {
           open_id: 'open-1',
-          display_name: 'Kadence',
+          display_name: 'Peer to Reel',
           avatar_url: '',
         },
       }),
@@ -135,8 +135,8 @@ describe('TikTokApi', () => {
   it('maps creator info', async () => {
     const { api } = setup(
       envelope({
-        creator_username: 'kadence',
-        creator_nickname: 'Kadence',
+        creator_username: 'peertoreel',
+        creator_nickname: 'Peer to Reel',
         creator_avatar_url: 'https://cdn.test/avatar.jpg',
         privacy_level_options: ['SELF_ONLY', 'PUBLIC_TO_EVERYONE'],
         comment_disabled: false,

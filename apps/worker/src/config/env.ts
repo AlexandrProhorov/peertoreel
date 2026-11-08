@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseTokenKey } from '@kadence/tiktok';
+import { parseTokenKey } from '@peertoreel/tiktok';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -9,12 +9,12 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1)
-    .default('postgresql://kadence:kadence@localhost:5432/kadence'),
+    .default('postgresql://peertoreel:peertoreel@localhost:5432/peertoreel'),
   S3_ENDPOINT: z.string().min(1).default('http://localhost:8333'),
   S3_REGION: z.string().min(1).default('us-east-1'),
-  S3_BUCKET: z.string().min(1).default('kadence'),
-  S3_ACCESS_KEY: z.string().min(1).default('kadence'),
-  S3_SECRET_KEY: z.string().min(1).default('kadence-dev-secret'),
+  S3_BUCKET: z.string().min(1).default('peertoreel'),
+  S3_ACCESS_KEY: z.string().min(1).default('peertoreel'),
+  S3_SECRET_KEY: z.string().min(1).default('peertoreel-dev-secret'),
   S3_FORCE_PATH_STYLE: z
     .enum(['true', 'false'])
     .default('true')

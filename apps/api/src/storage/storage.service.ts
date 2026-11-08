@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ObjectStorage } from '@kadence/storage';
+import { ObjectStorage } from '@peertoreel/storage';
 import type { AppEnv } from '../config/env.js';
 
 @Injectable()

@@ -19,6 +19,6 @@
 ## Последствия
 
 - Все приложения обязаны собирать contracts перед typecheck/test/build.
-- Появляется шаг `pnpm --filter @kadence/contracts build` в dev/CI.
+- Появляется шаг `pnpm --filter @peertoreel/contracts build` в dev/CI.
 - Если появится CJS-потребитель, придётся добавить dual build или отдельный export.
 - Turborepo можно добавить позже, когда сборка станет узким местом.

@@ -1,4 +1,4 @@
-import type { StockAsset, StockAssetKind, VisualScene, VisualSceneAsset } from '@kadence/contracts';
+import type { StockAsset, StockAssetKind, VisualScene, VisualSceneAsset } from '@peertoreel/contracts';
 import type { BeatTiming } from './beat-timings.js';
 
 export type VisualScenePlan = Omit<VisualScene, 'asset'>;

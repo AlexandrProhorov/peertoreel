@@ -34,7 +34,7 @@ export class PasswordService {
    * wrong password (no account enumeration through response timing).
    */
   async verifyDecoy(password: string): Promise<boolean> {
-    this.#decoyHash ??= argonHash('kadence-decoy-password', ARGON_OPTIONS);
+    this.#decoyHash ??= argonHash('peertoreel-decoy-password', ARGON_OPTIONS);
     await this.verify(await this.#decoyHash, password);
     return false;
   }

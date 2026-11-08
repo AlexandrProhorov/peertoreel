@@ -390,7 +390,7 @@ describe('RunsService', () => {
     expect(storage.presignGet).toHaveBeenNthCalledWith(
       2,
       objectKey,
-      `kadence-draft-${runId.slice(0, 8)}.mp4`,
+      `peertoreel-draft-${runId.slice(0, 8)}.mp4`,
     );
     expect(result[0]?.url).toBe('http://storage.test/draft');
     expect(result[0]?.downloadUrl).toBe('http://storage.test/download');

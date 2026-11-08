@@ -1,4 +1,4 @@
-import type { QcCheckId, QcVerdict } from '@kadence/contracts';
+import type { QcCheckId, QcVerdict } from '@peertoreel/contracts';
 
 const VERDICT_LABELS: Record<QcVerdict, string> = {
   pass: 'Пройдено',

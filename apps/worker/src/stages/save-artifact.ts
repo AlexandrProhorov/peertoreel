@@ -1,5 +1,5 @@
-import { artifacts, type Database } from '@kadence/db';
-import type { RunStage } from '@kadence/contracts';
+import { artifacts, type Database } from '@peertoreel/db';
+import type { RunStage } from '@peertoreel/contracts';
 
 export interface SaveArtifactInput {
   runId: string;

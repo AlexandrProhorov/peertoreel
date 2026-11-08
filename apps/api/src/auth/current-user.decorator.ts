@@ -1,5 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { AuthSession } from '@kadence/contracts';
+import type { AuthSession } from '@peertoreel/contracts';
 import type { AuthedRequest } from './session-auth.guard.js';
 
 export const CurrentUser = createParamDecorator(

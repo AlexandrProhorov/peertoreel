@@ -10,7 +10,7 @@ export default defineConfig({
   dbCredentials: {
     url:
       process.env['DATABASE_URL'] ??
-      'postgresql://kadence:kadence@localhost:5432/kadence',
+      'postgresql://peertoreel:peertoreel@localhost:5432/peertoreel',
   },
   strict: true,
   verbose: true,

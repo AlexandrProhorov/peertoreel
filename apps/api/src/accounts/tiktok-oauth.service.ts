@@ -13,9 +13,9 @@ import {
   type TikTokAuthorizeResponse,
   type TikTokCallbackQuery,
   type TikTokCreatorInfo,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { randomBytes } from 'node:crypto';
-import { TikTokApiError } from '@kadence/tiktok';
+import { TikTokApiError } from '@peertoreel/tiktok';
 import type { AppEnv } from '../config/env.js';
 import { RedisService } from '../redis/redis.service.js';
 import {
@@ -53,7 +53,7 @@ export class TikTokOAuthService {
   ) {}
 
   /**
-   * Creates a one-time state bound to the current Kadence user and returns the
+   * Creates a one-time state bound to the current Peer to Reel user and returns the
    * TikTok consent URL. The state lives in Redis, not in a cookie, because the
    * callback arrives as a top-level redirect from tiktok.com.
    */

@@ -1,6 +1,6 @@
-import type { VisualsArtifact } from '@kadence/contracts';
-import type { Database } from '@kadence/db';
-import type { ObjectStorage } from '@kadence/storage';
+import type { VisualsArtifact } from '@peertoreel/contracts';
+import type { Database } from '@peertoreel/db';
+import type { ObjectStorage } from '@peertoreel/storage';
 import type { Job } from 'bullmq';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';

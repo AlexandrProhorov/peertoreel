@@ -1,4 +1,4 @@
-﻿import {
+import {
   PING_JOB,
   STAGE_QUEUES,
   STAGE_REQUIRED_STATE,
@@ -6,9 +6,9 @@
   stageJobDataSchema,
   type StageQueueName,
   type StockProvider,
-} from '@kadence/contracts';
-import { createDatabase } from '@kadence/db';
-import { ObjectStorage } from '@kadence/storage';
+} from '@peertoreel/contracts';
+import { createDatabase } from '@peertoreel/db';
+import { ObjectStorage } from '@peertoreel/storage';
 import { UnrecoverableError, Worker } from 'bullmq';
 import { config as loadEnv } from 'dotenv';
 import { Redis } from 'ioredis';

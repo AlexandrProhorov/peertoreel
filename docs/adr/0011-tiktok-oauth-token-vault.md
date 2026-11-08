@@ -22,7 +22,7 @@ without touching the run state machine.
 
 ### `packages/tiktok` adapter
 
-All vendor-specific code lives in `@kadence/tiktok`, used by API and worker:
+All vendor-specific code lives in `@peertoreel/tiktok`, used by API and worker:
 
 - `TikTokApi` — authorization URL, code exchange, refresh, revoke, user info, creator info,
   video init, chunk upload, status fetch;
@@ -50,11 +50,11 @@ reconnecting accounts.
 
 ### OAuth state and callback
 
-`GET /api/v1/accounts/tiktok/authorize` requires the Kadence session, creates a random state,
+`GET /api/v1/accounts/tiktok/authorize` requires the Peer to Reel session, creates a random state,
 stores `tiktok:oauth:<state> → userId` in Redis for 10 minutes and returns the TikTok consent
 URL. The callback:
 
-- does **not** require the Kadence cookie: TikTok redirects the browser top-level, and the
+- does **not** require the Peer to Reel cookie: TikTok redirects the browser top-level, and the
   one-time state is the proof of the user;
 - consumes the state with `GETDEL`, exchanges the code, reads `user.info.basic`, encrypts and
   upserts the tokens;
@@ -136,7 +136,7 @@ double publishing while the upload is a standalone command.
 
 ## Consequences
 
-- New package `@kadence/tiktok`, new migration `0007` (`tiktok_accounts`), new API module
+- New package `@peertoreel/tiktok`, new migration `0007` (`tiktok_accounts`), new API module
   `accounts`, new web route `/accounts`.
 - `.env` gains `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`,
   `TOKEN_ENCRYPTION_KEY`, `WEB_APP_URL`.

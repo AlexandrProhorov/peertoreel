@@ -7,7 +7,7 @@ import type {
   PublishCard,
   RunState,
   UpdatePublishCardRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import {
   PublishCardsRepository,
   type PublishCardRecord,

@@ -18,7 +18,7 @@ Sessions are rows in Postgres, addressed by an opaque random token in an
   role (`admin` | `editor`), `is_active`, timestamps.
 - `sessions` — id, `user_id` (ON DELETE CASCADE), `token_hash` (unique),
   `created_at`, `last_seen_at`, `expires_at`, indexes on user and expiry.
-- The browser gets `randomBytes(32)` in `kadence_session`; the database only sees
+- The browser gets `randomBytes(32)` in `peertoreel_session`; the database only sees
   `sha256(token)`, so a DB dump does not hand out live sessions.
 - Cookie: `httpOnly`, `SameSite=Lax`, `Secure` when `NODE_ENV=production`,
   `Path=/`, `Expires` = session expiry. TTL is `SESSION_TTL_HOURS` (default 168 h).

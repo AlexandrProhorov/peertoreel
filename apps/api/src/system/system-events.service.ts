@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   SYSTEM_QUEUE,
   type SystemJobSnapshot,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import {
   defer,
   distinctUntilChanged,

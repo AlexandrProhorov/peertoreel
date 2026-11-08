@@ -17,7 +17,7 @@ import {
   type TikTokAccountListResponse,
   type TikTokAuthorizeResponse,
   type TikTokCreatorInfo,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { SessionAuthGuard } from '../auth/session-auth.guard.js';

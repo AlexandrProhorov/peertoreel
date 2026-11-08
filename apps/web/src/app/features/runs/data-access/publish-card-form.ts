@@ -3,7 +3,7 @@ import {
   PUBLISH_HASHTAGS_MAX,
   formatHashtags,
   hashtagSchema,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 
 /**
  * Accepts comma- and/or space-separated input, with or without `#`.

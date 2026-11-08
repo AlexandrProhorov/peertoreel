@@ -1,6 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type { Run } from '@kadence/contracts';
+import type { Run } from '@peertoreel/contracts';
 import { Subject, switchMap, tap } from 'rxjs';
 import { BaseStore } from '../../../core/state/base-store';
 import { RunsApiService } from '../api/runs-api.service';

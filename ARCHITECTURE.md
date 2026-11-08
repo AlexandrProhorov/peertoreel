@@ -76,7 +76,7 @@ POST /api/v1/auth/login { email, password }
   → UsersRepository.findByEmail()
   → PasswordService.verify() (Argon2id, @node-rs/argon2)
   → SessionsRepository.create({ tokenHash: sha256(token), expiresAt })
-  → Set-Cookie kadence_session=<opaque token>; HttpOnly; SameSite=Lax; Path=/
+  → Set-Cookie peertoreel_session=<opaque token>; HttpOnly; SameSite=Lax; Path=/
 
 Каждый защищённый запрос:
   SessionAuthGuard
@@ -108,7 +108,7 @@ POST /api/v1/runs { topic }
   → state DRAFT, current_stage topic_discovery
 
 POST /api/v1/runs/:id/transitions { to, reason? }
-  → allowedTransitions(from, resume_state) из @kadence/contracts
+  → allowedTransitions(from, resume_state) из @peertoreel/contracts
   → нет перехода → 409 CONFLICT
   → to = FAILED без reason → 400
   → tx: update runs + insert run_events
@@ -227,7 +227,7 @@ GET    /api/v1/accounts/tiktok                   → только метадан
 GET    /api/v1/accounts/tiktok/:id/creator-info  → refresh + creator_info/query
 DELETE /api/v1/accounts/tiktok/:id               → revoke + удаление строки
 
-pnpm --filter @kadence/worker tiktok:spike -- --run <runId> [--dry-run]
+pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId> [--dry-run]
   → refresh с ротацией → creator_info → video/init (is_aigc, FILE_UPLOAD)
   → последовательный PUT чанков с Content-Range → status/fetch
 ```
@@ -267,10 +267,10 @@ pnpm --filter @kadence/worker tiktok:spike -- --run <runId> [--dry-run]
 
 ### `packages/db` и `packages/storage`
 
-- `@kadence/db` — схема Drizzle и `createDatabase(url)`; один и тот же код используют API
+- `@peertoreel/db` — схема Drizzle и `createDatabase(url)`; один и тот же код используют API
   (через `DatabaseService`) и worker. Миграции применяет API (`drizzle-kit`), worker их не
   запускает.
-- `@kadence/storage` — обёртка над S3-совместимым хранилищем: `putObject`, `getObject`,
+- `@peertoreel/storage` — обёртка над S3-совместимым хранилищем: `putObject`, `getObject`,
   `deleteObject`, `presignGet` и билдер ключей `runs/<runId>/<stage>/<name>`.
 - Локальный диск — только временный каталог для FFmpeg. Продукт стадии — объект в S3 +
   строка в `artifacts`; UI читает файлы по подписанной ссылке (1 час).
@@ -315,7 +315,7 @@ pnpm --filter @kadence/worker tiktok:spike -- --run <runId> [--dry-run]
 - `media/` — FFmpeg/ffprobe-хелперы, ASS-караоке и сборка визуального трека;
 - `main.ts` — Worker'ы, Redis-кеш Pixabay, логирование, graceful shutdown.
 
-Worker использует `@kadence/db` и `@kadence/storage` напрямую; репозиториев и Nest-слоя
+Worker использует `@peertoreel/db` и `@peertoreel/storage` напрямую; репозиториев и Nest-слоя
 там нет, composition — это `StageDeps` в `main.ts`.
 
 ### `apps/web`
@@ -384,7 +384,7 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 - PostgreSQL 18: volume монтируется в `/var/lib/postgresql` — требование образа 18+.
 - Redis 8: AOF.
-- SeaweedFS: S3 API на `:8333`, bucket `kadence` создаётся init-контейнером.
+- SeaweedFS: S3 API на `:8333`, bucket `peertoreel` создаётся init-контейнером.
 - Production storage: Cloudflare R2 через S3 API.
 
 ## Следующие архитектурные шаги

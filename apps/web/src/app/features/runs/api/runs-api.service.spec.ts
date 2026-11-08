@@ -4,7 +4,7 @@ import {
 } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { QcReport, Run, RunDetail } from '@kadence/contracts';
+import type { QcReport, Run, RunDetail } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { RunsApiService } from './runs-api.service';
 

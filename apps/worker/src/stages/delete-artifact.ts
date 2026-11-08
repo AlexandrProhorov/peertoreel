@@ -1,4 +1,4 @@
-import { artifacts, type Database } from '@kadence/db';
+import { artifacts, type Database } from '@peertoreel/db';
 import { eq } from 'drizzle-orm';
 
 /** Removes the registry row after the S3 object has been deleted. */

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import type {
   PublishCard,
   UpdatePublishCardRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { PublishCardApiService } from '../api/publish-card-api.service';

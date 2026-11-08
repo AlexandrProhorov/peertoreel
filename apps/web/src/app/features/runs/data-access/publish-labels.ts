@@ -1,7 +1,7 @@
 import type {
   PublishCardState,
   PublishPrivacyLevel,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 
 const PRIVACY_LABELS: Record<PublishPrivacyLevel, string> = {
   PUBLIC_TO_EVERYONE: 'Все пользователи',

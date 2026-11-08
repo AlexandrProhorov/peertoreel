@@ -5,7 +5,7 @@ import {
   type EnqueuePingRequest,
   type EnqueuePingResponse,
   type SystemJobSnapshot,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { Observable } from 'rxjs';
 import { BaseApiService } from '../../../core/api/base-api.service';
 

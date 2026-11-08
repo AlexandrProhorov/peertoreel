@@ -4,7 +4,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { PublishCard } from '@kadence/contracts';
+import type { PublishCard } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { PublishCardApiService } from './publish-card-api.service';
 

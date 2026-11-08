@@ -111,7 +111,7 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
-| M3.1 | Контракт раскадровки `kadence.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | TODO |
+| M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | TODO |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | TODO |
 | M3.3 | Библиотека компонентов v1 (parallax-city, kinetic-typography, …) | агент | TODO |
 | M3.4 | Продюсер сцен: очередь `scene-render`, per-scene jobs, fallback | агент | TODO |

@@ -1,5 +1,5 @@
-import type { StockAsset } from '@kadence/contracts';
-import { stockAssetSchema } from '@kadence/contracts';
+import type { StockAsset } from '@peertoreel/contracts';
+import { stockAssetSchema } from '@peertoreel/contracts';
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
 

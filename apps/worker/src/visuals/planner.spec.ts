@@ -1,4 +1,4 @@
-import type { StockAsset } from '@kadence/contracts';
+import type { StockAsset } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import type { BeatTiming } from './beat-timings.js';
 import {

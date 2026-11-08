@@ -1,9 +1,9 @@
-﻿import {
+import {
   scriptSchema,
   stageJobDataSchema,
   type StageJobResult,
-} from '@kadence/contracts';
-import { buildArtifactKey } from '@kadence/storage';
+} from '@peertoreel/contracts';
+import { buildArtifactKey } from '@peertoreel/storage';
 import type { Job } from 'bullmq';
 import { requireProviderKey, type WorkerEnv } from '../config/env.js';
 import { generateJson } from '../llm/deepseek.js';

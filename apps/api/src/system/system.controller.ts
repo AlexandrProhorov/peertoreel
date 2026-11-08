@@ -12,7 +12,7 @@ import {
 import {
   enqueuePingRequestSchema,
   type EnqueuePingRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { SessionAuthGuard } from '../auth/session-auth.guard.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { SystemEventsService } from './system-events.service.js';

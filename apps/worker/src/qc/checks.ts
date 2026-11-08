@@ -4,7 +4,7 @@ import type {
   QcMetrics,
   QcVerdict,
   Script,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import type { MediaProbe } from '../media/ffprobe.js';
 import type { LoudnormMeasurement } from '../media/loudnorm.js';
 import type { DerivedWord } from '../tts/word-timings.js';

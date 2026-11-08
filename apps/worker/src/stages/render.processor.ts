@@ -3,8 +3,8 @@ import {
   visualsArtifactSchema,
   type StageJobResult,
   type VisualsArtifact,
-} from '@kadence/contracts';
-import { buildArtifactKey } from '@kadence/storage';
+} from '@peertoreel/contracts';
+import { buildArtifactKey } from '@peertoreel/storage';
 import type { Job } from 'bullmq';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -196,7 +196,7 @@ export async function processRenderStage(
 
   await job.updateProgress(25);
 
-  const workDir = path.join(tmpdir(), 'kadence-render', runId);
+  const workDir = path.join(tmpdir(), 'peertoreel-render', runId);
   await mkdir(workDir, { recursive: true });
 
   try {

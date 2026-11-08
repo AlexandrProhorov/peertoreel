@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type { TikTokAccount, TikTokCreatorInfo } from '@kadence/contracts';
+import type { TikTokAccount, TikTokCreatorInfo } from '@peertoreel/contracts';
 import { map, Subject, switchMap, tap } from 'rxjs';
 import { BaseStore } from '../../../core/state/base-store';
 import { AccountsApiService } from '../api/accounts-api.service';

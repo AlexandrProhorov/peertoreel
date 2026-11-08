@@ -13,7 +13,7 @@ function contextFor(request: { cookies?: unknown }): ExecutionContext {
 
 describe('SessionAuthGuard', () => {
   it('reads the session cookie', () => {
-    expect(readSessionToken({ cookies: { kadence_session: 'abc' } } as never)).toBe(
+    expect(readSessionToken({ cookies: { peertoreel_session: 'abc' } } as never)).toBe(
       'abc',
     );
     expect(readSessionToken({ cookies: {} } as never)).toBeUndefined();
@@ -29,7 +29,7 @@ describe('SessionAuthGuard', () => {
     } as unknown as AuthService;
     const guard = new SessionAuthGuard(auth);
     const request: { cookies?: unknown; auth?: unknown } = {
-      cookies: { kadence_session: 'abc' },
+      cookies: { peertoreel_session: 'abc' },
     };
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);

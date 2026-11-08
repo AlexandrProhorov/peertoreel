@@ -1,4 +1,4 @@
-import type { StockAsset } from '@kadence/contracts';
+import type { StockAsset } from '@peertoreel/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { StockSearchCache } from './cache.js';
 import { StockError } from './errors.js';

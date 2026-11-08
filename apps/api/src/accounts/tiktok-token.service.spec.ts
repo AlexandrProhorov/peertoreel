@@ -1,6 +1,6 @@
 import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
-import { TokenCipher, TikTokApiError } from '@kadence/tiktok';
+import { TokenCipher, TikTokApiError } from '@peertoreel/tiktok';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../config/env.js';
 import type { RedisService } from '../redis/redis.service.js';
@@ -12,13 +12,15 @@ import { TikTokTokenService } from './tiktok-token.service.js';
 
 const key = Buffer.alloc(32, 7).toString('base64');
 const cipher = new TokenCipher(key);
-const now = new Date('2026-11-07T10:00:00.000Z');
+// Relative to the real clock: a fixed date turns the fixture token stale and
+// makes the "fresh token" and "wait for another refresh" cases time out.
+const now = new Date();
 
 const account: TikTokAccountRecord = {
   id: '11111111-1111-4111-8111-111111111111',
   userId: '22222222-2222-4222-8222-222222222222',
   openId: 'open-1',
-  displayName: 'Kadence',
+  displayName: 'Peer to Reel',
   avatarUrl: null,
   accessTokenEncrypted: cipher.encrypt('old-access'),
   refreshTokenEncrypted: cipher.encrypt('old-refresh'),

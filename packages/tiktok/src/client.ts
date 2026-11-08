@@ -1,4 +1,4 @@
-import type { PublishPrivacyLevel } from '@kadence/contracts';
+import type { PublishPrivacyLevel } from '@peertoreel/contracts';
 import { z } from 'zod';
 import {
   TikTokApiError,

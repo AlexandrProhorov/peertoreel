@@ -18,13 +18,13 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_USER: kadence
-          POSTGRES_PASSWORD: kadence
-          POSTGRES_DB: kadence
+          POSTGRES_USER: peertoreel
+          POSTGRES_PASSWORD: peertoreel
+          POSTGRES_DB: peertoreel
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U kadence -d kadence"
+          --health-cmd "pg_isready -U peertoreel -d peertoreel"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
@@ -41,7 +41,7 @@ jobs:
 
     env:
       NODE_ENV: test
-      DATABASE_URL: postgresql://kadence:kadence@localhost:5432/kadence
+      DATABASE_URL: postgresql://peertoreel:peertoreel@localhost:5432/peertoreel
       REDIS_URL: redis://localhost:6379
       CORS_ORIGIN: http://localhost:4200
 

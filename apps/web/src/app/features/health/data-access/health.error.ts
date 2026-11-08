@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   readinessResponseSchema,
   type ReadinessResponse,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 
 /**
  * Readiness returns 503 when a dependency is down, but the body is still a

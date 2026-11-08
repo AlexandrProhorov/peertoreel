@@ -1,5 +1,5 @@
 {
-  "name": "@kadence/tiktok",
+  "name": "@peertoreel/tiktok",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kadence/contracts": "workspace:*",
+    "@peertoreel/contracts": "workspace:*",
     "zod": "^4.6.7"
   },
   "devDependencies": {

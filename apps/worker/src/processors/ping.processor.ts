@@ -2,7 +2,7 @@ import {
   pingJobDataSchema,
   type PingJobData,
   type PingJobResult,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import type { Job } from 'bullmq';
 import { setTimeout as sleep } from 'node:timers/promises';
 

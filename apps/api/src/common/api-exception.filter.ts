@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import type { ApiError, ApiErrorCode } from '@kadence/contracts';
+import type { ApiError, ApiErrorCode } from '@peertoreel/contracts';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 

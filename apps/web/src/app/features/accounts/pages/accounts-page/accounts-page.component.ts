@@ -6,7 +6,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import type {
   PublishPrivacyLevel,
   TikTokAccount,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { AccountsStoreService } from '../../data-access/accounts-store.service';
 
 const PRIVACY_LABELS: Record<PublishPrivacyLevel, string> = {

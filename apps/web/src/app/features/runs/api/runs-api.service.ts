@@ -16,7 +16,7 @@ import {
   type StageJobSnapshot,
   type StageQueueName,
   type TransitionRunRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { map, type Observable } from 'rxjs';
 import { BaseApiService } from '../../../core/api/base-api.service';
 

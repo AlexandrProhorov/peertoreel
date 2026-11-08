@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { AuthSession } from '@kadence/contracts';
+import type { AuthSession } from '@peertoreel/contracts';
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { SESSION_COOKIE_NAME } from './auth.constants.js';

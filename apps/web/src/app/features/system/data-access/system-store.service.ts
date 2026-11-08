@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import type { PingJobResult, SystemJobSnapshot, SystemJobStatus } from '@kadence/contracts';
+import type { PingJobResult, SystemJobSnapshot, SystemJobStatus } from '@peertoreel/contracts';
 import { defer, switchMap, tap } from 'rxjs';
 import { BaseStore } from '../../../core/state/base-store';
 import { SystemApiService } from '../api/system-api.service';

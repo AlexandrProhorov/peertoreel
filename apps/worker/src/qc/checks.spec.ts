@@ -1,4 +1,4 @@
-import type { Script } from '@kadence/contracts';
+import type { Script } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import type { MediaProbe } from '../media/ffprobe.js';
 import type { LoudnormMeasurement } from '../media/loudnorm.js';

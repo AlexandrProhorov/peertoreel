@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import type { Artifact, PublishCard, RunState } from '@kadence/contracts';
+import type { Artifact, PublishCard, RunState } from '@peertoreel/contracts';
 import { of, throwError, type Observable } from 'rxjs';
 import { vi } from 'vitest';
 import { PublishCardApiService } from '../../api/publish-card-api.service';

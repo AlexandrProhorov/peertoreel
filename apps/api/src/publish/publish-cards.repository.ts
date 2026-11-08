@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { publishCards } from '@kadence/db';
+import { publishCards } from '@peertoreel/db';
 import type {
   PublishCardState,
   PublishPrivacyLevel,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { and, eq, ne } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
 

@@ -7,7 +7,7 @@ import type {
   StageJobSnapshot,
   StageQueueName,
   TransitionRunRequest,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { RunsApiService } from '../api/runs-api.service';

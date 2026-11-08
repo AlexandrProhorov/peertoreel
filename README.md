@@ -1,6 +1,6 @@
-# Kadence — AI Content Factory
+# Peer to Reel — AI Content Factory
 
-Kadence — pipeline-платформа для производства коротких вертикальных видео: тема → исследование →
+Peer to Reel — pipeline-платформа для производства коротких вертикальных видео: тема → исследование →
 сценарий → озвучка → визуалы → рендер → QC → публикация.
 
 **M0 — Walking Skeleton закрыт.** Текущий этап — **M2 — Factory Core**: работают стадии
@@ -41,7 +41,7 @@ pnpm dev
 - SSE progress: `GET /api/v1/system/ping/:jobId/events`
 - Web: `/system` — кнопка запуска и live-прогресс
 - TikTok accounts: `/accounts` в web; API `GET /accounts/tiktok`, `GET /accounts/tiktok/authorize`, callback `/accounts/tiktok/callback`
-- Загрузка черновика в TikTok: `pnpm --filter @kadence/worker tiktok:spike -- --run <runId> --dry-run`
+- Загрузка черновика в TikTok: `pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId> --dry-run`
 - Worker запускается вместе с `pnpm dev`
 
 ### Первый вход
@@ -49,7 +49,7 @@ pnpm dev
 При первом старте API создаёт администратора из `.env`, если таблица `users` пуста:
 
 ```bash
-BOOTSTRAP_ADMIN_EMAIL=owner@kadence.local
+BOOTSTRAP_ADMIN_EMAIL=owner@peertoreel.local
 BOOTSTRAP_ADMIN_PASSWORD=change-me-before-first-run
 SESSION_TTL_HOURS=168
 ```
@@ -71,9 +71,9 @@ pnpm infra:down
 | `pnpm typecheck` | Собирает `packages/*`, затем TypeScript-проверка |
 | `pnpm test` | Собирает `packages/*`, затем unit-тесты |
 | `pnpm check` | lint + typecheck + test + build |
-| `pnpm --filter @kadence/api db:generate` | Генерирует миграцию из `schema.ts` |
+| `pnpm --filter @peertoreel/api db:generate` | Генерирует миграцию из `schema.ts` |
 | `pnpm db:migrate` | Применяет миграции через drizzle-kit |
-| `pnpm --filter @kadence/api db:studio` | Drizzle Studio для локальной БД |
+| `pnpm --filter @peertoreel/api db:studio` | Drizzle Studio для локальной БД |
 | `pnpm infra:up` | Postgres + Redis + S3 |
 | `pnpm infra:down` | Останавливает инфраструктуру |
 
@@ -125,8 +125,8 @@ WEB_APP_URL=http://localhost:4200
 6. Проверить доступ и загрузить черновик:
 
 ```bash
-pnpm --filter @kadence/worker tiktok:spike -- --run <runId> --dry-run
-pnpm --filter @kadence/worker tiktok:spike -- --run <runId>
+pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId> --dry-run
+pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId>
 ```
 
 Spike берёт `draft_mp4`, публикует `FILE_UPLOAD` и по умолчанию использует `SELF_ONLY`.
@@ -164,14 +164,14 @@ Spike берёт `draft_mp4`, публикует `FILE_UPLOAD` и по умол�
 ## Troubleshooting
 
 **`does not provide an export named '<schema>'` в консоли web.**
-Vite пре-бандлит `@kadence/contracts` в `apps/web/.angular/cache`, и после добавления нового
+Vite пре-бандлит `@peertoreel/contracts` в `apps/web/.angular/cache`, и после добавления нового
 экспорта в контракты кэш остаётся старым. Лечится так:
 
 ```bash
-pnpm --filter @kadence/contracts build
+pnpm --filter @peertoreel/contracts build
 # остановить web-дев-сервер, затем:
 rm -rf apps/web/.angular/cache      # Windows: Remove-Item -Recurse -Force apps/web/.angular/cache
-pnpm --filter @kadence/web dev
+pnpm --filter @peertoreel/web dev
 ```
 
 Дополнительно сделайте жёсткую перезагрузку вкладки (Ctrl+Shift+R): Vite отдаёт
@@ -181,5 +181,5 @@ pnpm --filter @kadence/web dev
 тогда локальный пакет отдаётся как обычный ESM и кэш не участвует:
 
 ```bash
-pnpm --filter @kadence/web exec ng serve --port 4200 --prebundle=false
+pnpm --filter @peertoreel/web exec ng serve --port 4200 --prebundle=false
 ```

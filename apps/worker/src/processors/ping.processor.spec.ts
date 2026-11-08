@@ -1,6 +1,6 @@
 import type { Job } from 'bullmq';
 import { describe, expect, it, vi } from 'vitest';
-import type { PingJobData, PingJobResult } from '@kadence/contracts';
+import type { PingJobData, PingJobResult } from '@peertoreel/contracts';
 import { processPing } from './ping.processor.js';
 
 function createJob(data: PingJobData): Job<PingJobData, PingJobResult> {

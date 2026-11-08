@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import type { AuthUser, LoginRequest } from '@kadence/contracts';
+import type { AuthUser, LoginRequest } from '@peertoreel/contracts';
 import { catchError, finalize, map, of, shareReplay, tap, type Observable } from 'rxjs';
 import { SessionStateService } from '../../../core/auth/session-state.service';
 import { BaseStore } from '../../../core/state/base-store';

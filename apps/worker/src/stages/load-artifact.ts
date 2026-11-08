@@ -1,5 +1,5 @@
-import { artifacts, type Database } from '@kadence/db';
-import type { ObjectStorage } from '@kadence/storage';
+import { artifacts, type Database } from '@peertoreel/db';
+import type { ObjectStorage } from '@peertoreel/storage';
 import { and, eq } from 'drizzle-orm';
 
 export async function findArtifactObjectKey(

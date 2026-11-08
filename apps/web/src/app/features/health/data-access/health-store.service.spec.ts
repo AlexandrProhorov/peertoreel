@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import type { ReadinessResponse } from '@kadence/contracts';
+import type { ReadinessResponse } from '@peertoreel/contracts';
 import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { HealthApiService } from '../api/health-api.service';

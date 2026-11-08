@@ -10,7 +10,7 @@ import {
   type StageJobResult,
   type StageJobSnapshot,
   type StageQueueName,
-} from '@kadence/contracts';
+} from '@peertoreel/contracts';
 import { Queue } from 'bullmq';
 import type { AppEnv } from '../config/env.js';
 import { redisConnectionOptions } from '../system/redis-connection.js';

@@ -1,19 +1,19 @@
-name: kadence
+name: peertoreel
 
 services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: kadence
-      POSTGRES_PASSWORD: kadence
-      POSTGRES_DB: kadence
+      POSTGRES_USER: peertoreel
+      POSTGRES_PASSWORD: peertoreel
+      POSTGRES_DB: peertoreel
     ports:
       - '5432:5432'
     volumes:
       # PostgreSQL 18+ keeps versioned data directories under /var/lib/postgresql.
-      - kadence-postgres:/var/lib/postgresql
+      - peertoreel-postgres:/var/lib/postgresql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U kadence -d kadence']
+      test: ['CMD-SHELL', 'pg_isready -U peertoreel -d peertoreel']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -24,7 +24,7 @@ services:
     ports:
       - '6379:6379'
     volumes:
-      - kadence-redis:/data
+      - peertoreel-redis:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -39,24 +39,24 @@ services:
     ports:
       - '8333:8333'
     volumes:
-      - kadence-storage:/data
+      - peertoreel-storage:/data
 
   storage-init:
     image: amazon/aws-cli:latest
     depends_on:
       - storage
     environment:
-      AWS_ACCESS_KEY_ID: kadence
-      AWS_SECRET_ACCESS_KEY: kadence-dev-secret
+      AWS_ACCESS_KEY_ID: peertoreel
+      AWS_SECRET_ACCESS_KEY: peertoreel-dev-secret
       AWS_DEFAULT_REGION: us-east-1
     entrypoint:
       - /bin/sh
       - -c
       - |
         until aws --endpoint-url http://storage:8333 s3 ls; do sleep 2; done
-        aws --endpoint-url http://storage:8333 s3 mb s3://kadence || true
+        aws --endpoint-url http://storage:8333 s3 mb s3://peertoreel || true
 
 volumes:
-  kadence-postgres:
-  kadence-redis:
-  kadence-storage:
+  peertoreel-postgres:
+  peertoreel-redis:
+  peertoreel-storage:

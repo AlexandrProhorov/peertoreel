@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { artifacts, createDatabase, runs } from '@kadence/db';
-import { ObjectStorage, buildArtifactKey } from '@kadence/storage';
+import { artifacts, createDatabase, runs } from '@peertoreel/db';
+import { ObjectStorage, buildArtifactKey } from '@peertoreel/storage';
 import { config as loadEnv } from 'dotenv';
 import { desc, eq } from 'drizzle-orm';
 

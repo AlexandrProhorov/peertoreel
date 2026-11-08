@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { AuthSession, AuthUser } from '@kadence/contracts';
+import type { AuthSession, AuthUser } from '@peertoreel/contracts';
 import { createHash, randomBytes } from 'node:crypto';
 import type { AppEnv } from '../config/env.js';
 import { SESSION_TOUCH_INTERVAL_MS } from './auth.constants.js';

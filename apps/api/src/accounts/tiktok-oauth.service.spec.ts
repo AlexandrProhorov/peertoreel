@@ -1,6 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
-import { TikTokApiError } from '@kadence/tiktok';
+import { TikTokApiError } from '@peertoreel/tiktok';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../config/env.js';
 import type { RedisService } from '../redis/redis.service.js';
@@ -18,7 +18,7 @@ const account: TikTokAccountRecord = {
   id: '11111111-1111-4111-8111-111111111111',
   userId,
   openId: 'open-1',
-  displayName: 'Kadence',
+  displayName: 'Peer to Reel',
   avatarUrl: 'https://cdn.test/avatar.jpg',
   accessTokenEncrypted: 'enc-access',
   refreshTokenEncrypted: 'enc-refresh',
@@ -56,13 +56,13 @@ function setup() {
     getUserInfo: vi.fn().mockResolvedValue({
       openId: 'open-1',
       unionId: null,
-      displayName: 'Kadence',
+      displayName: 'Peer to Reel',
       avatarUrl: 'https://cdn.test/avatar.jpg',
     }),
     revoke: vi.fn().mockResolvedValue(undefined),
     queryCreatorInfo: vi.fn().mockResolvedValue({
-      username: 'kadence',
-      nickname: 'Kadence',
+      username: 'peertoreel',
+      nickname: 'Peer to Reel',
       avatarUrl: null,
       privacyLevelOptions: ['SELF_ONLY'],
       commentDisabled: false,
@@ -132,7 +132,7 @@ describe('TikTokOAuthService', () => {
     expect(api.exchangeCode).toHaveBeenCalledWith('code-1');
     expect(accounts.upsert).toHaveBeenCalledWith(userId, {
       openId: 'open-1',
-      displayName: 'Kadence',
+      displayName: 'Peer to Reel',
       avatarUrl: 'https://cdn.test/avatar.jpg',
       ...tokenColumns,
     });
@@ -174,7 +174,7 @@ describe('TikTokOAuthService', () => {
       {
         id: account.id,
         openId: 'open-1',
-        displayName: 'Kadence',
+        displayName: 'Peer to Reel',
         avatarUrl: 'https://cdn.test/avatar.jpg',
         scope: 'user.info.basic,video.publish',
         accessExpiresAt: now.toISOString(),
@@ -228,8 +228,8 @@ describe('TikTokOAuthService', () => {
         }),
       )
       .mockResolvedValueOnce({
-        username: 'kadence',
-        nickname: 'Kadence',
+        username: 'peertoreel',
+        nickname: 'Peer to Reel',
         avatarUrl: null,
         privacyLevelOptions: ['SELF_ONLY'],
         commentDisabled: false,
@@ -239,7 +239,7 @@ describe('TikTokOAuthService', () => {
       });
 
     await expect(service.creatorInfo(userId, account.id)).resolves.toMatchObject(
-      { username: 'kadence' },
+      { username: 'peertoreel' },
     );
     expect(tokens.accessTokenFor).toHaveBeenNthCalledWith(2, account, true);
   });

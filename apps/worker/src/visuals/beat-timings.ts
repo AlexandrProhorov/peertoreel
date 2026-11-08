@@ -1,4 +1,4 @@
-import type { Script } from '@kadence/contracts';
+import type { Script } from '@peertoreel/contracts';
 import type { DerivedWord } from '../tts/word-timings.js';
 
 export type BeatPart = 'hook' | 'beat' | 'cta';

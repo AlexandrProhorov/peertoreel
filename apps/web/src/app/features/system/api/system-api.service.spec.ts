@@ -4,7 +4,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { SystemJobSnapshot } from '@kadence/contracts';
+import type { SystemJobSnapshot } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { SystemApiService } from './system-api.service';
 
