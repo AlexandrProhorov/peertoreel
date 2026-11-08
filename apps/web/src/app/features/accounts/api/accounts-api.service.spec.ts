@@ -75,7 +75,10 @@ describe('AccountsApiService', () => {
     api.authorize().subscribe();
 
     const request = http.expectOne(
-      'http://api.test/api/v1/accounts/tiktok/authorize',
+      (candidate) =>
+        candidate.url.startsWith(
+          'http://api.test/api/v1/accounts/tiktok/authorize',
+        ),
     );
     expect(request.request.method).toBe('GET');
     request.flush({ url: 'https://www.tiktok.com/v2/auth/authorize/?state=s' });

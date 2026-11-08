@@ -20,7 +20,12 @@ export class AccountsApiService extends BaseApiService {
   }
 
   authorize(): Observable<TikTokAuthorizeResponse> {
-    return this.get('/accounts/tiktok/authorize', tiktokAuthorizeResponseSchema);
+    // The authorize URL is generated per click (new state + PKCE). A cached
+    // GET response would silently reuse an old redirect URI during testing.
+    return this.get(
+      `/accounts/tiktok/authorize?t=${Date.now()}`,
+      tiktokAuthorizeResponseSchema,
+    );
   }
 
   disconnect(id: string): Observable<void> {

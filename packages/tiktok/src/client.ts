@@ -191,25 +191,39 @@ export class TikTokApi {
     this.fetchImpl = config.fetchImpl ?? fetch;
   }
 
-  authorizeUrl(state: string, scopes: readonly string[]): string {
+  authorizeUrl(
+    state: string,
+    scopes: readonly string[],
+    codeChallenge?: string,
+  ): string {
     const params = new URLSearchParams({
       client_key: this.clientKey,
       scope: scopes.join(','),
       response_type: 'code',
       redirect_uri: this.redirectUri,
       state,
+      ...(codeChallenge
+        ? {
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256',
+          }
+        : {}),
     });
 
     return `${this.authBaseUrl}/v2/auth/authorize/?${params.toString()}`;
   }
 
-  exchangeCode(code: string): Promise<TikTokTokenSet> {
+  exchangeCode(
+    code: string,
+    codeVerifier?: string,
+  ): Promise<TikTokTokenSet> {
     return this.requestToken({
       client_key: this.clientKey,
       client_secret: this.clientSecret,
       code,
       grant_type: 'authorization_code',
       redirect_uri: this.redirectUri,
+      ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
     });
   }
 

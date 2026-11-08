@@ -50,14 +50,17 @@ reconnecting accounts.
 
 ### OAuth state and callback
 
-`GET /api/v1/accounts/tiktok/authorize` requires the Peer to Reel session, creates a random state,
-stores `tiktok:oauth:<state> → userId` in Redis for 10 minutes and returns the TikTok consent
-URL. The callback:
+`GET /api/v1/accounts/tiktok/authorize` requires the Peer to Reel session, creates a random
+state **and a PKCE pair**, stores `tiktok:oauth:<state> → { userId, codeVerifier }` in Redis for
+10 minutes and returns the TikTok consent URL. TikTok requires PKCE for desktop/localhost
+authorization; without `code_challenge` the consent page fails with a `code_challenge` error.
+The challenge is the hex SHA-256 of the verifier, as TikTok's Login Kit desktop guide specifies.
+The callback:
 
 - does **not** require the Peer to Reel cookie: TikTok redirects the browser top-level, and the
   one-time state is the proof of the user;
-- consumes the state with `GETDEL`, exchanges the code, reads `user.info.basic`, encrypts and
-  upserts the tokens;
+- consumes the state with `GETDEL`, exchanges the code **with the stored `code_verifier`**, reads
+  `user.info.basic`, encrypts and upserts the tokens;
 - redirects to `${WEB_APP_URL}/accounts?tiktok=connected` or `?tiktok=error`; error details are
   logged without tokens or the full OAuth payload.
 

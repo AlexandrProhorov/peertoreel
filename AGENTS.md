@@ -140,7 +140,9 @@ ledger is a separate milestone.
   token response (`expires_in`, `refresh_expires_in`); the docs checked on 2026-11-07 say
   access ≈2 h and refresh ≈180 days. **Refresh tokens rotate** — replace the stored refresh
   token on every refresh, and serialize refreshes per account. Tokens are encrypted at rest
-  and never logged.
+  and never logged. Desktop/localhost authorization requires **PKCE**: send `code_challenge`
+  (`S256`, hex SHA-256 per TikTok's desktop guide), keep the verifier server-side and send
+  `code_verifier` during the code exchange.
 - Upload: `FILE_UPLOAD` (5–64 MB chunks, sequential) is the first path; `PULL_FROM_URL`
   requires verified domain/URL-prefix ownership and a publicly reachable https URL (no redirects,
   available ~1 h).

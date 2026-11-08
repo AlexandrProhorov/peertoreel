@@ -87,7 +87,9 @@ function setup() {
 
   const redis = {
     set: vi.fn().mockResolvedValue(undefined),
-    getdel: vi.fn().mockResolvedValue(userId),
+    getdel: vi.fn().mockResolvedValue(
+      JSON.stringify({ userId, codeVerifier: 'verifier-1' }),
+    ),
   } as unknown as RedisService;
 
   const config = {
@@ -106,30 +108,40 @@ function setup() {
 }
 
 describe('TikTokOAuthService', () => {
-  it('creates a state-bound authorization URL', async () => {
+  it('creates a state-bound authorization URL with PKCE', async () => {
     const { service, api, redis } = setup();
 
     const result = await service.authorize(userId);
 
     expect(result.url).toContain('tiktok.com');
-    expect(redis.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^tiktok:oauth:/),
-      userId,
-      600,
-    );
+
+    const [key, value, ttl] = vi.mocked(redis.set).mock.calls[0] ?? [];
+
+    expect(key).toMatch(/^tiktok:oauth:/);
+    expect(ttl).toBe(600);
+
+    const stored = JSON.parse(String(value)) as {
+      userId: string;
+      codeVerifier: string;
+    };
+
+    expect(stored.userId).toBe(userId);
+    expect(stored.codeVerifier).toMatch(/^[A-Za-z0-9\-._~]{43,128}$/);
+
     expect(api.authorizeUrl).toHaveBeenCalledWith(
       expect.any(String),
       ['user.info.basic', 'video.publish'],
+      expect.stringMatching(/^[0-9a-f]{64}$/),
     );
   });
 
-  it('exchanges the code and stores the account', async () => {
+  it('exchanges the code with the stored PKCE verifier', async () => {
     const { service, api, accounts, redis } = setup();
 
     const url = await service.callback({ code: 'code-1', state: 'state-1' });
 
     expect(redis.getdel).toHaveBeenCalledWith('tiktok:oauth:state-1');
-    expect(api.exchangeCode).toHaveBeenCalledWith('code-1');
+    expect(api.exchangeCode).toHaveBeenCalledWith('code-1', 'verifier-1');
     expect(accounts.upsert).toHaveBeenCalledWith(userId, {
       openId: 'open-1',
       displayName: 'Peer to Reel',
@@ -137,6 +149,17 @@ describe('TikTokOAuthService', () => {
       ...tokenColumns,
     });
     expect(url).toBe('http://localhost:4200/accounts?tiktok=connected');
+  });
+
+  it('rejects a state payload without a PKCE verifier', async () => {
+    const { service, redis, api } = setup();
+
+    vi.mocked(redis.getdel).mockResolvedValue(userId);
+
+    await expect(
+      service.callback({ code: 'code-1', state: 'old-state' }),
+    ).resolves.toBe('http://localhost:4200/accounts?tiktok=error');
+    expect(api.exchangeCode).not.toHaveBeenCalled();
   });
 
   it('redirects with an error when the state is unknown or TikTok denies access', async () => {

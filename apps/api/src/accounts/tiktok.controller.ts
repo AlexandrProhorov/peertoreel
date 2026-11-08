@@ -2,6 +2,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -11,11 +12,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
-  tiktokCallbackQuerySchema,
   type AuthSession,
-  type TikTokAccount,
   type TikTokAccountListResponse,
   type TikTokAuthorizeResponse,
+  tiktokCallbackQuerySchema,
   type TikTokCreatorInfo,
 } from '@peertoreel/contracts';
 import type { Response } from 'express';
@@ -37,6 +37,7 @@ export class TikTokController {
 
   @Get('authorize')
   @UseGuards(SessionAuthGuard)
+  @Header('Cache-Control', 'no-store')
   authorize(
     @CurrentUser() session: AuthSession,
   ): Promise<TikTokAuthorizeResponse> {

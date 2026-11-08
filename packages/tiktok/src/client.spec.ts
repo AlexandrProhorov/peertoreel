@@ -47,10 +47,17 @@ const tokenPayload = {
 };
 
 describe('TikTokApi', () => {
-  it('builds the authorization URL', () => {
+  it('builds the authorization URL with PKCE', () => {
     const { api } = setup({});
+    const challenge = 'a'.repeat(64);
 
-    const url = new URL(api.authorizeUrl('state-1', ['user.info.basic', 'video.publish']));
+    const url = new URL(
+      api.authorizeUrl(
+        'state-1',
+        ['user.info.basic', 'video.publish'],
+        challenge,
+      ),
+    );
 
     expect(url.origin).toBe('https://www.tiktok.com');
     expect(url.pathname).toBe('/v2/auth/authorize/');
@@ -60,12 +67,14 @@ describe('TikTokApi', () => {
     expect(url.searchParams.get('redirect_uri')).toBe(
       'http://localhost:3000/api/v1/accounts/tiktok/callback',
     );
+    expect(url.searchParams.get('code_challenge')).toBe(challenge);
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
   });
 
-  it('exchanges an authorization code for tokens', async () => {
+  it('exchanges an authorization code with the PKCE verifier', async () => {
     const { api, fetchMock } = setup(tokenPayload);
 
-    const tokens = await api.exchangeCode('code-1');
+    const tokens = await api.exchangeCode('code-1', 'verifier-1');
 
     expect(tokens).toEqual({
       accessToken: 'act.token',
@@ -81,7 +90,11 @@ describe('TikTokApi', () => {
 
     expect(url).toBe('https://open.tiktokapis.com/v2/oauth/token/');
     expect(init.method).toBe('POST');
-    expect(String(init.body)).toContain('grant_type=authorization_code');
+
+    const form = new URLSearchParams(String(init.body));
+
+    expect(form.get('grant_type')).toBe('authorization_code');
+    expect(form.get('code_verifier')).toBe('verifier-1');
   });
 
   it('refreshes with the refresh token grant', async () => {

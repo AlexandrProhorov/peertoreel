@@ -15,7 +15,7 @@ import {
   type TikTokCreatorInfo,
 } from '@peertoreel/contracts';
 import { randomBytes } from 'node:crypto';
-import { TikTokApiError } from '@peertoreel/tiktok';
+import { TikTokApiError, createCodeChallenge, createCodeVerifier } from '@peertoreel/tiktok';
 import type { AppEnv } from '../config/env.js';
 import { RedisService } from '../redis/redis.service.js';
 import {
@@ -41,6 +41,38 @@ function toAccount(record: TikTokAccountRecord): TikTokAccount {
   };
 }
 
+interface OAuthStatePayload {
+  userId: string;
+  codeVerifier: string;
+}
+
+/** State is opaque to the browser and carries the PKCE verifier server-side. */
+function parseOAuthState(value: string | null): OAuthStatePayload | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as { userId?: unknown }).userId === 'string' &&
+      typeof (parsed as { codeVerifier?: unknown }).codeVerifier === 'string'
+    ) {
+      return {
+        userId: (parsed as OAuthStatePayload).userId,
+        codeVerifier: (parsed as OAuthStatePayload).codeVerifier,
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 @Injectable()
 export class TikTokOAuthService {
   private readonly logger = new Logger(TikTokOAuthService.name);
@@ -60,11 +92,13 @@ export class TikTokOAuthService {
   async authorize(userId: string): Promise<TikTokAuthorizeResponse> {
     const api = this.tokens.api();
     const state = randomBytes(24).toString('base64url');
+    const codeVerifier = createCodeVerifier();
+    const codeChallenge = createCodeChallenge(codeVerifier);
 
     try {
       await this.redis.set(
         `tiktok:oauth:${state}`,
-        userId,
+        JSON.stringify({ userId, codeVerifier } satisfies OAuthStatePayload),
         OAUTH_STATE_TTL_SECONDS,
       );
     } catch (error: unknown) {
@@ -74,7 +108,9 @@ export class TikTokOAuthService {
       );
     }
 
-    return { url: api.authorizeUrl(state, TIKTOK_SCOPES) };
+    return {
+      url: api.authorizeUrl(state, TIKTOK_SCOPES, codeChallenge),
+    };
   }
 
   /**
@@ -91,25 +127,30 @@ export class TikTokOAuthService {
       return `${webBase}/accounts?tiktok=error`;
     }
 
-    let userId: string | null = null;
+    let statePayload: OAuthStatePayload | null = null;
 
     try {
-      userId = await this.redis.getdel(`tiktok:oauth:${query.state}`);
+      statePayload = parseOAuthState(
+        await this.redis.getdel(`tiktok:oauth:${query.state}`),
+      );
     } catch (error: unknown) {
       this.logger.error({ err: error }, 'TikTok OAuth state lookup failed');
       return `${webBase}/accounts?tiktok=error`;
     }
 
-    if (!userId) {
+    if (!statePayload) {
       return `${webBase}/accounts?tiktok=error`;
     }
 
     try {
       const api = this.tokens.api();
-      const tokens = await api.exchangeCode(query.code);
+      const tokens = await api.exchangeCode(
+        query.code,
+        statePayload.codeVerifier,
+      );
       const user = await api.getUserInfo(tokens.accessToken);
 
-      await this.accounts.upsert(userId, {
+      await this.accounts.upsert(statePayload.userId, {
         openId: tokens.openId,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
