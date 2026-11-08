@@ -39,6 +39,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'accounts',
+    canActivate: [authGuard],
+    loadChildren: () =>
+      import('./features/accounts/accounts.routes').then(
+        (module) => module.ACCOUNTS_ROUTES,
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'health',
   },

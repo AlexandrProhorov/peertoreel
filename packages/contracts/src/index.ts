@@ -9,4 +9,5 @@ export * from './run.js';
 export * from './script.js';
 export * from './stages.js';
 export * from './system.js';
+export * from './tiktok.js';
 export * from './visuals.js';

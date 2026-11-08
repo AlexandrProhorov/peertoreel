@@ -27,6 +27,7 @@ packages/
   contracts/    # Zod schemas, DTOs, stage contracts, error codes — single source of truth
   db/           # Drizzle schema + database handle shared by API and worker
   storage/      # S3-compatible object storage (SeaweedFS locally, R2 in production)
+  tiktok/       # TikTok Open API adapter: OAuth, token cipher, Content Posting API
 infra/          # Dockerfiles, compose, deploy config
 docs/           # adr/, pipeline contracts, API notes
 ```
@@ -56,7 +57,8 @@ docs/           # adr/, pipeline contracts, API notes
 Every external provider sits behind a port defined in `packages/contracts` (or a
 `packages/providers` package): `LlmProvider`, `TtsProvider`, `StockProvider`,
 `ImageProvider`, `VideoProvider`, `TikTokPublisher`. Providers are swappable; business code
-never imports vendor SDKs directly.
+never imports vendor SDKs directly. The TikTok OAuth/Content Posting HTTP adapter lives in
+`packages/tiktok` (ADR-0011).
 
 ## 4. Pipeline
 
@@ -92,7 +94,7 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 ## 5. Data model (core tables)
 
 ```text
-users, sessions, tiktok_accounts (encrypted tokens), projects, templates, topics,
+users, sessions, tiktok_accounts (user_id, open_id, encrypted tokens, expiry, scope), projects, templates, topics,
 runs (state, current_stage, failed_stage, failure_reason, resume_state, cost_estimate),
 run_events (run_id, from_state, to_state, stage, reason, created_at), artifacts (stage, type, r2_key, meta),
 publish_cards (run_id unique, title, hashtags jsonb, privacy_level, is_aigc, scheduled_at,
@@ -130,13 +132,15 @@ ledger is a separate milestone.
 
 ## 7. TikTok integration rules
 
-- **TikTok is not connected yet (M1.1).** The publish card only supports manual export:
-  download the draft, copy the caption, download the card JSON, then mark the run published
-  manually (`SCHEDULED → PUBLISHING → PUBLISHED`, reason «Ручной экспорт»). No TikTok call is
-  made from this path (ADR-0010). `tiktok_accounts` arrives with M1.2.
-- OAuth (Login Kit): scopes `user.info.basic` + `video.publish`. Access token ≈24 h,
-  refresh token 365 days — a background job must refresh proactively; tokens are encrypted
-  at rest and never logged.
+- **Status (M1.2a):** Login Kit OAuth, the encrypted token vault, `/accounts` UI and a CLI
+  upload spike exist. The `publish` queue and the publish-card button are M1.2b; the run page
+  still offers manual export. No TikTok call is made from the manual export path (ADR-0010,
+  ADR-0011). `tiktok_accounts` stores encrypted tokens only.
+- OAuth (Login Kit): scopes `user.info.basic` + `video.publish`. Read token lifetimes from the
+  token response (`expires_in`, `refresh_expires_in`); the docs checked on 2026-11-07 say
+  access ≈2 h and refresh ≈180 days. **Refresh tokens rotate** — replace the stored refresh
+  token on every refresh, and serialize refreshes per account. Tokens are encrypted at rest
+  and never logged.
 - Upload: `FILE_UPLOAD` (5–64 MB chunks, sequential) is the first path; `PULL_FROM_URL`
   requires verified domain/URL-prefix ownership and a publicly reachable https URL (no redirects,
   available ~1 h).
@@ -286,6 +290,9 @@ ledger is a separate milestone.
   stop-words, AIGC, readability and the review gate. For `publish`: card defaults and hashtag
   normalization, `isAigc` not settable from the client, `GET` 404, upsert, edit restrictions,
   first-export timestamp, manual publish (two audit rows), and the web card form/export helpers.
+  For TikTok accounts: AES-GCM cipher round-trip, OAuth state consumption, refresh rotation
+  under a lock, creator-info mapping, chunk planning and error classification (token vs
+  retryable vs terminal).
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.

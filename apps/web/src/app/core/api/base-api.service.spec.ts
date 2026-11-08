@@ -41,6 +41,10 @@ class TestApiService extends BaseApiService {
   remove(): Observable<void> {
     return this.postVoid('/things/one');
   }
+
+  destroy(): Observable<void> {
+    return this.deleteVoid('/things/one');
+  }
 }
 
 describe('BaseApiService', () => {
@@ -124,6 +128,16 @@ describe('BaseApiService', () => {
     const request = http.expectOne('http://api.test/api/v1/things/one');
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toBeNull();
+
+    request.flush(null);
+  });
+
+  it('supports void DELETEs', () => {
+    api.destroy().subscribe();
+
+    const request = http.expectOne('http://api.test/api/v1/things/one');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.withCredentials).toBe(true);
 
     request.flush(null);
   });

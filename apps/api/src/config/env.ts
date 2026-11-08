@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseTokenKey } from '@kadence/tiktok';
 
 function emptyToUndefined(value: unknown): unknown {
   return typeof value === 'string' && value.trim() === '' ? undefined : value;
@@ -29,6 +30,35 @@ const envSchema = z.object({
   BOOTSTRAP_ADMIN_PASSWORD: z.preprocess(
     emptyToUndefined,
     z.string().min(8).max(200).optional(),
+  ),
+  /** Public origin of the web app; the OAuth callback redirects here. */
+  WEB_APP_URL: z.url().default('http://localhost:4200'),
+  // TikTok Login Kit / Content Posting API. Optional at boot: the accounts
+  // module returns a clear 503 until the app credentials are configured.
+  TIKTOK_CLIENT_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  TIKTOK_CLIENT_SECRET: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).optional(),
+  ),
+  TIKTOK_REDIRECT_URI: z.preprocess(emptyToUndefined, z.url().optional()),
+  /** 32-byte key for AES-256-GCM token encryption (base64 or hex). */
+  TOKEN_ENCRYPTION_KEY: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .min(1)
+      .refine(
+        (value) => {
+          try {
+            parseTokenKey(value);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        'TOKEN_ENCRYPTION_KEY must be 32 bytes (base64 or 64 hex characters)',
+      )
+      .optional(),
   ),
 });
 

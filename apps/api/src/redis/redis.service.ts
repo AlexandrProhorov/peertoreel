@@ -42,6 +42,59 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async get(key: string): Promise<string | null> {
+    return (await this.connected()).get(key);
+  }
+
+  async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+    await (await this.connected()).set(key, value, 'EX', ttlSeconds);
+  }
+
+  async setNx(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const result = await (await this.connected()).set(
+      key,
+      value,
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+
+    return result === 'OK';
+  }
+
+  async getdel(key: string): Promise<string | null> {
+    return (await this.connected()).getdel(key);
+  }
+
+  async del(key: string): Promise<void> {
+    await (await this.connected()).del(key);
+  }
+
+  /**
+   * Releases a lock only when this caller still owns it. Plain GET+DEL is a
+   * TOCTOU race: the key may expire and be re-acquired between the two calls.
+   */
+  async compareAndDelete(key: string, value: string): Promise<void> {
+    await (await this.connected()).eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      1,
+      key,
+      value,
+    );
+  }
+
+  private async connected(): Promise<Redis> {
+    if (this.client.status === 'wait') {
+      await this.client.connect();
+    }
+
+    return this.client;
+  }
+
   async onModuleDestroy(): Promise<void> {
     if (this.client.status === 'end') {
       return;

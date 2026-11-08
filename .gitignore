@@ -16,7 +16,7 @@ coverage/
 /LEARNING.md
 
 # session prompt drafts (local only)
-/docs/prompts/
+/docs/ignore/
 
 # local task list (not part of the repo)
 /todo.md

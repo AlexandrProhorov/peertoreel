@@ -47,4 +47,10 @@ export abstract class BaseApiService {
       withCredentials: true,
     });
   }
+
+  protected deleteVoid(path: string): Observable<void> {
+    return this.http.delete<void>(this.url(path), {
+      withCredentials: true,
+    });
+  }
 }

@@ -10,12 +10,14 @@
     "start": "node dist/main.js",
     "lint": "oxlint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts"
   },
   "dependencies": {
     "@kadence/contracts": "workspace:*",
     "@kadence/db": "workspace:*",
     "@kadence/storage": "workspace:*",
+    "@kadence/tiktok": "workspace:*",
     "bullmq": "^6.5.2",
     "dotenv": "^18.0.9",
     "drizzle-orm": "^0.45.4",

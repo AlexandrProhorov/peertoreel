@@ -53,7 +53,8 @@ ping job → `completed` за ~0.5 с.
 | ID | Задача | Статус |
 |---|---|---|
 | M1.1 | Publish card + manual export (без TikTok API) | DONE |
-| M1.2 | TikTok OAuth, token vault, `video/init`, статус/webhooks, rate limiter | TODO |
+| M1.2a | TikTok OAuth, token vault, `/accounts`, upload spike | DOING |
+| M1.2b | Очередь `publish`, `publish_id`/`post_id`, статус/webhooks, rate limiter | TODO |
 
 **M1.1 закрыт 2026-11-06.** Проверено: миграции `0005`/`0006` (enum `publish_card_state`,
 `publish_cards`, unique `run_id`, check `is_aigc = true` и длины title, backfill существующих
@@ -63,6 +64,15 @@ run'ов); `pnpm check`; живые запросы — 401 без сессии, 
 `downloadUrl` отдаёт `Content-Disposition: attachment`; одноразовый run прошёл
 `REVIEW → SCHEDULED` (карточка создана автоматически) и `manual-publish` (две audit-записи,
 `PUBLISHED`). Браузерный click-through скачивания/буфера/JSON остаётся на ручную проверку.
+
+**M1.2a — код готов, живая проверка ждёт ключей TikTok.** Сделано: `packages/tiktok`
+(OAuth, `TokenCipher` AES-256-GCM, chunk planner, классификация ошибок), миграция `0007`
+(`tiktok_accounts`), API `/accounts/tiktok` (authorize/callback/list/disconnect/creator-info),
+refresh с ротацией под Redis-локом, web `/accounts`, CLI `tiktok:spike` (`FILE_UPLOAD`,
+`SELF_ONLY`). Проверено: `pnpm check` (353 теста), `GET /accounts/tiktok` без сессии → 401,
+`GET /accounts/tiktok/authorize` с сессией без ключей → 503 с перечнем переменных. Не
+проверено: реальный OAuth и загрузка — нужны `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`,
+`TIKTOK_REDIRECT_URI`, `TOKEN_ENCRYPTION_KEY` и приватный аккаунт.
 
 ## M2 — Factory Core (в работе)
 
@@ -84,7 +94,6 @@ run'ов); `pnpm check`; живые запросы — 401 без сессии, 
 
 ## Следующие сессии
 
-1. M1.2 — TikTok OAuth + token vault + приватная публикация; publish card получает
-   `publish_id`/`post_id`, статус и webhooks.
+1. M1.2b — очередь `publish` + кнопка публикации в publish card, статус/webhooks, rate limiter.
 2. M3 — quality/ops: style templates, image generation, music/ducking, cost ledger, manual
    scene replacement.

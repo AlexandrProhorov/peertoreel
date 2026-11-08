@@ -1,0 +1,174 @@
+<section class="accounts">
+  <header class="accounts__header">
+    <div>
+      <p class="accounts__eyebrow">TikTok</p>
+      <h1>Аккаунты</h1>
+      <p class="accounts__hint">
+        Подключение через TikTok Login Kit. Токены хранятся на сервере в
+        зашифрованном виде и в браузер не попадают.
+      </p>
+    </div>
+
+    <button
+      mat-flat-button
+      type="button"
+      [disabled]="store.pending()"
+      (click)="connect()"
+    >
+      Подключить TikTok
+    </button>
+  </header>
+
+  @if (tiktok() === 'connected') {
+    <mat-card class="accounts__notice accounts__notice--ok" appearance="outlined">
+      <mat-card-content>TikTok-аккаунт подключён.</mat-card-content>
+    </mat-card>
+  }
+
+  @if (tiktok() === 'error') {
+    <mat-card class="accounts__notice accounts__notice--error" appearance="outlined">
+      <mat-card-content>
+        Не удалось подключить TikTok. Проверьте redirect URI в приложении
+        TikTok и попробуйте снова.
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.error(); as error) {
+    <mat-card class="accounts__notice accounts__notice--error" appearance="outlined">
+      <mat-card-content>
+        <p>{{ error }}</p>
+        @if (!store.loaded()) {
+          <button mat-stroked-button type="button" (click)="store.load()">
+            Повторить загрузку
+          </button>
+        }
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.loading() && !store.loaded()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Загрузка аккаунтов" />
+  }
+
+  @if (store.isEmpty()) {
+    <mat-card class="accounts__empty" appearance="outlined">
+      <mat-card-content>
+        <h2>TikTok ещё не подключён</h2>
+        <p class="accounts__hint">
+          Нужен приватный тестовый аккаунт и приложение TikTok for Developers с
+          Login Kit и Content Posting API. Для неaudited приложения публикация
+          доступна только с приватностью «Только я».
+        </p>
+        <p class="accounts__hint">
+          Redirect URI приложения:
+          <code>http://localhost:3000/api/v1/accounts/tiktok/callback</code>
+        </p>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (store.accounts().length > 0) {
+    <div class="accounts__list">
+      @for (account of store.accounts(); track account.id) {
+        <mat-card class="accounts__card" appearance="outlined">
+          <mat-card-content>
+            <div class="accounts__top">
+              <div class="accounts__identity">
+                @if (account.avatarUrl) {
+                  <img
+                    class="accounts__avatar"
+                    [src]="account.avatarUrl"
+                    [alt]="account.displayName"
+                    width="48"
+                    height="48"
+                  />
+                } @else {
+                  <span class="accounts__avatar accounts__avatar--empty">
+                    {{ account.displayName.slice(0, 1) || 'T' }}
+                  </span>
+                }
+
+                <div>
+                  <h2>{{ account.displayName || 'TikTok аккаунт' }}</h2>
+                  <p class="accounts__hint">open_id: {{ account.openId }}</p>
+                </div>
+              </div>
+
+              <div class="accounts__actions">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="store.pending() || !account.isActive"
+                  (click)="test(account)"
+                >
+                  Проверить доступ
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="accounts__danger"
+                  [disabled]="store.pending()"
+                  (click)="disconnect(account)"
+                >
+                  Отключить
+                </button>
+              </div>
+            </div>
+
+            <p class="accounts__meta">
+              <span>доступ до {{ account.accessExpiresAt | date: 'dd.MM HH:mm' }}</span>
+              <span>refresh до {{ account.refreshExpiresAt | date: 'dd.MM yyyy' }}</span>
+            </p>
+            <p class="accounts__meta">scopes: {{ account.scope }}</p>
+
+            @if (!account.isActive) {
+              <p class="accounts__warning" role="alert">
+                TikTok отозвал доступ — подключите аккаунт заново.
+              </p>
+            }
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+  }
+
+  @if (store.creatorInfo(); as info) {
+    <mat-card class="accounts__creator" appearance="outlined">
+      <mat-card-content>
+        <div class="accounts__top">
+          <div>
+            <h2>Доступ подтверждён</h2>
+            <p class="accounts__hint">
+              @{{ info.username }} · {{ info.nickname }}
+            </p>
+          </div>
+          <button
+            mat-button
+            type="button"
+            (click)="store.clearCreatorInfo()"
+          >
+            Скрыть
+          </button>
+        </div>
+
+        <p class="accounts__hint">
+          Максимальная длительность видео: {{ info.maxVideoPostDurationSec }} с.
+        </p>
+
+        <p class="accounts__hint">Доступная приватность:</p>
+        <ul class="accounts__privacy">
+          @for (level of info.privacyLevelOptions; track level) {
+            <li>{{ privacyLabel(level) }} <code>{{ level }}</code></li>
+          }
+        </ul>
+
+        <p class="accounts__hint">
+          Комментарии: {{ info.commentDisabled ? 'выключены' : 'включены' }} ·
+          Duet: {{ info.duetDisabled ? 'выключен' : 'включён' }} ·
+          Stitch: {{ info.stitchDisabled ? 'выключен' : 'включён' }}
+        </p>
+      </mat-card-content>
+    </mat-card>
+  }
+</section>

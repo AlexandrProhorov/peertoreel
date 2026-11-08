@@ -211,6 +211,36 @@ POST /api/v1/runs/:id/manual-publish            → SCHEDULED → PUBLISHING →
   JSON. Ручная публикация — одно действие в карточке, сырые кнопки
   `SCHEDULED → PUBLISHING`/`PUBLISHING → PUBLISHED` скрыты. Полный разбор — ADR-0010.
 
+## TikTok accounts и upload spike (M1.2a)
+
+```text
+GET  /api/v1/accounts/tiktok/authorize           (session)
+  → state в Redis на 10 минут → URL согласия tiktok.com
+GET  /api/v1/accounts/tiktok/callback?code&state (без сессии)
+  → GETDEL state → userId
+  → POST /v2/oauth/token/ (authorization_code)
+  → GET  /v2/user/info/
+  → tiktok_accounts: токены зашифрованы AES-256-GCM
+  → redirect /accounts?tiktok=connected|error
+
+GET    /api/v1/accounts/tiktok                   → только метаданные
+GET    /api/v1/accounts/tiktok/:id/creator-info  → refresh + creator_info/query
+DELETE /api/v1/accounts/tiktok/:id               → revoke + удаление строки
+
+pnpm --filter @kadence/worker tiktok:spike -- --run <runId> [--dry-run]
+  → refresh с ротацией → creator_info → video/init (is_aigc, FILE_UPLOAD)
+  → последовательный PUT чанков с Content-Range → status/fetch
+```
+
+- Сроки токенов берутся из ответа (`expires_in` / `refresh_expires_in`); на 2026-11 это
+  ≈2 ч и ≈180 дней. Refresh-токен **ротируется**, обновления сериализуются Redis-локом
+  (`tiktok:refresh:<accountId>`); API и spike используют один ключ, в M1.2b логика переедет
+  в общий vault.
+- Неaudited приложение может публиковать только `SELF_ONLY` в приватный аккаунт; `PULL_FROM_URL`
+  требует подтверждённого https-домена, поэтому первый путь — `FILE_UPLOAD`.
+- Spike не меняет состояние run и карточку: он проверяет реальную загрузку до того, как
+  очередь `publish` и кнопка в publish card появятся в M1.2b. Полный разбор — ADR-0011.
+
 ## Packages
 
 ### `packages/contracts`
@@ -229,7 +259,8 @@ POST /api/v1/runs/:id/manual-publish            → SCHEDULED → PUBLISHING →
 - `visuals.ts` — `StockProvider`, `StockAsset`, `VisualScene`, `VisualsArtifact`;
 - `qc.ts` — `qc_report`: checks, metrics, verdict;
 - `publish.ts` — publish card, privacy levels, card states, hashtag normalization and
-  default title/hashtags for the approval transition.
+  default title/hashtags for the approval transition;
+- `tiktok.ts` — connected account metadata, OAuth callback query, creator info.
 
 Схемы описаны Zod. API, web и worker импортируют один и тот же пакет. Пакет собирается в ESM
 (`dist/index.js` + `dist/index.d.ts`), потому что NestJS 12 и Angular 22 работают в ESM.
@@ -255,6 +286,8 @@ POST /api/v1/runs/:id/manual-publish            → SCHEDULED → PUBLISHING →
   создание publish card при `REVIEW → SCHEDULED`;
 - `publish/` — карточка публикации: чтение/upsert, отметка экспорта, ручная публикация
   двумя переходами;
+- `accounts/` — TikTok OAuth, шифрованный token vault, refresh с ротацией, проверка
+  creator info;
 - `database/` — `pg.Pool`, Drizzle client, ping, lifecycle;
 - `redis/` — `ioredis`, lazy connect, ping;
 - `health/` — liveness/readiness;
@@ -277,6 +310,8 @@ POST /api/v1/runs/:id/manual-publish            → SCHEDULED → PUBLISHING →
 - `visuals/` — `deriveBeatTimings`, visual anchor и планировщик сцен;
 - `qc/` — правила отчёта: длительность, громкость, sync-разрывы, стоп-слова, AIGC,
   читаемость;
+- `tiktok/` — upload spike: читает аккаунт из token vault, вызывает Content Posting API,
+  грузит `FILE_UPLOAD` чанками и опрашивает статус;
 - `media/` — FFmpeg/ffprobe-хелперы, ASS-караоке и сборка визуального трека;
 - `main.ts` — Worker'ы, Redis-кеш Pixabay, логирование, graceful shutdown.
 
@@ -290,6 +325,8 @@ Worker использует `@kadence/db` и `@kadence/storage` напрямую
   `pages/login-page/`, `authGuard`;
 - `features/runs/` — список прогонов, карточка run'а, гейты и история переходов,
   publish card с ручным экспортом;
+- `features/accounts/` — подключение TikTok через OAuth, список аккаунтов, проверка
+  creator info и отключение;
 - `features/health/` — `api/` (transport), `data-access/` (store + domain helper),
   `pages/` (route page);
 - `features/system/` — ping UI, SSE stream, progress store;
@@ -352,8 +389,8 @@ Service → Repository → DatabaseService.db (Drizzle) → pg.Pool → PostgreS
 
 ## Следующие архитектурные шаги
 
-1. M1.2: TikTok OAuth + token vault + `video/init`/статус; publish card получает
-   `publish_id`/`post_id`, появляется `tiktok_accounts` и rate limiter.
+1. M1.2b: очередь `publish` поверх проверенного upload spike: `publish_id`/`post_id`,
+   статус/webhooks, rate limiter 6 req/min, кнопка публикации в publish card.
 2. Provider ports (`LlmProvider`, `TtsProvider`, …) и `provider_usage`/cost ledger;
    `StockProvider` уже вынесен, но полный ledger по-прежнему отдельный milestone.
 3. `scenes` table — только когда review UI начнёт запрашивать отдельные сцены.

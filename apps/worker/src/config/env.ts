@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseTokenKey } from '@kadence/tiktok';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -29,6 +30,24 @@ const envSchema = z.object({
   ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
   ELEVENLABS_MODEL_ID: z.string().min(1).default('eleven_multilingual_v2'),
   PIXABAY_API_KEY: z.string().min(1).optional(),
+  // M1.2a spike: required only for the TikTok upload script, not at boot.
+  TIKTOK_CLIENT_KEY: z.string().min(1).optional(),
+  TIKTOK_CLIENT_SECRET: z.string().min(1).optional(),
+  TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .min(1)
+    .refine(
+      (value) => {
+        try {
+          parseTokenKey(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      'TOKEN_ENCRYPTION_KEY must be 32 bytes (base64 or 64 hex characters)',
+    )
+    .optional(),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;

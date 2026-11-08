@@ -2,7 +2,10 @@
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
+import { stdSerializers } from 'pino';
+import type { IncomingMessage } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { TikTokModule } from './accounts/tiktok.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { AppConfigModule } from './config/config.module.js';
@@ -38,6 +41,20 @@ import { SystemModule } from './system/system.module.js';
             ],
             censor: '[REDACTED]',
           },
+          serializers: {
+            req: (request: IncomingMessage & { id?: string }) => {
+              const serialized = stdSerializers.req(request);
+              const url = serialized.url ?? '';
+
+              // The OAuth callback query contains a one-time code and state;
+              // hard rule 4 forbids full OAuth payloads in logs.
+              if (url.startsWith('/api/v1/accounts/tiktok/callback')) {
+                serialized.url = url.split('?')[0] ?? url;
+              }
+
+              return serialized;
+            },
+          },
         },
       }),
     }),
@@ -45,6 +62,7 @@ import { SystemModule } from './system/system.module.js';
     RedisModule,
     StorageModule,
     AuthModule,
+    TikTokModule,
     HealthModule,
     RunsModule,
     PublishModule,

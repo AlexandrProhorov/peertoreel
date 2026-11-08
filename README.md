@@ -7,7 +7,9 @@ Kadence — pipeline-платформа для производства коро
 `script`, `voiceover`, `visuals`, `render` и `qc` (до `REVIEW`), run detail с
 восстановлением прогресса стадии, health-check с проверкой worker'а и вход по сессии.
 **M1.1** добавляет publish card и ручной экспорт: одобренный черновик можно скачать,
-скопировать подпись и отметить опубликованным вручную — без TikTok API.
+скопировать подпись и отметить опубликованным вручную. **M1.2a** добавляет подключение
+TikTok через Login Kit, шифрованный token vault и CLI-загрузку черновика в приватный
+аккаунт; очередь публикации и кнопка в publish card — M1.2b.
 
 ## Стек
 
@@ -38,6 +40,8 @@ pnpm dev
 - Ping job: `POST /api/v1/system/ping` → `GET /api/v1/system/ping/:jobId`
 - SSE progress: `GET /api/v1/system/ping/:jobId/events`
 - Web: `/system` — кнопка запуска и live-прогресс
+- TikTok accounts: `/accounts` в web; API `GET /accounts/tiktok`, `GET /accounts/tiktok/authorize`, callback `/accounts/tiktok/callback`
+- Загрузка черновика в TikTok: `pnpm --filter @kadence/worker tiktok:spike -- --run <runId> --dry-run`
 - Worker запускается вместе с `pnpm dev`
 
 ### Первый вход
@@ -82,6 +86,9 @@ apps/
   worker/       BullMQ worker
 packages/
   contracts/    Zod-схемы и общие типы
+  db/           Drizzle-схема и database handle
+  storage/      S3-совместимое хранилище
+  tiktok/       OAuth, шифрование токенов и Content Posting API
 infra/          Docker Compose для локальной инфраструктуры
 docs/adr/       Architecture Decision Records
 apps/api/
@@ -95,6 +102,38 @@ apps/api/
 код работает через S3 API и не зависит от конкретного локального провайдера. Подробности —
 в `docs/adr/0002-local-s3-seaweedfs.md`.
 
+## TikTok (M1.2a)
+
+Нужен аккаунт на [TikTok for Developers](https://developers.tiktok.com/):
+
+1. Создать приложение, добавить **Login Kit** и **Content Posting API**.
+2. Запросить scopes `user.info.basic` и `video.publish`.
+3. Зарегистрировать redirect URI `http://localhost:3000/api/v1/accounts/tiktok/callback`.
+4. Добавить в `.env`:
+
+```bash
+TIKTOK_CLIENT_KEY=...
+TIKTOK_CLIENT_SECRET=...
+TIKTOK_REDIRECT_URI=http://localhost:3000/api/v1/accounts/tiktok/callback
+# 32-byte key, generate once and keep stable:
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+TOKEN_ENCRYPTION_KEY=...
+WEB_APP_URL=http://localhost:4200
+```
+
+5. Перезапустить API и открыть `/accounts`, подключить приватный тестовый аккаунт.
+6. Проверить доступ и загрузить черновик:
+
+```bash
+pnpm --filter @kadence/worker tiktok:spike -- --run <runId> --dry-run
+pnpm --filter @kadence/worker tiktok:spike -- --run <runId>
+```
+
+Spike берёт `draft_mp4`, публикует `FILE_UPLOAD` и по умолчанию использует `SELF_ONLY`.
+Неaudited приложение не может постить в публичный аккаунт; для публичной публикации нужен
+аудит TikTok (M4). Токены хранятся зашифрованными; access живёт ≈2 ч, refresh ≈180 дней и
+ротируется при каждом обновлении.
+
 ## Ограничения текущего этапа
 
 - `visuals` использует Pixabay: только вертикальные клипы/фото, кеш поиска 24 ч, лимит
@@ -105,12 +144,15 @@ apps/api/
 - `qc` проверяет длительность, громкость, синхронизацию, стоп-слова, `is_aigc` и темп речи.
   Отчёт `qc_report` показывается в карточке run'а; «Одобрить» недоступно без отчёта и при
   verdict `fail`. `warn` — advisory.
-- **TikTok ещё не подключён.** После «Одобрить» run переходит в `SCHEDULED` и получает
-  publish card: заголовок, хештеги, приватность, напоминание о публикации. Видео скачивается
-  по presigned URL, подпись копируется в буфер, карточка скачивается как JSON, затем
-  «Отметить опубликованным вручную» переводит run в `PUBLISHED` двумя audit-записями.
-  `is_aigc` всегда `true` и не переключается. Никаких вызовов TikTok нет (M1.2).
-- Нет TikTok OAuth, `tiktok_accounts`, загрузки видео и webhooks.
+- **TikTok: подключение и загрузка есть, очереди публикации нет.** После «Одобрить» run
+  переходит в `SCHEDULED` и получает publish card: заголовок, хештеги, приватность,
+  напоминание о публикации. Видео скачивается по presigned URL, подпись копируется в буфер,
+  карточка скачивается как JSON, затем «Отметить опубликованным вручную» переводит run в
+  `PUBLISHED` двумя audit-записями. Отдельно `/accounts` подключает TikTok через OAuth, а
+  `tiktok:spike` загружает черновик `FILE_UPLOAD` в приватный аккаунт.
+  `is_aigc` всегда `true`. Очередь `publish`, кнопка публикации в карточке, webhooks и
+  rate limiter — M1.2b.
+- Нет TikTok app audit: публичная публикация недоступна, только `SELF_ONLY`.
 - `topic-discovery` и `research` не автоматизированы: run создаётся с темой вручную.
 - Auth-защита есть у `/system` и `/runs`; остальные бизнес-роуты появятся вместе со своими
   таблицами и сразу под `SessionAuthGuard`.

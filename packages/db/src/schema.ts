@@ -179,6 +179,48 @@ export const artifacts = pgTable(
 );
 
 /**
+ * TikTok accounts connected through Login Kit. Access and refresh tokens are
+ * stored encrypted (AES-256-GCM) and are never returned by the API; refresh
+ * tokens rotate on every refresh, so the row is the only copy.
+ */
+export const tiktokAccounts = pgTable(
+  'tiktok_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    openId: text('open_id').notNull(),
+    displayName: text('display_name').notNull().default(''),
+    avatarUrl: text('avatar_url'),
+    accessTokenEncrypted: text('access_token_encrypted').notNull(),
+    refreshTokenEncrypted: text('refresh_token_encrypted').notNull(),
+    accessExpiresAt: timestamp('access_expires_at', {
+      withTimezone: true,
+    }).notNull(),
+    refreshExpiresAt: timestamp('refresh_expires_at', {
+      withTimezone: true,
+    }).notNull(),
+    scope: text('scope').notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    lastRefreshedAt: timestamp('last_refreshed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('tiktok_accounts_user_open_id_unique').on(
+      table.userId,
+      table.openId,
+    ),
+    index('tiktok_accounts_user_idx').on(table.userId),
+  ],
+);
+
+/**
  * One publish card per run. Video and script stay in `artifacts`; this row is
  * the text the human exports manually until TikTok is connected (ADR-0010).
  * `publish_id` / `post_id` / `fail_reason` are reserved for M1.2 and stay null.
@@ -226,5 +268,6 @@ export const schema = {
   runs,
   runEvents,
   artifacts,
+  tiktokAccounts,
   publishCards,
 };
