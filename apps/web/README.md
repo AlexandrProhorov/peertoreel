@@ -12,6 +12,20 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+### Workspace packages (`@peertoreel/contracts`)
+
+The dev server must not prebundle workspace packages: the Vite dependency cache is keyed by the
+lockfile, not by the package `dist`, so a new export could stay invisible until the cache is
+deleted. `angular.json` therefore sets `serve.options.prebundle.exclude` for
+`@peertoreel/contracts` — the package is bundled into the application chunks instead, and the
+dev server rebuilds when `packages/contracts/dist` changes.
+
+Any workspace package used by the web app needs the same two things: an entry in
+`prebundle.exclude` and its runtime dependencies (for contracts that is `zod`) declared in this
+`package.json`, otherwise Vite cannot resolve them from the app root. Run
+`pnpm --filter @peertoreel/web clean` to drop the whole `.angular/cache` if the dependency cache
+ever gets corrupted.
+
 ## Project structure
 
 ```text

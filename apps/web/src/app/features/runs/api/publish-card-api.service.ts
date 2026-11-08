@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import {
+  enqueueStageResponseSchema,
   publishCardSchema,
+  stageJobSnapshotSchema,
+  tiktokPublishAvailabilitySchema,
+  type EnqueueStageResponse,
   type PublishCard,
+  type StageJobSnapshot,
+  type TikTokPublishAvailability,
   type UpdatePublishCardRequest,
 } from '@peertoreel/contracts';
 import type { Observable } from 'rxjs';
@@ -31,5 +37,27 @@ export class PublishCardApiService extends BaseApiService {
 
   markPublished(runId: string): Observable<PublishCard> {
     return this.post(`/runs/${runId}/manual-publish`, null, publishCardSchema);
+  }
+
+  tiktokAvailability(runId: string): Observable<TikTokPublishAvailability> {
+    return this.get(
+      `/runs/${runId}/tiktok-publish`,
+      tiktokPublishAvailabilitySchema,
+    );
+  }
+
+  startTikTokPublish(runId: string): Observable<EnqueueStageResponse> {
+    return this.post(
+      `/runs/${runId}/tiktok-publish`,
+      null,
+      enqueueStageResponseSchema,
+    );
+  }
+
+  tiktokPublishJob(runId: string): Observable<StageJobSnapshot> {
+    return this.get(
+      `/runs/${runId}/tiktok-publish/job`,
+      stageJobSnapshotSchema,
+    );
   }
 }

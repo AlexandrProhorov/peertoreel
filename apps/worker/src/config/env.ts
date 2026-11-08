@@ -33,6 +33,7 @@ const envSchema = z.object({
   // M1.2a spike: required only for the TikTok upload script, not at boot.
   TIKTOK_CLIENT_KEY: z.string().min(1).optional(),
   TIKTOK_CLIENT_SECRET: z.string().min(1).optional(),
+  TIKTOK_REDIRECT_URI: z.string().min(1).optional(),
   TOKEN_ENCRYPTION_KEY: z
     .string()
     .min(1)

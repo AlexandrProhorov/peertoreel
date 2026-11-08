@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import {
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   Injector,
@@ -11,6 +12,7 @@ import {
   type OnInit,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -18,12 +20,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
+import { RouterLink } from '@angular/router';
 import {
   PUBLISH_PRIVACY_LEVELS,
   PUBLISH_TITLE_MAX_LENGTH,
   type Artifact,
   type PublishPrivacyLevel,
   type RunState,
+  type StageJobSnapshot,
 } from '@peertoreel/contracts';
 import { PublishCardStoreService } from '../../data-access/publish-card-store.service';
 import {
@@ -47,6 +51,7 @@ import {
   selector: 'app-publish-card',
   imports: [
     DatePipe,
+    RouterLink,
     ReactiveFormsModule,
     MatButtonModule,
     MatCardModule,
@@ -64,9 +69,11 @@ export class PublishCardComponent implements OnInit {
   readonly defaultTitle = input<string>('');
   readonly draft = input<Artifact | null>(null);
   readonly published = output<void>();
+  readonly jobFinished = output<void>();
 
   protected readonly store = inject(PublishCardStoreService);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly privacyLevels = PUBLISH_PRIVACY_LEVELS;
   protected readonly privacyLabel = publishPrivacyLabel;
@@ -90,10 +97,21 @@ export class PublishCardComponent implements OnInit {
   protected readonly canPublish = computed(
     () => this.runState() === 'SCHEDULED' && this.store.card() !== null,
   );
+  protected readonly privacySelected = signal(false);
+  protected readonly canTikTokPublish = computed(
+    () =>
+      this.runState() === 'SCHEDULED' &&
+      this.store.card() !== null &&
+      this.store.tiktokAccount() !== null &&
+      this.privacySelected() &&
+      !this.store.pending() &&
+      !this.store.tiktokPublishing(),
+  );
   protected readonly copied = signal(false);
   protected readonly copyError = signal<string | null>(null);
   private cardKey: string | null = null;
   private boundId: string | null = null;
+  private lastJobStatus: StageJobSnapshot['status'] | null = null;
 
   private readonly injector = inject(Injector);
 
@@ -167,6 +185,37 @@ export class PublishCardComponent implements OnInit {
               },
           { emitEvent: false },
         );
+        this.privacySelected.set(
+          this.form.controls.privacyLevel.value !== null,
+        );
+      },
+      { injector: this.injector },
+    );
+
+    this.form.controls.privacyLevel.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        this.privacySelected.set(value !== null);
+      });
+
+    // Notify the run page when the publish job reaches a terminal state; it
+    // reloads the run so PUBLISHED/FAILED and the history are visible.
+    effect(
+      () => {
+        const job = this.store.tiktokJob();
+
+        if (!job) {
+          this.lastJobStatus = null;
+          return;
+        }
+
+        const terminal = job.status === 'completed' || job.status === 'failed';
+
+        if (terminal && this.lastJobStatus !== job.status) {
+          this.jobFinished.emit();
+        }
+
+        this.lastJobStatus = job.status;
       },
       { injector: this.injector },
     );
@@ -204,6 +253,26 @@ export class PublishCardComponent implements OnInit {
 
   protected retry(): void {
     this.store.load();
+  }
+
+  protected publishToTikTok(): void {
+    if (!this.canTikTokPublish()) {
+      return;
+    }
+
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.form.getRawValue();
+
+    this.store.publishToTikTok({
+      title: raw.title.trim(),
+      hashtags: parseHashtagsInput(raw.hashtags),
+      privacyLevel: raw.privacyLevel,
+      scheduledAt: fromDateTimeLocal(raw.scheduledAt),
+    });
   }
 
   protected downloadVideo(): void {

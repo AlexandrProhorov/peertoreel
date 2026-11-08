@@ -74,7 +74,7 @@ export type TikTokPostStatus =
 export interface TikTokPostStatusResult {
   status: TikTokPostStatus;
   failReason: string | null;
-  publiclyAvailablePostIds: number[];
+  publiclyAvailablePostIds: string[];
   uploadedBytes: number | null;
   downloadedBytes: number | null;
 }
@@ -101,7 +101,7 @@ const oauthErrorSchema = z.object({
 });
 
 const optionalUrl = z.preprocess(
-  (value) => (value === '' ? undefined : value),
+  (value) => (value === '' || value === null ? undefined : value),
   z.url().optional(),
 );
 
@@ -119,8 +119,8 @@ const envelopeSchema = z.object({
 const userInfoSchema = z.object({
   user: z.object({
     open_id: z.string().min(1),
-    union_id: z.string().optional(),
-    display_name: z.string().default(''),
+    union_id: z.string().nullish(),
+    display_name: z.string().nullish(),
     avatar_url: optionalUrl,
   }),
 });
@@ -156,10 +156,12 @@ const statusResponseSchema = z.object({
     'PUBLISH_COMPLETE',
     'FAILED',
   ]),
-  fail_reason: z.string().optional(),
-  publicaly_available_post_id: z.array(z.number().int()).optional(),
-  uploaded_bytes: z.number().int().nonnegative().optional(),
-  downloaded_bytes: z.number().int().nonnegative().optional(),
+  fail_reason: z.string().nullish(),
+  publicaly_available_post_id: z
+    .array(z.union([z.string(), z.number()]))
+    .nullish(),
+  uploaded_bytes: z.number().int().nonnegative().nullish(),
+  downloaded_bytes: z.number().int().nonnegative().nullish(),
 });
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -270,7 +272,7 @@ export class TikTokApi {
     return {
       openId: data.user.open_id,
       unionId: data.user.union_id ?? null,
-      displayName: data.user.display_name,
+      displayName: data.user.display_name ?? '',
       avatarUrl: data.user.avatar_url ?? null,
     };
   }
@@ -402,7 +404,9 @@ export class TikTokApi {
     return {
       status: data.status,
       failReason: data.fail_reason ?? null,
-      publiclyAvailablePostIds: data.publicaly_available_post_id ?? [],
+      publiclyAvailablePostIds: (
+        data.publicaly_available_post_id ?? []
+      ).map(String),
       uploadedBytes: data.uploaded_bytes ?? null,
       downloadedBytes: data.downloaded_bytes ?? null,
     };
@@ -488,11 +492,18 @@ export class TikTokApi {
     const parsed = schema.safeParse(envelope.data.data);
 
     if (!parsed.success) {
-      throw new TikTokApiError('Unexpected TikTok response payload', {
-        code: 'invalid_response',
-        httpStatus: response.status,
-        kind: 'terminal',
-      });
+      const fields = parsed.error.issues
+        .map((issue) => issue.path.join('.') || 'root')
+        .join(', ');
+
+      throw new TikTokApiError(
+        `Unexpected TikTok response payload (${fields})`,
+        {
+          code: 'invalid_response',
+          httpStatus: response.status,
+          kind: 'terminal',
+        },
+      );
     }
 
     return parsed.data;

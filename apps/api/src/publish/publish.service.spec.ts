@@ -9,6 +9,11 @@ import type {
   PublishCardsRepository,
 } from './publish-cards.repository.js';
 import type { RunsRepository, RunRecord } from '../runs/runs.repository.js';
+import type {
+  TikTokAccountsRepository,
+  TikTokAccountRecord,
+} from '../accounts/tiktok-accounts.repository.js';
+import type { PublishQueue } from './publish.queue.js';
 import { PublishService } from './publish.service.js';
 
 const runId = '11111111-1111-4111-8111-111111111111';
@@ -52,6 +57,28 @@ function makeCard(overrides: Partial<PublishCardRecord> = {}): PublishCardRecord
   };
 }
 
+function makeAccount(
+  overrides: Partial<TikTokAccountRecord> = {},
+): TikTokAccountRecord {
+  return {
+    id: '44444444-4444-4444-8444-444444444444',
+    userId: '22222222-2222-4222-8222-222222222222',
+    openId: 'open-1',
+    displayName: 'Куклуксмаксер',
+    avatarUrl: null,
+    accessTokenEncrypted: 'access',
+    refreshTokenEncrypted: 'refresh',
+    accessExpiresAt: new Date(createdAt.getTime() + 7_200_000),
+    refreshExpiresAt: new Date(createdAt.getTime() + 15_552_000_000),
+    scope: 'user.info.basic,video.publish',
+    isActive: true,
+    lastRefreshedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+    ...overrides,
+  };
+}
+
 const request: UpdatePublishCardRequest = {
   title: 'Топ 5 пород собак',
   hashtags: ['пород', 'собак'],
@@ -76,10 +103,25 @@ function setup(run: RunRecord | null, card: PublishCardRecord | null) {
     }),
   } as unknown as RunsRepository;
 
+  const accounts = {
+    findLatestActiveByUser: vi.fn().mockResolvedValue(null),
+  } as unknown as TikTokAccountsRepository;
+
+  const queue = {
+    enqueue: vi.fn().mockResolvedValue({
+      jobId: `publish-${runId}`,
+      stage: 'publish',
+      status: 'queued',
+    }),
+    snapshot: vi.fn().mockResolvedValue(null),
+  } as unknown as PublishQueue;
+
   return {
-    service: new PublishService(cards, runs),
+    service: new PublishService(cards, runs, accounts, queue),
     cards,
     runs,
+    accounts,
+    queue,
   };
 }
 
@@ -221,6 +263,85 @@ describe('PublishService', () => {
 
     await expect(service.markPublishedManually(runId)).rejects.toBeInstanceOf(
       ConflictException,
+    );
+  });
+
+  it('enqueues a TikTok publish with the saved privacy', async () => {
+    const { service, accounts, queue } = setup(
+      makeRun(),
+      makeCard({ privacyLevel: 'SELF_ONLY' }),
+    );
+
+    vi.mocked(accounts.findLatestActiveByUser).mockResolvedValue(
+      makeAccount(),
+    );
+
+    const result = await service.startTikTokPublish(runId);
+
+    expect(queue.enqueue).toHaveBeenCalledWith(runId);
+    expect(result).toEqual({
+      jobId: `publish-${runId}`,
+      stage: 'publish',
+      status: 'queued',
+    });
+  });
+
+  it('requires privacy, an active account and a video.publish scope', async () => {
+    const missingPrivacy = setup(makeRun(), makeCard());
+    await expect(
+      missingPrivacy.service.startTikTokPublish(runId),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    const noAccount = setup(
+      makeRun(),
+      makeCard({ privacyLevel: 'SELF_ONLY' }),
+    );
+    await expect(
+      noAccount.service.startTikTokPublish(runId),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    const noScope = setup(
+      makeRun(),
+      makeCard({ privacyLevel: 'SELF_ONLY' }),
+    );
+    vi.mocked(noScope.accounts.findLatestActiveByUser).mockResolvedValue(
+      makeAccount({ scope: 'user.info.basic' }),
+    );
+    await expect(
+      noScope.service.startTikTokPublish(runId),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('reports the account and the current publish job', async () => {
+    const { service, accounts, queue } = setup(makeRun(), makeCard());
+    const snapshot = {
+      jobId: `publish-${runId}`,
+      stage: 'publish' as const,
+      status: 'active' as const,
+      progress: 40,
+    };
+
+    vi.mocked(accounts.findLatestActiveByUser).mockResolvedValue(
+      makeAccount(),
+    );
+    vi.mocked(queue.snapshot).mockResolvedValue(snapshot);
+
+    await expect(service.tiktokAvailability(runId)).resolves.toEqual({
+      account: {
+        id: makeAccount().id,
+        openId: 'open-1',
+        displayName: 'Куклуксмаксер',
+      },
+      job: snapshot,
+    });
+    await expect(service.tiktokJob(runId)).resolves.toEqual(snapshot);
+  });
+
+  it('reports a missing publish job', async () => {
+    const { service } = setup(makeRun(), makeCard());
+
+    await expect(service.tiktokJob(runId)).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });

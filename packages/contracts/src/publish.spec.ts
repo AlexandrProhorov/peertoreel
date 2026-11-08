@@ -8,7 +8,10 @@ import {
   hashtagSchema,
   publishCardSchema,
   publishCardStateSchema,
+  publishJobDataSchema,
+  publishJobId,
   publishPrivacyLevelSchema,
+  tiktokPublishAvailabilitySchema,
   updatePublishCardRequestSchema,
 } from './publish.js';
 
@@ -211,5 +214,45 @@ describe('publish card defaults', () => {
     const defaults = derivePublishDefaults({ topic: 'а'.repeat(200) });
 
     expect(defaults.title).toHaveLength(150);
+  });
+});
+
+describe('TikTok publish queue contracts', () => {
+  const runId = '11111111-1111-4111-8111-111111111111';
+
+  it('builds a deterministic job id', () => {
+    expect(publishJobId(runId)).toBe(`publish-${runId}`);
+    expect(publishJobDataSchema.parse({ runId })).toEqual({ runId });
+  });
+
+  it('validates availability with and without an account/job', () => {
+    expect(
+      tiktokPublishAvailabilitySchema.parse({ account: null, job: null }),
+    ).toEqual({ account: null, job: null });
+
+    const account = {
+      id: '44444444-4444-4444-8444-444444444444',
+      openId: 'open-1',
+      displayName: 'Куклуксмаксер',
+    };
+    const job = {
+      jobId: `publish-${runId}`,
+      stage: 'publish',
+      status: 'active',
+      progress: 40,
+    };
+
+    expect(
+      tiktokPublishAvailabilitySchema.parse({ account, job }),
+    ).toEqual({ account, job });
+  });
+
+  it('rejects a malformed job snapshot', () => {
+    expect(
+      tiktokPublishAvailabilitySchema.safeParse({
+        account: null,
+        job: { jobId: 'x', stage: 'publish', status: 'unknown', progress: 0 },
+      }).success,
+    ).toBe(false);
   });
 });

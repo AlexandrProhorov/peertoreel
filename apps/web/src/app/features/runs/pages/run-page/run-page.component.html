@@ -216,13 +216,18 @@
       </mat-card>
     }
 
-    @if (run.state === 'SCHEDULED' || run.state === 'PUBLISHING') {
+    @if (
+      run.state === 'SCHEDULED' ||
+      run.state === 'PUBLISHING' ||
+      run.state === 'PUBLISHED'
+    ) {
       <app-publish-card
         [runId]="run.id"
         [runState]="run.state"
         [defaultTitle]="run.topic"
         [draft]="draft()"
         (published)="onPublished()"
+        (jobFinished)="onPublished()"
       />
     }
 

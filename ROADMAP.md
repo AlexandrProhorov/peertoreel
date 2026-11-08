@@ -59,7 +59,8 @@ ping job → `completed` за ~0.5 с.
 |---|---|---|
 | M1.1 | Publish card + manual export (без TikTok API) | DONE |
 | M1.2a | TikTok OAuth, token vault, `/accounts`, upload spike | DONE |
-| M1.2b | Очередь `publish`, `publish_id`/`post_id`, статус/webhooks, rate limiter | TODO |
+| M1.2b | Очередь `publish` + кнопка в publish card + статус-поллинг | DONE |
+| M1.2c | Webhooks, rate limiter, per-card account selection, auto-publish | TODO |
 
 **M1.1 закрыт 2026-11-06.** Проверено: миграции `0005`/`0006` (enum `publish_card_state`,
 `publish_cards`, unique `run_id`, check `is_aigc = true` и длины title, backfill существующих
@@ -80,6 +81,15 @@ sandbox-аккаунт `@arapashwb55` подключён через HTTPS-тун
 `status=PUBLISH_COMPLETE`, `publish_id=v_pub_file~v2-1.7705630733150406678`. `post_id` пустой —
 это ожидаемо для `SELF_ONLY` (непубличный пост). Карточка сохранила `publish_id`, run остался
 в `SCHEDULED`; очередь и кнопка публикации — M1.2b.
+
+**M1.2b закрыт 2026-11-08.** Добавлены очередь `publish` (детерминированный job id), API
+`POST/GET /runs/:id/tiktok-publish`, worker-процессор с переходами
+`SCHEDULED → PUBLISHING → PUBLISHED/FAILED`, возобновление по `publish_id` без дубля поста и
+кнопка «Опубликовать в TikTok» в publish card с сохранением формы, прогрессом и поллингом.
+Живой прогон на run `5a931675-aa79-4748-beb6-bede83a8eb53`: job completed, run `PUBLISHED`,
+карточка `published`, `post_id=7705631453408808000`. Ограничение: `post_id` приходит JSON-числом
+int64 и может терять точность; webhooks вернут строку. Webhooks, rate limiter, выбор аккаунта
+и автошедулинг — M1.2c.
 
 ## M2 — Factory Core (в работе)
 
@@ -151,8 +161,9 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 
 ## Следующие сессии
 
-1. M3.1 — контракт раскадровки + фикстура «−15°» + ADR-0012 (бриф: `docs/plans/2026-11-08-animated-factory-plan.md` §4).
+1. M3.1 — контракт раскадровки + фикстура «−15°» + ADR-0012 (бриф: `docs/ignore/plans/2026-11-08-animated-factory-plan.md` §4).
 2. M3.2 — render worker bootstrap (Remotion); перед merge — проверить headcount для
    лицензии Remotion и платёжный канал.
 3. M3.3 → M3.5 — компоненты, продюсер сцен, AI-режиссёр.
-4. M1.2b — очередь `publish` + кнопка публикации (старый трек, с M3 не пересекается).
+4. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+   публичная публикация).

@@ -85,6 +85,13 @@
                                                              },
                                                    "serve":  {
                                                                  "builder":  "@angular/build:dev-server",
+                                                                 "options":  {
+                                                                                 "prebundle":  {
+                                                                                                   "exclude":  [
+                                                                                                                   "@peertoreel/contracts"
+                                                                                                               ]
+                                                                                               }
+                                                                             },
                                                                  "configurations":  {
                                                                                         "production":  {
                                                                                                            "buildTarget":  "web:build:production"

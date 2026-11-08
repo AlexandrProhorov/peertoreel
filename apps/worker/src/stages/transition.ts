@@ -16,6 +16,7 @@ export class StageTransitionError extends Error {
 
 export interface RunSnapshot {
   id: string;
+  createdBy: string;
   state: RunState;
   currentStage: RunStage | null;
   resumeState: RunState | null;
@@ -30,6 +31,7 @@ export async function loadRun(
   const [run] = await db
     .select({
       id: runs.id,
+      createdBy: runs.createdBy,
       state: runs.state,
       currentStage: runs.currentStage,
       resumeState: runs.resumeState,

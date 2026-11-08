@@ -1,20 +1,25 @@
 import {
   PING_JOB,
+  PUBLISH_QUEUE,
   STAGE_QUEUES,
   STAGE_REQUIRED_STATE,
   SYSTEM_QUEUE,
+  publishJobDataSchema,
   stageJobDataSchema,
   type StageQueueName,
   type StockProvider,
 } from '@peertoreel/contracts';
-import { createDatabase } from '@peertoreel/db';
+import { createDatabase, publishCards } from '@peertoreel/db';
 import { ObjectStorage } from '@peertoreel/storage';
+import { TikTokApi, TikTokApiError, TokenCipher } from '@peertoreel/tiktok';
 import { UnrecoverableError, Worker } from 'bullmq';
 import { config as loadEnv } from 'dotenv';
+import { eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { loadWorkerEnv, type WorkerEnv } from './config/env.js';
 import { processPing } from './processors/ping.processor.js';
+import { processPublishStage } from './publish/publish.processor.js';
 import { redisConnectionOptions } from './redis-connection.js';
 import { RedisStockSearchCache } from './stock/cache.js';
 import { STOCK_LIMITS } from './stock/limits.js';
@@ -31,6 +36,7 @@ import {
 import { failRun } from './stages/transition.js';
 import { processVisualsStage } from './stages/visuals.processor.js';
 import { processVoiceoverStage } from './stages/voiceover.processor.js';
+import type { TikTokRuntime } from './tiktok/account.js';
 
 loadEnv({ path: '../../.env', quiet: true });
 
@@ -75,12 +81,49 @@ if (env.PIXABAY_API_KEY) {
   });
 }
 
+let tiktokRedis: Redis | null = null;
+let tiktokRuntime: TikTokRuntime | undefined;
+
+if (
+  env.TIKTOK_CLIENT_KEY &&
+  env.TIKTOK_CLIENT_SECRET &&
+  env.TOKEN_ENCRYPTION_KEY
+) {
+  const redis = new Redis(env.REDIS_URL, {
+    lazyConnect: true,
+    enableOfflineQueue: false,
+    maxRetriesPerRequest: 1,
+    connectTimeout: 3_000,
+  });
+
+  tiktokRedis = redis;
+  redis.on('error', (error: Error) => {
+    logger.warn({ err: error }, 'tiktok token redis error');
+  });
+  void redis.connect().catch((error: unknown) => {
+    logger.warn({ err: error }, 'tiktok token redis unavailable');
+  });
+
+  tiktokRuntime = {
+    api: new TikTokApi({
+      clientKey: env.TIKTOK_CLIENT_KEY,
+      clientSecret: env.TIKTOK_CLIENT_SECRET,
+      redirectUri:
+        env.TIKTOK_REDIRECT_URI ??
+        'http://localhost:3000/api/v1/accounts/tiktok/callback',
+    }),
+    cipher: new TokenCipher(env.TOKEN_ENCRYPTION_KEY),
+    redis,
+  };
+}
+
 const deps: StageDeps<WorkerEnv> = {
   db,
   storage,
   env,
   logger,
   stockProvider,
+  tiktok: tiktokRuntime,
 };
 const connection = redisConnectionOptions(env.REDIS_URL);
 
@@ -97,6 +140,25 @@ function withTerminalErrors<T>(handler: () => Promise<T>): Promise<T> {
   return handler().catch((error: unknown) => {
     if (isTerminalProviderError(error)) {
       throw new UnrecoverableError(errorMessage(error));
+    }
+
+    throw error;
+  });
+}
+
+/** TikTok errors carry their own retryable/terminal/token classification. */
+function withPublishErrors<T>(handler: () => Promise<T>): Promise<T> {
+  return handler().catch((error: unknown) => {
+    if (error instanceof TikTokApiError) {
+      if (error.kind === 'terminal') {
+        throw new UnrecoverableError(error.message);
+      }
+
+      if (error.kind === 'token') {
+        throw new UnrecoverableError(
+          'TikTok access token was rejected after a refresh attempt',
+        );
+      }
     }
 
     throw error;
@@ -148,10 +210,25 @@ const workers: Worker[] = [
       concurrency: 1,
     },
   ),
+  new Worker(
+    PUBLISH_QUEUE,
+    (job) => withPublishErrors(() => processPublishStage(job, deps)),
+    {
+      connection,
+      concurrency: 1,
+    },
+  ),
 ];
 
-const [, scriptWorker, voiceoverWorker, visualsWorker, renderWorker, qcWorker] =
-  workers;
+const [
+  ,
+  scriptWorker,
+  voiceoverWorker,
+  visualsWorker,
+  renderWorker,
+  qcWorker,
+  publishWorker,
+] = workers;
 
 for (const worker of workers) {
   worker.on('completed', (job) => {
@@ -182,6 +259,43 @@ renderWorker?.on('failed', (job, error) => {
 qcWorker?.on('failed', (job, error) => {
   void handleFinalFailure(job, error, 'qc');
 });
+
+publishWorker?.on('failed', (job, error) => {
+  void handlePublishFailure(job, error);
+});
+
+/** Marks the run/card failed only when the publish job has no retries left. */
+async function handlePublishFailure(
+  job: { data: unknown; attemptsMade?: number; opts: { attempts?: number }; id?: string } | undefined,
+  error: Error,
+): Promise<void> {
+  logger.error({ queue: PUBLISH_QUEUE, jobId: job?.id, err: error }, 'publish failed');
+
+  const attempts = job?.opts.attempts ?? 1;
+  const attemptsMade = job?.attemptsMade ?? 0;
+
+  if (!job || !isFinalStageFailure(error, attemptsMade, attempts)) {
+    return;
+  }
+
+  try {
+    const { runId } = publishJobDataSchema.parse(job.data);
+
+    await failRun(db, runId, 'publish', error.message, 'SCHEDULED');
+    await db
+      .update(publishCards)
+      .set({
+        state: 'failed',
+        failReason: error.message.slice(0, 500),
+        updatedAt: new Date(),
+      })
+      .where(eq(publishCards.runId, runId));
+
+    logger.warn({ runId }, 'TikTok publish marked FAILED');
+  } catch (failError: unknown) {
+    logger.error({ err: failError }, 'could not mark TikTok publish as failed');
+  }
+}
 
 /**
  * Only the last attempt marks the run as FAILED: a transient 429 must not end
@@ -215,7 +329,7 @@ async function handleFinalFailure(
 
 logger.info(
   {
-    queues: [SYSTEM_QUEUE, ...Object.values(STAGE_QUEUES)],
+    queues: [SYSTEM_QUEUE, ...Object.values(STAGE_QUEUES), PUBLISH_QUEUE],
     pingJob: PING_JOB,
     concurrency: env.WORKER_CONCURRENCY,
     pixabay: stockProvider ? 'configured' : 'missing-key',
@@ -238,6 +352,19 @@ async function shutdown(signal: string): Promise<void> {
     } catch (error: unknown) {
       logger.warn({ err: error }, 'pixabay cache redis shutdown failed');
       stockRedis.disconnect();
+    }
+  }
+
+  if (tiktokRedis) {
+    try {
+      if (tiktokRedis.status === 'ready') {
+        await tiktokRedis.quit();
+      } else {
+        tiktokRedis.disconnect();
+      }
+    } catch (error: unknown) {
+      logger.warn({ err: error }, 'tiktok token redis shutdown failed');
+      tiktokRedis.disconnect();
     }
   }
 

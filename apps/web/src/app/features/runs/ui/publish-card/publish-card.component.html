@@ -131,6 +131,71 @@
         }
       </form>
 
+      <section class="publish__tiktok">
+        <div class="publish__tiktok-head">
+          <h3>TikTok</h3>
+          @if (store.tiktokAccount(); as account) {
+            <span class="publish__badge">
+              @{{ account.displayName || account.openId }}
+            </span>
+          }
+        </div>
+
+        @if (store.tiktokLoaded() && !store.tiktokAccount()) {
+          <p class="publish__hint">
+            TikTok не подключён.
+            <a routerLink="/accounts">Подключить аккаунт</a>
+          </p>
+        }
+
+        @if (store.tiktokPublishing()) {
+          @if (store.tiktokJob(); as job) {
+            <mat-progress-bar
+              mode="determinate"
+              [value]="job.progress"
+              [attr.aria-label]="'Публикация в TikTok: ' + job.progress + '%'"
+            />
+            <p class="publish__meta">
+              <span>{{ job.status }}</span>
+              <span>{{ job.progress }}%</span>
+            </p>
+          }
+        }
+
+        @if (runState() === 'SCHEDULED' && store.tiktokAccount()) {
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="!canTikTokPublish()"
+            (click)="publishToTikTok()"
+          >
+            Опубликовать в TikTok
+          </button>
+
+          @if (!privacySelected()) {
+            <p class="publish__hint">
+              Выберите приватность в карточке. Для неaudited приложения
+              доступен только SELF_ONLY.
+            </p>
+          } @else {
+            <p class="publish__hint">
+              Для неaudited приложения рабочий вариант — SELF_ONLY
+              (приватный пост).
+            </p>
+          }
+        }
+
+        @if (runState() === 'PUBLISHED') {
+          <p class="publish__ok">Опубликовано в TikTok.</p>
+          @if (store.card()?.publishId; as publishId) {
+            <p class="publish__meta">publish_id: {{ publishId }}</p>
+          }
+          @if (store.card()?.postId; as postId) {
+            <p class="publish__meta">post_id: {{ postId }}</p>
+          }
+        }
+      </section>
+
       @if (store.card(); as card) {
         @if (card.exportedAt || card.publishedAt) {
           <p class="publish__meta">
@@ -154,7 +219,7 @@
           <button
             mat-flat-button
             type="button"
-            [disabled]="store.pending()"
+            [disabled]="store.pending() || store.tiktokPublishing()"
             (click)="publishManually()"
           >
             Отметить опубликованным вручную
@@ -162,7 +227,7 @@
         </details>
       } @else if (readOnly()) {
         <p class="publish__hint">
-          Карточка доступна только для чтения, пока run находится в публикации.
+          Карточка доступна только для чтения.
         </p>
       }
     }

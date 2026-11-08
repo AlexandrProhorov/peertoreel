@@ -62,6 +62,21 @@ function setup(api: Partial<PublishCardApiService> = {}): PublishCardStoreServic
           markPublished: vi
             .fn()
             .mockReturnValue(of({ ...card, state: 'published' })),
+          tiktokAvailability: vi
+            .fn()
+            .mockReturnValue(of({ account: null, job: null })),
+          startTikTokPublish: vi.fn().mockReturnValue(
+            of({
+              jobId: `publish-${runId}`,
+              stage: 'publish',
+              status: 'queued',
+            }),
+          ),
+          tiktokPublishJob: vi
+            .fn()
+            .mockReturnValue(
+              throwError(() => httpError(404, 'Job не найден')),
+            ),
           ...api,
         },
       },
@@ -205,8 +220,102 @@ describe('PublishCardStoreService', () => {
     expect(onPublished).not.toHaveBeenCalled();
   });
 
-  it('reloads when the relative id changes', () => {
-    const other = '22222222-2222-4222-8222-222222222222';
+  it('loads the TikTok account and rehydrates an in-flight job', () => {
+    const account = {
+      id: '44444444-4444-4444-8444-444444444444',
+      openId: 'open-1',
+      displayName: 'Куклуксмаксер',
+    };
+    const job = {
+      jobId: `publish-${runId}`,
+      stage: 'publish' as const,
+      status: 'active' as const,
+      progress: 40,
+    };
+    const api = {
+      tiktokAvailability: vi
+        .fn()
+        .mockReturnValue(of({ account, job })),
+      tiktokPublishJob: vi.fn().mockReturnValue(of(job)),
+    } as Partial<PublishCardApiService>;
+    const store = setup(api);
+
+    store.setRelativeId(runId);
+
+    expect(store.tiktokAccount()).toEqual(account);
+    expect(store.tiktokJob()).toEqual(job);
+    expect(store.tiktokPublishing()).toBe(true);
+    expect(store.tiktokLoaded()).toBe(true);
+  });
+
+  it('saves the card then enqueues a TikTok publish', async () => {
+    const updated = { ...card, privacyLevel: 'SELF_ONLY' as const };
+    const completed = {
+      jobId: `publish-${runId}`,
+      stage: 'publish' as const,
+      status: 'completed' as const,
+      progress: 100,
+    };
+    const api = {
+      save: vi.fn().mockReturnValue(of(updated)),
+      startTikTokPublish: vi.fn().mockReturnValue(
+        of({
+          jobId: `publish-${runId}`,
+          stage: 'publish' as const,
+          status: 'queued' as const,
+        }),
+      ),
+      tiktokAvailability: vi
+        .fn()
+        .mockReturnValue(of({ account: null, job: completed })),
+      tiktokPublishJob: vi.fn().mockReturnValue(of(completed)),
+    } as Partial<PublishCardApiService>;
+    const store = setup(api);
+
+    store.setRelativeId(runId);
+    await flush();
+
+    store.publishToTikTok(request);
+
+    await vi.waitFor(() =>
+      expect(api.startTikTokPublish).toHaveBeenCalledWith(runId),
+    );
+    await vi.waitFor(() => expect(store.tiktokJob()?.status).toBe('completed'));
+    expect(api.save).toHaveBeenCalledWith(runId, request);
+  });
+
+  it('reports a TikTok publish failure and reloads the card', async () => {
+    const failed = {
+      jobId: `publish-${runId}`,
+      stage: 'publish' as const,
+      status: 'failed' as const,
+      progress: 20,
+      failedReason: 'spam_risk_text',
+    };
+    const api = {
+      startTikTokPublish: vi.fn().mockReturnValue(
+        of({
+          jobId: `publish-${runId}`,
+          stage: 'publish' as const,
+          status: 'queued' as const,
+        }),
+      ),
+      tiktokAvailability: vi
+        .fn()
+        .mockReturnValue(of({ account: null, job: failed })),
+      tiktokPublishJob: vi.fn().mockReturnValue(of(failed)),
+    } as Partial<PublishCardApiService>;
+    const store = setup(api);
+
+    store.setRelativeId(runId);
+    await flush();
+
+    store.publishToTikTok(request);
+
+    await vi.waitFor(() => expect(store.error()).toBe('spam_risk_text'));
+  });
+
+  it('reloads when the relative id changes', () => {    const other = '22222222-2222-4222-8222-222222222222';
     const api = {
       card: vi
         .fn()

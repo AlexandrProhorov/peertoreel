@@ -98,3 +98,23 @@ h2 {
 .publish__manual button {
   margin-top: 0.75rem;
 }
+
+.publish__tiktok {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.publish__tiktok-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.publish__tiktok-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}

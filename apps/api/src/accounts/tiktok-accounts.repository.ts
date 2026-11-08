@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { tiktokAccounts } from '@peertoreel/db';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
 
 export interface TikTokAccountRecord {
@@ -68,6 +68,25 @@ export class TikTokAccountsRepository {
       .select(tiktokAccountColumns)
       .from(tiktokAccounts)
       .where(eq(tiktokAccounts.id, id))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  /** Latest active account of a user; the MVP publishes with this one. */
+  async findLatestActiveByUser(
+    userId: string,
+  ): Promise<TikTokAccountRecord | null> {
+    const [row] = await this.database.db
+      .select(tiktokAccountColumns)
+      .from(tiktokAccounts)
+      .where(
+        and(
+          eq(tiktokAccounts.userId, userId),
+          eq(tiktokAccounts.isActive, true),
+        ),
+      )
+      .orderBy(desc(tiktokAccounts.updatedAt))
       .limit(1);
 
     return row ?? null;

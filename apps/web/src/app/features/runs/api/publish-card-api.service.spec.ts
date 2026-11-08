@@ -104,6 +104,45 @@ describe('PublishCardApiService', () => {
     published.flush({ ...card, state: 'published' });
   });
 
+  it('starts a TikTok publish and reads its job/availability', () => {
+    api.startTikTokPublish(runId).subscribe();
+    api.tiktokPublishJob(runId).subscribe();
+    api.tiktokAvailability(runId).subscribe();
+
+    const start = http.expectOne(
+      (candidate) =>
+        candidate.url ===
+          `http://api.test/api/v1/runs/${runId}/tiktok-publish` &&
+        candidate.method === 'POST',
+    );
+    expect(start.request.method).toBe('POST');
+    start.flush({
+      jobId: `publish-${runId}`,
+      stage: 'publish',
+      status: 'queued',
+    });
+
+    const job = http.expectOne(
+      `http://api.test/api/v1/runs/${runId}/tiktok-publish/job`,
+    );
+    expect(job.request.method).toBe('GET');
+    job.flush({
+      jobId: `publish-${runId}`,
+      stage: 'publish',
+      status: 'active',
+      progress: 40,
+    });
+
+    const availability = http.expectOne(
+      (candidate) =>
+        candidate.url ===
+          `http://api.test/api/v1/runs/${runId}/tiktok-publish` &&
+        candidate.method === 'GET',
+    );
+    expect(availability.request.method).toBe('GET');
+    availability.flush({ account: null, job: null });
+  });
+
   it('rejects a malformed card payload', () => {
     let failed = false;
 

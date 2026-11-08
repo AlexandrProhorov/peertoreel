@@ -244,7 +244,7 @@ describe('TikTokApi', () => {
     await expect(api.fetchStatus('act.token', 'v_pub_file~1')).resolves.toEqual({
       status: 'PUBLISH_COMPLETE',
       failReason: null,
-      publiclyAvailablePostIds: [123, 456],
+      publiclyAvailablePostIds: ['123', '456'],
       uploadedBytes: 14_000_000,
       downloadedBytes: null,
     });

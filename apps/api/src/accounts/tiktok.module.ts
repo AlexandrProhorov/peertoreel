@@ -13,5 +13,6 @@ import { TikTokTokenService } from './tiktok-token.service.js';
     TikTokTokenService,
     TikTokOAuthService,
   ],
+  exports: [TikTokAccountsRepository],
 })
 export class TikTokModule {}

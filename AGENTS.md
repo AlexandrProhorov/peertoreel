@@ -74,7 +74,7 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 | 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` objects | Pixabay (fal.ai scenes = M3) |
 | 6 | render | `visuals_json` + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
 | 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | rules + FFmpeg |
-| 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API (manual export in M1.1) |
+| 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API via the `publish` queue (manual export fallback) |
 
 ### Run state machine
 
@@ -127,15 +127,16 @@ ledger is a separate milestone.
 | image-gen | 2 | fal.ai pay-per-use; record usage |
 | render | 1–2 | FFmpeg is CPU-heavy (1–3 min per video); clean tmp files; report progress |
 | qc | 1 | read-only checks on the current draft; a new render invalidates the old `qc_report` |
-| publish | 1 | TikTok **6 req/min per token**, **~15 posts/day per account**, status fetch 30/min |
+| publish | 1 | TikTok **6 req/min per token**, **~15 posts/day per account**, status fetch 30/min. The UI job polls status every 5 s; webhooks and a dedicated limiter are M1.2c |
 | analytics-cron | 1 | periodic metrics pull |
 
 ## 7. TikTok integration rules
 
-- **Status (M1.2a):** Login Kit OAuth, the encrypted token vault, `/accounts` UI and a CLI
-  upload spike exist. The `publish` queue and the publish-card button are M1.2b; the run page
-  still offers manual export. No TikTok call is made from the manual export path (ADR-0010,
-  ADR-0011). `tiktok_accounts` stores encrypted tokens only.
+- **Status (M1.2b):** Login Kit OAuth, the encrypted token vault, `/accounts`, the `publish`
+  queue and the publish-card button exist. A job moves the run
+  `SCHEDULED → PUBLISHING → PUBLISHED/FAILED`, resumes by `publish_id` instead of creating a
+  duplicate post, and uses the latest active account. Webhooks, a per-token rate limiter,
+  per-card account selection and scheduled auto-publish are the next slice (ADR-0013).
 - OAuth (Login Kit): scopes `user.info.basic` + `video.publish`. Read token lifetimes from the
   token response (`expires_in`, `refresh_expires_in`); the docs checked on 2026-11-07 say
   access ≈2 h and refresh ≈180 days. **Refresh tokens rotate** — replace the stored refresh
@@ -294,7 +295,8 @@ ledger is a separate milestone.
   first-export timestamp, manual publish (two audit rows), and the web card form/export helpers.
   For TikTok accounts: AES-GCM cipher round-trip, OAuth state consumption, refresh rotation
   under a lock, creator-info mapping, chunk planning and error classification (token vs
-  retryable vs terminal).
+  retryable vs terminal). For the TikTok publish queue: deterministic job id, explicit privacy,
+  resume by `publish_id`, terminal/retryable failure mapping and the run/card transition.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.

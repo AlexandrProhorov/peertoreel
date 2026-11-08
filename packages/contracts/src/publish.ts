@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { stageJobSnapshotSchema } from './stages.js';
 
 /**
  * TikTok privacy values. `null` means "not chosen yet": the manual export
@@ -187,3 +188,40 @@ export function derivePublishDefaults(input: {
 
   return { title, hashtags: defaultHashtags(input.topic) };
 }
+
+/**
+ * TikTok publish queue. It is intentionally not a stage queue: the publish
+ * action is started from the publish card, not from `POST /stages/:stage`, and
+ * it owns the SCHEDULED → PUBLISHING → PUBLISHED/FAILED transitions.
+ */
+export const PUBLISH_QUEUE = 'publish';
+export const PUBLISH_JOB = 'tiktok-publish';
+
+export const publishJobDataSchema = z.object({
+  runId: z.uuid(),
+});
+export type PublishJobData = z.infer<typeof publishJobDataSchema>;
+
+/** Deterministic id: one publish job per run, safe for BullMQ (no colons). */
+export function publishJobId(runId: string): string {
+  return `publish-${runId}`;
+}
+
+export const tiktokPublishAccountSchema = z.object({
+  id: z.uuid(),
+  openId: z.string().min(1),
+  displayName: z.string(),
+});
+export type TikTokPublishAccount = z.infer<typeof tiktokPublishAccountSchema>;
+
+/**
+ * What the publish card needs before offering the TikTok button: the account
+ * the job will use and the current job snapshot (for page reloads).
+ */
+export const tiktokPublishAvailabilitySchema = z.object({
+  account: tiktokPublishAccountSchema.nullable(),
+  job: stageJobSnapshotSchema.nullable(),
+});
+export type TikTokPublishAvailability = z.infer<
+  typeof tiktokPublishAvailabilitySchema
+>;

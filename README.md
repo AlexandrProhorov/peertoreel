@@ -8,8 +8,9 @@ Peer to Reel — pipeline-платформа для производства к�
 восстановлением прогресса стадии, health-check с проверкой worker'а и вход по сессии.
 **M1.1** добавляет publish card и ручной экспорт: одобренный черновик можно скачать,
 скопировать подпись и отметить опубликованным вручную. **M1.2a** добавляет подключение
-TikTok через Login Kit, шифрованный token vault и CLI-загрузку черновика в приватный
-аккаунт; очередь публикации и кнопка в publish card — M1.2b.
+TikTok через Login Kit, шифрованный token vault и CLI-загрузку. **M1.2b** — очередь
+`publish` и кнопка «Опубликовать в TikTok» в publish card со статусом и прогрессом;
+webhooks, rate limiter и выбор аккаунта — M1.2c.
 
 ## Стек
 
@@ -64,7 +65,7 @@ pnpm infra:down
 
 | Команда | Что делает |
 |---|---|
-| `pnpm dev` | Собирает `packages/*` и запускает API + web + worker |
+| `pnpm dev` | Собирает `packages/*` и запускает contracts (watch) + API + web + worker |
 | `pnpm build` | Собирает все пакеты в топологическом порядке |
 | `pnpm build:packages` | Собирает только `packages/*` (contracts, db, storage) |
 | `pnpm lint` | oxlint по пакетам |
@@ -102,7 +103,7 @@ apps/api/
 код работает через S3 API и не зависит от конкретного локального провайдера. Подробности —
 в `docs/adr/0002-local-s3-seaweedfs.md`.
 
-## TikTok (M1.2a)
+## TikTok (M1.2a/M1.2b)
 
 Нужен аккаунт на [TikTok for Developers](https://developers.tiktok.com/):
 
@@ -122,14 +123,16 @@ WEB_APP_URL=http://localhost:4200
 ```
 
 5. Перезапустить API и открыть `/accounts`, подключить приватный тестовый аккаунт.
-6. Проверить доступ и загрузить черновик:
+6. На run-странице в `SCHEDULED` выбрать приватность (для неaudited приложения — `SELF_ONLY`),
+   сохранить карточку и нажать **«Опубликовать в TikTok»**. Прогресс и статус приходят из
+   очереди `publish`; после успеха run переходит в `PUBLISHED`.
+7. CLI-загрузка остаётся для отладки:
 
 ```bash
 pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId> --dry-run
 pnpm --filter @peertoreel/worker tiktok:spike -- --run <runId>
 ```
 
-Spike берёт `draft_mp4`, публикует `FILE_UPLOAD` и по умолчанию использует `SELF_ONLY`.
 Неaudited приложение не может постить в публичный аккаунт; для публичной публикации нужен
 аудит TikTok (M4). Токены хранятся зашифрованными; access живёт ≈2 ч, refresh ≈180 дней и
 ротируется при каждом обновлении.
@@ -144,14 +147,14 @@ Spike берёт `draft_mp4`, публикует `FILE_UPLOAD` и по умол�
 - `qc` проверяет длительность, громкость, синхронизацию, стоп-слова, `is_aigc` и темп речи.
   Отчёт `qc_report` показывается в карточке run'а; «Одобрить» недоступно без отчёта и при
   verdict `fail`. `warn` — advisory.
-- **TikTok: подключение и загрузка есть, очереди публикации нет.** После «Одобрить» run
-  переходит в `SCHEDULED` и получает publish card: заголовок, хештеги, приватность,
-  напоминание о публикации. Видео скачивается по presigned URL, подпись копируется в буфер,
-  карточка скачивается как JSON, затем «Отметить опубликованным вручную» переводит run в
-  `PUBLISHED` двумя audit-записями. Отдельно `/accounts` подключает TikTok через OAuth, а
-  `tiktok:spike` загружает черновик `FILE_UPLOAD` в приватный аккаунт.
-  `is_aigc` всегда `true`. Очередь `publish`, кнопка публикации в карточке, webhooks и
-  rate limiter — M1.2b.
+- **TikTok: подключение, очередь и кнопка есть.** После «Одобрить» run переходит в
+  `SCHEDULED` и получает publish card: заголовок, хештеги, приватность, напоминание о
+  публикации. Кнопка «Опубликовать в TikTok» сохраняет карточку и ставит job в очередь
+  `publish`; прогресс и статус видны в карточке, успех переводит run в `PUBLISHED`. Ручной
+  экспорт и ручная отметка остаются как fallback. `is_aigc` всегда `true`.
+  Webhooks, rate limiter, выбор аккаунта и автошедулинг — M1.2c.
+- `post_id` из TikTok приходит JSON-числом int64 и может терять точность в браузере/БД;
+  webhooks в M1.2c вернут строку.
 - Нет TikTok app audit: публичная публикация недоступна, только `SELF_ONLY`.
 - `topic-discovery` и `research` не автоматизированы: run создаётся с темой вручную.
 - Auth-защита есть у `/system` и `/runs`; остальные бизнес-роуты появятся вместе со своими
@@ -164,22 +167,27 @@ Spike берёт `draft_mp4`, публикует `FILE_UPLOAD` и по умол�
 ## Troubleshooting
 
 **`does not provide an export named '<schema>'` в консоли web.**
-Vite пре-бандлит `@peertoreel/contracts` в `apps/web/.angular/cache`, и после добавления нового
-экспорта в контракты кэш остаётся старым. Лечится так:
+
+Причина: Vite пре-бандлил `@peertoreel/contracts` в `apps/web/.angular/cache`, а ключ этого
+кэша не зависит от содержимого `packages/contracts/dist`. Новый экспорт появлялся в `dist`,
+но браузер продолжал получать старый пре-бандл. Постоянное решение уже в репозитории:
+
+- `apps/web/angular.json` → `serve.options.prebundle.exclude: ["@peertoreel/contracts"]`:
+  контракты не пре-бандлятся, а собираются в чанки приложения вместе с кодом web. Поэтому
+  новый экспорт подхватывается обычной пересборкой, без инвалидации кэша зависимостей.
+- `apps/web/package.json` → `zod` объявлен зависимостью web: исключённые контракты
+  импортируют `zod`, и Vite резолвит его из корня приложения (в pnpm-изоляции транзитивная
+  зависимость оттуда не видна).
+- `pnpm dev` запускает `contracts` в watch-режиме (`tsc --watch`), а dev-сервер web
+  пересобирается на изменение `packages/contracts/dist` — перезапуск не нужен.
+
+Если кэш всё же испортился (например, после смены версии Angular или зависимостей):
 
 ```bash
-pnpm --filter @peertoreel/contracts build
-# остановить web-дев-сервер, затем:
-rm -rf apps/web/.angular/cache      # Windows: Remove-Item -Recurse -Force apps/web/.angular/cache
-pnpm --filter @peertoreel/web dev
+pnpm --filter @peertoreel/web clean   # удаляет apps/web/.angular/cache
+pnpm dev
 ```
 
-Дополнительно сделайте жёсткую перезагрузку вкладки (Ctrl+Shift+R): Vite отдаёт
-оптимизированные зависимости с `immutable`-кэшем.
-
-Если ошибка повторяется при каждом изменении контрактов, запускайте web без пребандлинга —
-тогда локальный пакет отдаётся как обычный ESM и кэш не участвует:
-
-```bash
-pnpm --filter @peertoreel/web exec ng serve --port 4200 --prebundle=false
-```
+Если в web добавляется ещё один workspace-пакет, добавьте его в `prebundle.exclude` и
+объявите его runtime-зависимости в `apps/web/package.json` — иначе вернётся та же ошибка
+или `Failed to resolve import`.

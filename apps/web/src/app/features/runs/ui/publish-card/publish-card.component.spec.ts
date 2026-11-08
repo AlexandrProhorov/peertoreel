@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideRouter } from '@angular/router';
 import type { Artifact, PublishCard, RunState } from '@peertoreel/contracts';
 import { of, throwError, type Observable } from 'rxjs';
 import { vi } from 'vitest';
@@ -78,6 +79,19 @@ function apiMock() {
     save: vi.fn().mockReturnValue(of(card)),
     markExported: vi.fn().mockReturnValue(of({ ...card, state: 'exported' as const })),
     markPublished: vi.fn().mockReturnValue(of({ ...card, state: 'published' as const })),
+    tiktokAvailability: vi
+      .fn()
+      .mockReturnValue(of({ account: null, job: null })),
+    startTikTokPublish: vi.fn().mockReturnValue(
+      of({
+        jobId: 'publish-job',
+        stage: 'publish' as const,
+        status: 'queued' as const,
+      }),
+    ),
+    tiktokPublishJob: vi
+      .fn()
+      .mockReturnValue(throwError(() => notFound())),
   };
 }
 
@@ -97,6 +111,7 @@ function setup(options: SetupOptions = {}) {
     providers: [
       PublishCardStoreService,
       provideAnimationsAsync(),
+      provideRouter([]),
       { provide: PublishCardApiService, useValue: api },
     ],
   });
@@ -129,6 +144,16 @@ function invoke<T>(component: PublishCardComponent, method: string): T {
 
 function textOf(fixture: ComponentFixture<PublishCardComponent>): string {
   return (fixture.nativeElement as HTMLElement).textContent ?? '';
+}
+
+function tiktokButton(
+  fixture: ComponentFixture<PublishCardComponent>,
+): HTMLButtonElement | undefined {
+  return Array.from(
+    (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+  ).find((button) =>
+    button.textContent?.includes('Опубликовать в TikTok'),
+  ) as HTMLButtonElement | undefined;
 }
 
 describe('PublishCardComponent', () => {
@@ -282,6 +307,32 @@ describe('PublishCardComponent', () => {
     await vi.waitFor(() => expect(published).toHaveBeenCalled());
 
     expect(api.markPublished).toHaveBeenCalledWith(runId);
+  });
+
+  it('enables TikTok publish only with an account and a selected privacy', () => {
+    const account = {
+      id: '44444444-4444-4444-8444-444444444444',
+      openId: 'open-1',
+      displayName: 'Куклуксмаксер',
+    };
+    const { fixture, component } = setup({
+      api: {
+        tiktokAvailability: vi
+          .fn()
+          .mockReturnValue(of({ account, job: null })),
+      },
+    });
+
+    const button = tiktokButton(fixture);
+
+    expect(button).toBeTruthy();
+    expect(button?.disabled).toBe(true);
+    expect(textOf(fixture)).toContain('@Куклуксмаксер');
+
+    formOf(component).controls['privacyLevel']?.setValue('SELF_ONLY');
+    fixture.detectChanges();
+
+    expect(button?.disabled).toBe(false);
   });
 
   it('is read-only while the run is publishing', () => {
