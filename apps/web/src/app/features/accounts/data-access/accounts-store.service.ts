@@ -45,40 +45,34 @@ export class AccountsStoreService extends BaseStore {
     this.loads.next();
   }
 
-  /** Returns the TikTok consent URL; navigation stays in the component. */
-  async connect(): Promise<string | null> {
-    const response = await this.command('connect', () => this.api.authorize());
-
-    return response?.url ?? null;
+  /** Starts the TikTok consent flow; the component decides where to navigate. */
+  connect(onConsent: (url: string) => void): void {
+    this.run('connect', () => this.api.authorize(), (response) => {
+      if (response?.url) {
+        onConsent(response.url);
+      }
+    });
   }
 
-  async disconnect(id: string): Promise<boolean> {
-    // HttpClient.delete<void> emits null for a 204, which is also the sentinel
-    // BaseStore.command returns on failure. Map success to an explicit value.
-    const result = await this.command(`disconnect:${id}`, () =>
-      this.api.disconnect(id).pipe(map(() => true)),
+  disconnect(id: string): void {
+    this.run(
+      `disconnect:${id}`,
+      // HttpClient.delete<void> emits null for a 204, which is also the
+      // sentinel for an empty response. Map success to an explicit value.
+      () => this.api.disconnect(id).pipe(map(() => true)),
+      () => {
+        this.creatorInfoState.set(null);
+        this.load();
+      },
     );
-
-    if (!result) {
-      return false;
-    }
-
-    this.creatorInfoState.set(null);
-    this.load();
-    return true;
   }
 
-  async testConnection(id: string): Promise<boolean> {
-    const info = await this.command(`test:${id}`, () =>
-      this.api.creatorInfo(id),
-    );
-
-    if (!info) {
-      return false;
-    }
-
-    this.creatorInfoState.set(info);
-    return true;
+  testConnection(id: string): void {
+    this.run(`test:${id}`, () => this.api.creatorInfo(id), (info) => {
+      if (info) {
+        this.creatorInfoState.set(info);
+      }
+    });
   }
 
   clearCreatorInfo(): void {

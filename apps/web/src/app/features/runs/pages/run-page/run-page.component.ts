@@ -1,5 +1,5 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, effect, inject, input } from '@angular/core';
+import { Component, computed, effect, inject, Injector, input, type OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -106,7 +106,7 @@ const PRIMARY_TRANSITIONS = new Set<string>([
   templateUrl: './run-page.component.html',
   styleUrl: './run-page.component.scss',
 })
-export class RunPageComponent {
+export class RunPageComponent implements OnInit {
   readonly id = input.required<string>();
 
   protected readonly store = inject(RunDetailStoreService);
@@ -183,10 +183,14 @@ export class RunPageComponent {
   });
   protected readonly canStop = computed(() => this.regularActions().includes('FAILED'));
 
-  constructor() {
+  private readonly injector = inject(Injector);
+
+  ngOnInit(): void {
     // The route is scoped to the store, but Angular reuses the component when
     // only the `id` parameter changes. setRelativeId resets and reloads.
-    effect(() => this.store.setRelativeId(this.id()));
+    effect(() => this.store.setRelativeId(this.id()), {
+      injector: this.injector,
+    });
   }
 
   protected goToRuns(): void {
@@ -194,7 +198,7 @@ export class RunPageComponent {
   }
 
   protected runStage(stage: StageQueueName): void {
-    void this.store.runStage(stage);
+    this.store.runStage(stage);
   }
 
   protected regenerate(stage: StageQueueName): void {
@@ -202,7 +206,7 @@ export class RunPageComponent {
       return;
     }
 
-    void this.store.regenerate(stage);
+    this.store.regenerate(stage);
   }
 
   /** The publish card wrote two audit rows; re-read the run and its history. */
@@ -261,10 +265,8 @@ export class RunPageComponent {
       return;
     }
 
-    void this.store.transition(to, reason.length > 0 ? reason : undefined).then((ok) => {
-      if (ok) {
-        this.reason.reset();
-      }
-    });
+    this.store.transition(to, reason.length > 0 ? reason : undefined, () =>
+      this.reason.reset(),
+    );
   }
 }

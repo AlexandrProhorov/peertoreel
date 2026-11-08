@@ -105,8 +105,13 @@ describe('AccountsStoreService', () => {
 
   it('returns the consent URL', async () => {
     const { store, mock } = setup();
+    const onConsent = vi.fn();
 
-    await expect(store.connect()).resolves.toContain('tiktok.com');
+    store.connect(onConsent);
+
+    await vi.waitFor(() => expect(onConsent).toHaveBeenCalledOnce());
+
+    expect(onConsent.mock.calls[0]?.[0]).toContain('tiktok.com');
     expect(mock.authorize).toHaveBeenCalled();
   });
 
@@ -116,19 +121,23 @@ describe('AccountsStoreService', () => {
         throwError(() => httpError(503, 'TikTok не настроен')),
       ),
     });
+    const onConsent = vi.fn();
 
-    await expect(store.connect()).resolves.toBeNull();
-    expect(store.error()).toBe('TikTok не настроен');
+    store.connect(onConsent);
+
+    await vi.waitFor(() => expect(store.error()).toBe('TikTok не настроен'));
+    expect(onConsent).not.toHaveBeenCalled();
   });
 
   it('disconnects and reloads the list', async () => {
     const { store, mock } = setup();
 
     store.load();
-    await expect(store.disconnect(account.id)).resolves.toBe(true);
+    store.disconnect(account.id);
+
+    await vi.waitFor(() => expect(mock.list).toHaveBeenCalledTimes(2));
 
     expect(mock.disconnect).toHaveBeenCalledWith(account.id);
-    expect(mock.list).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the account when disconnect fails', async () => {
@@ -139,19 +148,23 @@ describe('AccountsStoreService', () => {
     });
 
     store.load();
-    await expect(store.disconnect(account.id)).resolves.toBe(false);
+    store.disconnect(account.id);
 
-    expect(store.error()).toBe('Не удалось отозвать токен');
+    await vi.waitFor(() =>
+      expect(store.error()).toBe('Не удалось отозвать токен'),
+    );
+
     expect(store.accounts()).toEqual([account]);
   });
 
   it('shows creator info after a connection test', async () => {
     const { store, mock } = setup();
 
-    await expect(store.testConnection(account.id)).resolves.toBe(true);
+    store.testConnection(account.id);
+
+    await vi.waitFor(() => expect(store.creatorInfo()).toEqual(creatorInfo));
 
     expect(mock.creatorInfo).toHaveBeenCalledWith(account.id);
-    expect(store.creatorInfo()).toEqual(creatorInfo);
   });
 
   it('clears creator info', () => {

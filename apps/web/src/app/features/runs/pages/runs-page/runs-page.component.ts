@@ -50,11 +50,7 @@ export class RunsPageComponent implements OnInit {
       return;
     }
 
-    void this.store.create(this.form.getRawValue().topic).then((run) => {
-      if (!run) {
-        return;
-      }
-
+    this.store.create(this.form.getRawValue().topic, (run) => {
       this.form.reset();
       void this.router.navigate(['/runs', run.id]);
     });

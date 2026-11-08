@@ -4,9 +4,11 @@ import {
   computed,
   effect,
   inject,
+  Injector,
   input,
   output,
   signal,
+  type OnInit,
   untracked,
 } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -56,7 +58,7 @@ import {
   templateUrl: './publish-card.component.html',
   styleUrl: './publish-card.component.scss',
 })
-export class PublishCardComponent {
+export class PublishCardComponent implements OnInit {
   readonly runId = input.required<string>();
   readonly runState = input.required<RunState>();
   readonly defaultTitle = input<string>('');
@@ -93,81 +95,92 @@ export class PublishCardComponent {
   private cardKey: string | null = null;
   private boundId: string | null = null;
 
-  constructor() {
+  private readonly injector = inject(Injector);
+
+  ngOnInit(): void {
     // The store is route-scoped and survives the component: returning from
     // REVIEW to SCHEDULED recreates the card with the same run id, so a
     // same-id `setRelativeId` no-op would show the stale card. Reload instead.
-    effect(() => {
-      const id = this.runId();
+    effect(
+      () => {
+        const id = this.runId();
 
-      if (this.boundId === id) {
-        return;
-      }
+        if (this.boundId === id) {
+          return;
+        }
 
-      this.boundId = id;
+        this.boundId = id;
 
-      if (untracked(() => this.store.relativeId()) === id) {
-        this.store.load();
-      } else {
-        this.store.setRelativeId(id);
-      }
-    });
+        if (untracked(() => this.store.relativeId()) === id) {
+          this.store.load();
+        } else {
+          this.store.setRelativeId(id);
+        }
+      },
+      { injector: this.injector },
+    );
 
     // Reset the form only when the server card changes, not on background
     // refreshes: unsaved edits must survive a run reload.
-    effect(() => {
-      const card = this.store.card();
-      const missing = this.store.missing();
-      // Only editable fields are part of the key: a state/timestamp change
-      // (e.g. mark-exported) must not wipe unsaved caption edits.
-      const key = card
-        ? [
-            card.id,
-            card.title,
-            card.hashtags.join('|'),
-            card.privacyLevel ?? '',
-            card.scheduledAt ?? '',
-          ].join('~')
-        : null;
+    effect(
+      () => {
+        const card = this.store.card();
+        const missing = this.store.missing();
+        // Only editable fields are part of the key: a state/timestamp change
+        // (e.g. mark-exported) must not wipe unsaved caption edits.
+        const key = card
+          ? [
+              card.id,
+              card.title,
+              card.hashtags.join('|'),
+              card.privacyLevel ?? '',
+              card.scheduledAt ?? '',
+            ].join('~')
+          : null;
 
-      if (!card && !missing) {
-        this.cardKey = null;
-        return;
-      }
+        if (!card && !missing) {
+          this.cardKey = null;
+          return;
+        }
 
-      if (key !== null && key === this.cardKey) {
-        return;
-      }
+        if (key !== null && key === this.cardKey) {
+          return;
+        }
 
-      this.cardKey = key;
-      this.copied.set(false);
-      this.copyError.set(null);
+        this.cardKey = key;
+        this.copied.set(false);
+        this.copyError.set(null);
 
-      this.form.reset(
-        card
-          ? {
-              title: card.title,
-              hashtags: toHashtagsInput(card.hashtags),
-              privacyLevel: card.privacyLevel,
-              scheduledAt: toDateTimeLocal(card.scheduledAt),
-            }
-          : {
-              title: this.defaultTitle(),
-              hashtags: '',
-              privacyLevel: null,
-              scheduledAt: '',
-            },
-        { emitEvent: false },
-      );
-    });
+        this.form.reset(
+          card
+            ? {
+                title: card.title,
+                hashtags: toHashtagsInput(card.hashtags),
+                privacyLevel: card.privacyLevel,
+                scheduledAt: toDateTimeLocal(card.scheduledAt),
+              }
+            : {
+                title: this.defaultTitle(),
+                hashtags: '',
+                privacyLevel: null,
+                scheduledAt: '',
+              },
+          { emitEvent: false },
+        );
+      },
+      { injector: this.injector },
+    );
 
-    effect(() => {
-      if (this.readOnly()) {
-        this.form.disable({ emitEvent: false });
-      } else {
-        this.form.enable({ emitEvent: false });
-      }
-    });
+    effect(
+      () => {
+        if (this.readOnly()) {
+          this.form.disable({ emitEvent: false });
+        } else {
+          this.form.enable({ emitEvent: false });
+        }
+      },
+      { injector: this.injector },
+    );
   }
 
   protected save(): void {
@@ -181,7 +194,7 @@ export class PublishCardComponent {
 
     const raw = this.form.getRawValue();
 
-    void this.store.save({
+    this.store.save({
       title: raw.title.trim(),
       hashtags: parseHashtagsInput(raw.hashtags),
       privacyLevel: raw.privacyLevel,
@@ -195,11 +208,11 @@ export class PublishCardComponent {
 
   protected downloadVideo(): void {
     if (this.runState() === 'SCHEDULED' && this.draft()) {
-      void this.store.markExported();
+      this.store.markExported();
     }
   }
 
-  protected async copyText(): Promise<void> {
+  protected copyText(): void {
     const text = publishText({
       title: this.form.controls.title.value,
       hashtags: parseHashtagsInput(this.form.controls.hashtags.value),
@@ -208,20 +221,23 @@ export class PublishCardComponent {
     this.copied.set(false);
     this.copyError.set(null);
 
-    try {
-      if (!navigator.clipboard) {
-        throw new Error('Clipboard API is unavailable');
-      }
+    if (!navigator.clipboard) {
+      this.copyWithFallback(text);
+      return;
+    }
 
-      await navigator.clipboard.writeText(text);
+    navigator.clipboard
+      .writeText(text)
+      .then(() => this.copied.set(true))
+      .catch(() => this.copyWithFallback(text));
+  }
+
+  private copyWithFallback(text: string): void {
+    try {
+      this.copyWithTextarea(text);
       this.copied.set(true);
     } catch {
-      try {
-        this.copyWithTextarea(text);
-        this.copied.set(true);
-      } catch {
-        this.copyError.set('Не удалось скопировать текст. Выделите его вручную.');
-      }
+      this.copyError.set('Не удалось скопировать текст. Выделите его вручную.');
     }
   }
 
@@ -246,14 +262,12 @@ export class PublishCardComponent {
     URL.revokeObjectURL(url);
   }
 
-  protected async publishManually(): Promise<void> {
+  protected publishManually(): void {
     if (this.store.pending() || !this.canPublish()) {
       return;
     }
 
-    if (await this.store.markPublished()) {
-      this.published.emit();
-    }
+    this.store.markPublished(() => this.published.emit());
   }
 
   private copyWithTextarea(text: string): void {

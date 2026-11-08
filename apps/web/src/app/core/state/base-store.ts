@@ -11,6 +11,13 @@ import {
 } from 'rxjs';
 import { toErrorMessage } from '../http/error-message';
 
+/** Outcome of one command, including the two "nothing happened" cases. */
+export type CommandOutcome<T> =
+  | { status: 'ok'; value: T | null }
+  | { status: 'error'; message: string }
+  | { status: 'skipped' }
+  | { status: 'cancelled' };
+
 /**
  * Shared store lifecycle: loading/pending counters, error normalization and an
  * optional relative-id mode. Knows nothing about features or HTTP.
@@ -63,14 +70,56 @@ export abstract class BaseStore {
   }
 
   /**
-   * One-shot mutation: tracks `pending`, ignores a repeated start with the same
-   * key and returns null on failure. Never rejects; the message lives in
-   * `error()`. `lastValueFrom` also handles SSE streams that end with a final
-   * snapshot.
+   * Fire-and-forget mutation for UI actions: the store keeps `pending` and
+   * `error`, the caller never sees a Promise.
+   *
+   * `onSuccess` is not called when the command was skipped as a duplicate or
+   * cancelled by store destruction: nothing was applied, so callers must not
+   * treat it as a successful result. Failures also skip `onSuccess`; their
+   * message lives in `error()`.
+   */
+  protected run<T>(
+    key: string,
+    factory: () => Observable<T>,
+    onSuccess?: (value: T | null) => void,
+  ): void {
+    void this.execute(key, factory).then((outcome) => {
+      if (outcome.status === 'ok') {
+        this.notify(() => onSuccess?.(outcome.value));
+      }
+    });
+  }
+
+  /** Runs a UI callback without turning its bug into an unhandled rejection. */
+  protected notify(callback?: () => void): void {
+    if (!callback) {
+      return;
+    }
+
+    try {
+      callback();
+    } catch (error: unknown) {
+      console.error('Store callback failed', error);
+    }
+  }
+
+  /**
+   * Value-returning mutation for internal orchestration: multi-step flows
+   * (`regenerate`) and tests. Public store methods stay `void`.
    */
   protected async command<T>(key: string, factory: () => Observable<T>): Promise<T | null> {
+    const outcome = await this.execute(key, factory);
+
+    return outcome.status === 'ok' ? outcome.value : null;
+  }
+
+  /** Shared core: dedupe by key, `pending` counter, error normalization. */
+  private async execute<T>(
+    key: string,
+    factory: () => Observable<T>,
+  ): Promise<CommandOutcome<T>> {
     if (this.inFlight.has(key)) {
-      return null;
+      return { status: 'skipped' };
     }
 
     this.inFlight.add(key);
@@ -78,12 +127,25 @@ export abstract class BaseStore {
     this.clearError();
 
     try {
-      return await lastValueFrom(
+      const value = await lastValueFrom(
         factory().pipe(takeUntilDestroyed(this.destroyRef), defaultIfEmpty(null)),
       );
+
+      // `takeUntilDestroyed` completes the stream without a value, which
+      // `defaultIfEmpty` turns into `null`. That is a cancellation, not a
+      // successful empty response.
+      return this.destroyRef.destroyed
+        ? { status: 'cancelled' }
+        : { status: 'ok', value };
     } catch (error: unknown) {
-      this.errorState.set(toErrorMessage(error));
-      return null;
+      if (this.destroyRef.destroyed) {
+        return { status: 'cancelled' };
+      }
+
+      const message = toErrorMessage(error);
+      this.errorState.set(message);
+
+      return { status: 'error', message };
     } finally {
       this.inFlight.delete(key);
       this.pendingCount.update((count) => count - 1);

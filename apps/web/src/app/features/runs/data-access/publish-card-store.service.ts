@@ -80,36 +80,38 @@ export class PublishCardStoreService extends BaseStore {
     }
   }
 
-  save(request: UpdatePublishCardRequest): Promise<boolean> {
-    return this.mutate('save', (id) => this.api.save(id, request));
+  save(request: UpdatePublishCardRequest): void {
+    this.mutate('save', (id) => this.api.save(id, request));
   }
 
-  markExported(): Promise<boolean> {
-    return this.mutate('export', (id) => this.api.markExported(id));
+  markExported(): void {
+    this.mutate('export', (id) => this.api.markExported(id));
   }
 
-  markPublished(): Promise<boolean> {
-    return this.mutate('publish', (id) => this.api.markPublished(id));
+  markPublished(onPublished?: () => void): void {
+    this.mutate('publish', (id) => this.api.markPublished(id), onPublished);
   }
 
-  private async mutate(
+  private mutate(
     key: string,
     factory: (runId: string) => Observable<PublishCard>,
-  ): Promise<boolean> {
+    onSuccess?: () => void,
+  ): void {
     const id = this.relativeId();
 
     if (!id) {
-      return false;
+      return;
     }
 
-    const card = await this.command(key, () => factory(id));
+    this.run(key, () => factory(id), (card) => {
+      // The route may have switched while the request was in flight.
+      if (!card || this.relativeId() !== id) {
+        return;
+      }
 
-    if (!card || this.relativeId() !== id) {
-      return false;
-    }
-
-    this.cardState.set(card);
-    this.loadedState.set(true);
-    return true;
+      this.cardState.set(card);
+      this.loadedState.set(true);
+      onSuccess?.();
+    });
   }
 }

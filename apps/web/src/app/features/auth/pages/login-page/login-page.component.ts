@@ -1,4 +1,4 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, effect, inject, Injector, type OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,7 +23,8 @@ import { AuthStoreService } from '../../data-access/auth-store.service';
   templateUrl: './login-page.component.html',
   styleUrl: './login-page.component.scss',
 })
-export class LoginPageComponent {
+export class LoginPageComponent implements OnInit {
+  private readonly injector = inject(Injector);
   protected readonly store = inject(AuthStoreService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -34,14 +35,17 @@ export class LoginPageComponent {
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
-  constructor() {
+  ngOnInit(): void {
     this.store.restore().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
 
-    effect(() => {
-      if (this.store.isAuthenticated()) {
-        void this.router.navigateByUrl('/health');
-      }
-    });
+    effect(
+      () => {
+        if (this.store.isAuthenticated()) {
+          void this.router.navigateByUrl('/health');
+        }
+      },
+      { injector: this.injector },
+    );
   }
 
   protected submit(): void {
@@ -50,6 +54,6 @@ export class LoginPageComponent {
       return;
     }
 
-    void this.store.login(this.form.getRawValue());
+    this.store.login(this.form.getRawValue());
   }
 }
