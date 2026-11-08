@@ -10,10 +10,15 @@
 | M0 | Walking Skeleton | Монорепо, infra, contracts, API+web, auth, CI | 30–45 ч | DONE |
 | M1 | Publish Risk Spike | Один MP4 → R2 → private TikTok post → статус | 20–35 ч | DOING |
 | M2 | Factory Core | Тема → research → script → TTS → visuals → render → QC → review → MP4 | 70–110 ч | DOING |
-| M3 | Quality & Ops | Шаблоны, regeneration, cost dashboard, monitoring | 40–60 ч | TODO |
-| M4 | Scale & Monetization | Batch, A/B, analytics, multi-platform | 40–80 ч | TODO |
+| M3 | Animated Factory | Storyboard (JSON) → продюсеры сцен (Remotion / image / AI video) → гибридный анимированный ролик | 60–90 ч | DOING |
+| M4 | Quality & Ops | Стиль-пресеты, vision QC, cost ledger, music/ducking, ручная замена сцен | 40–60 ч | TODO |
+| M5 | Scale & Monetization | Batch, A/B, analytics, multi-platform | 40–80 ч | TODO |
 
-MVP = M0 + M2 + manual export. M1 — опциональный risk spike.
+MVP = M0 + M2 + manual export. M1 — опциональный risk spike. M3 — производство оригинальных
+анимированных видео вместо стоковых клипов (исследование
+`docs/research/2026-11-08-ai-video-production-research.md`, план —
+`docs/plans/2026-11-08-animated-factory-plan.md`). Прежние M3/M4 перенумерованы в M4/M5
+(содержание сохранено).
 
 ## M0 — Walking Skeleton
 
@@ -92,8 +97,60 @@ refresh с ротацией под Redis-локом, web `/accounts`, CLI `tikto
 (true peak −1.0 dBTP), duration/sync/stop-words/AIGC/readability — pass; run остался в
 `REVIEW`. «Одобрить» доступно только при наличии отчёта и не при `fail`.
 
+**M2 — ядро фабрики работает** (тема → черновик → QC → review). Остатки перенесены:
+retry/next-candidate Pixabay → M4.6, ручная замена сцены → M4.4, cost ledger → M4.3.
+
+## M3 — Animated Factory (в работе)
+
+Переход от стоковых клипов (Pixabay) к автоматизированному созданию оригинальных
+анимированных видео. AI-режиссёр (DeepSeek) строит JSON-раскадровку; программный движок
+(Remotion в изолированном render worker) рендерит сцены; AI-изображения/AI-видео — точечно;
+сборка, субтитры и QC остаются за текущим FFmpeg. Решения: `docs/adr/0012-*` (в M3.1),
+исследование: `docs/research/2026-11-08-ai-video-production-research.md`,
+брифы слайсов для агентов: `docs/plans/2026-11-08-animated-factory-plan.md`.
+
+| ID | Задача | Owner | Статус |
+|---|---|---|---|
+| M3.1 | Контракт раскадровки `kadence.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | TODO |
+| M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | TODO |
+| M3.3 | Библиотека компонентов v1 (parallax-city, kinetic-typography, …) | агент | TODO |
+| M3.4 | Продюсер сцен: очередь `scene-render`, per-scene jobs, fallback | агент | TODO |
+| M3.5 | AI-режиссёр: раскадровка из DeepSeek (Zod-retry, тайминги) | агент | TODO |
+| M3.6 | `image_animation`: `ImageProvider` (fal.ai FLUX), реестр персонажей | агент | TODO |
+| M3.7 | `ai_video`: `VideoProvider` (MiniMax H3), ошибки, `provider_usage` | агент | TODO |
+| M3.8 | Storyboard UI: карточка сцен, превью, регенерация одной сцены | агент | TODO |
+
+**M3 acceptance** (эксперимент «−15°», исследование §I.2): ролик из ≥5 различных сцен
+собирается автоматически без ручного кода сцен; стиль и палитра консистентны; акценты
+типографики синхронны озвучке (±100 мс); рендер ≤15 мин на VPS 4 vCPU; себестоимость ≤$0.5
+(≤$2 с AI-видео сценой); ≥80% сцен проходят review без регенерации; регенерация одной сцены
+не пересобирает ролик.
+
+## M4 — Quality & Ops (бывш. M3, содержание сохранено)
+
+| ID | Задача | Статус |
+|---|---|---|
+| M4.1 | Стиль-пресеты (flat_2d_motion + второй стиль) | TODO |
+| M4.2 | Vision-QC кадров (пустые сцены, артефакты, читаемость текста) | TODO |
+| M4.3 | `provider_usage`: cost ledger, бюджетные предупреждения | TODO |
+| M4.4 | Ручная замена сцены в review (таблица `scenes` по ADR-0008) | TODO |
+| M4.5 | Music + ducking (`@audio/beat`, sidechain в FFmpeg) | TODO |
+| M4.6 | Retry/next-candidate для transient-ошибок скачивания Pixabay | TODO |
+| M4.7 | Мониторинг и операционные улучшения | TODO |
+
+## M5 — Scale & Monetization (бывш. M4, содержание сохранено)
+
+| ID | Задача | Статус |
+|---|---|---|
+| M5.1 | Batch series generation | TODO |
+| M5.2 | A/B hooks | TODO |
+| M5.3 | Analytics feedback в выбор тем | TODO |
+| M5.4 | Multi-platform publish | TODO |
+
 ## Следующие сессии
 
-1. M1.2b — очередь `publish` + кнопка публикации в publish card, статус/webhooks, rate limiter.
-2. M3 — quality/ops: style templates, image generation, music/ducking, cost ledger, manual
-   scene replacement.
+1. M3.1 — контракт раскадровки + фикстура «−15°» + ADR-0012 (бриф: `docs/plans/2026-11-08-animated-factory-plan.md` §4).
+2. M3.2 — render worker bootstrap (Remotion); перед merge — проверить headcount для
+   лицензии Remotion и платёжный канал.
+3. M3.3 → M3.5 — компоненты, продюсер сцен, AI-режиссёр.
+4. M1.2b — очередь `publish` + кнопка публикации (старый трек, с M3 не пересекается).
