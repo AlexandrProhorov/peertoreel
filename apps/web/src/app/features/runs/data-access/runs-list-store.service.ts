@@ -34,11 +34,18 @@ export class RunsListStoreService extends BaseStore {
     this.loadRequests.next();
   }
 
-  create(topic: string): Promise<Run | null> {
+  /** Starts run creation; the page navigates in the optional callback. */
+  create(topic: string, onCreated?: (run: Run) => void): void {
     const trimmed = topic.trim();
 
-    return trimmed.length > 0
-      ? this.command('create', () => this.api.create(trimmed))
-      : Promise.resolve(null);
+    if (trimmed.length === 0) {
+      return;
+    }
+
+    this.run('create', () => this.api.create(trimmed), (run) => {
+      if (run) {
+        onCreated?.(run);
+      }
+    });
   }
 }

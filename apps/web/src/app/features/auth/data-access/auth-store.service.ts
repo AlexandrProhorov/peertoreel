@@ -17,8 +17,8 @@ export class AuthStoreService extends BaseStore {
   readonly expiresAt = this.session.expiresAt;
   readonly isAuthenticated = this.session.isAuthenticated;
 
-  async login(credentials: LoginRequest): Promise<boolean> {
-    const session_2 = await this.command('login', () =>
+  login(credentials: LoginRequest): void {
+    this.run('login', () =>
       this.api.login(credentials).pipe(
         tap((session) => {
           this.session.set(session);
@@ -26,7 +26,6 @@ export class AuthStoreService extends BaseStore {
         }),
       ),
     );
-    return session_2 !== null;
   }
 
   /**
@@ -63,7 +62,9 @@ export class AuthStoreService extends BaseStore {
   }
 
   logout(): void {
-    void this.command('logout', () => this.api.logout()).finally(() => {
+    // Clear the local session only after the server confirmed the logout;
+    // a failed request means the cookie is still valid.
+    this.run('logout', () => this.api.logout(), () => {
       this.restoreChecked = false;
       this.session.clear();
     });

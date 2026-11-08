@@ -204,9 +204,13 @@ export class RunDetailStoreService extends BaseStore {
     }
   }
 
-  async transition(to: RunState, reason?: string): Promise<boolean> {
+  transition(to: RunState, reason?: string, onSuccess?: () => void): void {
     this.chain = [];
-    return this.applyTransition(to, reason);
+    void this.applyTransition(to, reason).then((ok) => {
+      if (ok) {
+        this.notify(onSuccess);
+      }
+    });
   }
 
   private async applyTransition(
@@ -234,14 +238,19 @@ export class RunDetailStoreService extends BaseStore {
     return true;
   }
 
-  async runStage(stage: StageQueueName): Promise<boolean> {
+  runStage(stage: StageQueueName): void {
     this.chain = [];
 
     if (stage === 'qc') {
       this.qcReportState.set(null);
     }
 
-    return this.startStage(stage);
+    void this.startStage(stage);
+  }
+
+  /** Regenerates a stage and the chain after it; the UI stays fire-and-forget. */
+  regenerate(stage: StageQueueName): void {
+    void this.regenerateFrom(stage);
   }
 
   /**
@@ -250,12 +259,12 @@ export class RunDetailStoreService extends BaseStore {
    * BullMQ; `chain` only decides which stage to start after the previous one
    * completes.
    */
-  async regenerate(stage: StageQueueName): Promise<boolean> {
+  private async regenerateFrom(stage: StageQueueName): Promise<void> {
     const id = this.relativeId();
     const run = this.runState();
 
     if (!id || !run) {
-      return false;
+      return;
     }
 
     const allowedFrom =
@@ -263,14 +272,14 @@ export class RunDetailStoreService extends BaseStore {
       (stage === 'visuals' && run.state === 'VISUALS_READY');
 
     if (!allowedFrom) {
-      return false;
+      return;
     }
 
     const path = REGENERATION_PATH[stage];
     const chain = REGENERATION_CHAIN[stage];
 
     if (!path || !chain) {
-      return false;
+      return;
     }
 
     this.chain = [...chain];
@@ -278,7 +287,7 @@ export class RunDetailStoreService extends BaseStore {
     for (const to of path) {
       if (!(await this.applyTransition(to)) || this.relativeId() !== id) {
         this.chain = [];
-        return false;
+        return;
       }
     }
 
@@ -286,16 +295,12 @@ export class RunDetailStoreService extends BaseStore {
 
     if (!first) {
       this.chain = [];
-      return false;
+      return;
     }
 
-    const started = await this.startStage(first);
-
-    if (!started) {
+    if (!(await this.startStage(first))) {
       this.chain = [];
     }
-
-    return started;
   }
 
   private async startStage(stage: StageQueueName): Promise<boolean> {

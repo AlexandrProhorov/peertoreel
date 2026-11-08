@@ -9,7 +9,7 @@ import type {
   TransitionRunRequest,
 } from '@peertoreel/contracts';
 import { of, Subject, throwError } from 'rxjs';
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
 import { RunsApiService } from '../api/runs-api.service';
 import { RunDetailStoreService } from './run-detail-store.service';
 
@@ -102,6 +102,9 @@ function activeJob(stage: StageJobSnapshot['stage']): StageJobSnapshot {
   };
 }
 
+/** Lets fire-and-forget store commands settle in microtasks. */
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 function setup(api: Partial<RunsApiService> = {}): RunDetailStoreService {
   TestBed.configureTestingModule({
     providers: [
@@ -123,6 +126,9 @@ function setup(api: Partial<RunsApiService> = {}): RunDetailStoreService {
 }
 
 describe('RunDetailStoreService', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
   afterEach(() => {
     vi.useRealTimers();
     TestBed.resetTestingModule();
@@ -321,16 +327,19 @@ describe('RunDetailStoreService', () => {
     const store = setup({ detail, transition });
 
     store.setRelativeId(run.id);
-    const ok = await store.transition('FAILED', 'Pixabay 429');
+    store.transition('FAILED', 'Pixabay 429');
 
-    expect(ok).toBe(true);
+    await vi.waitFor(() => expect(store.selected()?.state).toBe('FAILED'));
+
     expect(transition).toHaveBeenCalledWith(run.id, {
       to: 'FAILED',
       reason: 'Pixabay 429',
     });
-    expect(store.selected()?.state).toBe('FAILED');
     expect(store.allowed()).toEqual(['RESEARCHING']);
     expect(store.pending()).toBe(false);
+
+    // The command refreshes the run after a manual transition.
+    await vi.waitFor(() => expect(detail).toHaveBeenCalledTimes(2));
   });
 
   it('keeps the error from a rejected transition', async () => {
@@ -340,10 +349,12 @@ describe('RunDetailStoreService', () => {
     });
 
     store.setRelativeId(run.id);
-    const ok = await store.transition('REVIEW');
+    store.transition('REVIEW');
 
-    expect(ok).toBe(false);
-    expect(store.error()).toBe('Переход DRAFT → REVIEW невозможен для этого run');
+    await vi.waitFor(() =>
+      expect(store.error()).toBe('Переход DRAFT → REVIEW невозможен для этого run'),
+    );
+
     expect(store.selected()?.state).toBe('DRAFT');
     expect(store.pending()).toBe(false);
   });
@@ -368,11 +379,12 @@ describe('RunDetailStoreService', () => {
     });
 
     store.setRelativeId(run.id);
-    await store.runStage('script');
+    store.runStage('script');
+
+    await vi.waitFor(() => expect(store.stageJob()?.status).toBe('queued'));
 
     expect(startStage).toHaveBeenCalledWith(run.id, 'script');
     expect(stageJob).toHaveBeenCalledWith(run.id, 'script');
-    expect(store.stageJob()?.status).toBe('queued');
     expect(store.pending()).toBe(false);
 
     poll.next(activeJob('script'));
@@ -390,7 +402,8 @@ describe('RunDetailStoreService', () => {
     });
 
     store.setRelativeId(run.id);
-    await store.runStage('script');
+    store.runStage('script');
+    await flush();
 
     expect(startStage).not.toHaveBeenCalled();
   });
@@ -436,9 +449,9 @@ describe('RunDetailStoreService', () => {
 
     store.setRelativeId(run.id);
     await Promise.resolve();
-    const ok = await store.regenerate('visuals');
+    store.regenerate('visuals');
+    await vi.advanceTimersByTimeAsync(0);
 
-    expect(ok).toBe(true);
     expect(transition).toHaveBeenCalledWith(run.id, {
       to: 'VOICE_READY',
       reason: undefined,
@@ -479,14 +492,16 @@ describe('RunDetailStoreService', () => {
 
     store.setRelativeId(run.id);
     await Promise.resolve();
-    const ok = await store.regenerate('script');
+    store.regenerate('script');
 
-    expect(ok).toBe(true);
+    await vi.waitFor(() =>
+      expect(startStage).toHaveBeenCalledWith(run.id, 'script'),
+    );
+
     expect(transition.mock.calls.map(([, request]) => request.to)).toEqual([
       'SCRIPT_READY',
       'RESEARCHING',
     ]);
-    expect(startStage).toHaveBeenCalledWith(run.id, 'script');
   });
 
   it('does not regenerate outside REVIEW', async () => {
@@ -500,7 +515,9 @@ describe('RunDetailStoreService', () => {
 
     store.setRelativeId(run.id);
 
-    expect(await store.regenerate('visuals')).toBe(false);
+    store.regenerate('visuals');
+    await flush();
+
     expect(transition).not.toHaveBeenCalled();
     expect(startStage).not.toHaveBeenCalled();
   });

@@ -17,6 +17,14 @@ class TestStore extends BaseStore {
     return this.command(key, factory);
   }
 
+  runMutation<T>(
+    key: string,
+    factory: () => Observable<T>,
+    onSuccess?: (value: T | null) => void,
+  ): void {
+    this.run(key, factory, onSuccess);
+  }
+
   fail(message: string): void {
     this.setError(message);
   }
@@ -142,6 +150,78 @@ describe('BaseStore', () => {
     TestBed.resetTestingModule();
 
     await expect(result).resolves.toBeNull();
+    expect(store.error()).toBeNull();
+  });
+
+  it('runs a mutation and reports the value once', async () => {
+    const store = setup();
+    const subject = new Subject<string>();
+    const onSuccess = vi.fn();
+    let pendingInside = true;
+
+    store.runMutation('save', () => subject.asObservable(), (value) => {
+      pendingInside = store.pending();
+      onSuccess(value);
+    });
+
+    expect(store.pending()).toBe(true);
+
+    subject.next('saved');
+    subject.complete();
+
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledWith('saved'));
+
+    expect(pendingInside).toBe(false);
+    expect(store.pending()).toBe(false);
+  });
+
+  it('skips onSuccess on failure and keeps the message in error()', async () => {
+    const store = setup();
+    const onSuccess = vi.fn();
+
+    store.runMutation(
+      'save',
+      () => throwError(() => new Error('queue down')),
+      onSuccess,
+    );
+
+    await vi.waitFor(() => expect(store.error()).toBe('queue down'));
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(store.pending()).toBe(false);
+  });
+
+  it('does not notify the second caller of a duplicate mutation', async () => {
+    const store = setup();
+    const subject = new Subject<string>();
+    const factory = vi.fn(() => subject.asObservable());
+    const first = vi.fn();
+    const second = vi.fn();
+
+    store.runMutation('save', factory, first);
+    store.runMutation('save', factory, second);
+
+    expect(factory).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
+
+    subject.next('saved');
+    subject.complete();
+
+    await vi.waitFor(() => expect(first).toHaveBeenCalledWith('saved'));
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a destroyed store as a successful mutation', async () => {
+    const store = setup();
+    const subject = new Subject<string>();
+    const onSuccess = vi.fn();
+
+    store.runMutation('save', () => subject.asObservable(), onSuccess);
+
+    TestBed.resetTestingModule();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onSuccess).not.toHaveBeenCalled();
     expect(store.error()).toBeNull();
   });
 

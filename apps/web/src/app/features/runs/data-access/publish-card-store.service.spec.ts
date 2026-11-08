@@ -71,6 +71,9 @@ function setup(api: Partial<PublishCardApiService> = {}): PublishCardStoreServic
   return TestBed.inject(PublishCardStoreService);
 }
 
+/** Lets fire-and-forget store commands settle in microtasks. */
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('PublishCardStoreService', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
@@ -127,10 +130,11 @@ describe('PublishCardStoreService', () => {
     const store = setup(api);
 
     store.setRelativeId(runId);
+    store.save(request);
 
-    await expect(store.save(request)).resolves.toBe(true);
+    await vi.waitFor(() => expect(store.card()).toEqual(updated));
+
     expect(api.save).toHaveBeenCalledWith(runId, request);
-    expect(store.card()).toEqual(updated);
   });
 
   it('reports a save failure and keeps the previous card', async () => {
@@ -141,9 +145,12 @@ describe('PublishCardStoreService', () => {
     });
 
     store.setRelativeId(runId);
+    store.save(request);
 
-    await expect(store.save(request)).resolves.toBe(false);
-    expect(store.error()).toBe('Карточка уже опубликована');
+    await vi.waitFor(() =>
+      expect(store.error()).toBe('Карточка уже опубликована'),
+    );
+
     expect(store.card()).toEqual(card);
   });
 
@@ -158,19 +165,44 @@ describe('PublishCardStoreService', () => {
 
     store.setRelativeId(runId);
 
-    await expect(store.markExported()).resolves.toBe(true);
-    expect(store.card()?.state).toBe('exported');
+    store.markExported();
+    await vi.waitFor(() => expect(store.card()?.state).toBe('exported'));
 
-    await expect(store.markPublished()).resolves.toBe(true);
-    expect(store.card()?.state).toBe('published');
+    store.markPublished();
+    await vi.waitFor(() => expect(store.card()?.state).toBe('published'));
+  });
+
+  it('calls onPublished only after a successful publish', async () => {
+    const published = { ...card, state: 'published' as const };
+    const store = setup({
+      markPublished: vi.fn().mockReturnValue(of(published)),
+    });
+    const onPublished = vi.fn();
+
+    store.setRelativeId(runId);
+    store.markPublished(onPublished);
+
+    await vi.waitFor(() => expect(onPublished).toHaveBeenCalledOnce());
   });
 
   it('does nothing without a relative id', async () => {
-    const store = setup();
+    const api = {
+      save: vi.fn(),
+      markExported: vi.fn(),
+      markPublished: vi.fn(),
+    } as Partial<PublishCardApiService>;
+    const store = setup(api);
+    const onPublished = vi.fn();
 
-    await expect(store.save(request)).resolves.toBe(false);
-    await expect(store.markExported()).resolves.toBe(false);
-    await expect(store.markPublished()).resolves.toBe(false);
+    store.save(request);
+    store.markExported();
+    store.markPublished(onPublished);
+    await flush();
+
+    expect(api.save).not.toHaveBeenCalled();
+    expect(api.markExported).not.toHaveBeenCalled();
+    expect(api.markPublished).not.toHaveBeenCalled();
+    expect(onPublished).not.toHaveBeenCalled();
   });
 
   it('reloads when the relative id changes', () => {

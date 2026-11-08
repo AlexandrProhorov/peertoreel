@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, type OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -27,26 +27,18 @@ const PRIVACY_LABELS: Record<PublishPrivacyLevel, string> = {
   templateUrl: './accounts-page.component.html',
   styleUrl: './accounts-page.component.scss',
 })
-export class AccountsPageComponent {
+export class AccountsPageComponent implements OnInit {
   /** Query flag set by the OAuth callback: `connected` or `error`. */
   readonly tiktok = input<string>('');
 
   protected readonly store = inject(AccountsStoreService);
 
-  constructor() {
+  ngOnInit(): void {
     this.store.load();
   }
 
-  protected async connect(): Promise<void> {
-    if (this.store.pending()) {
-      return;
-    }
-
-    const url = await this.store.connect();
-
-    if (url) {
-      window.location.assign(url);
-    }
+  protected connect(): void {
+    this.store.connect((url) => window.location.assign(url));
   }
 
   protected disconnect(account: TikTokAccount): void {
@@ -56,7 +48,7 @@ export class AccountsPageComponent {
       return;
     }
 
-    void this.store.disconnect(account.id);
+    this.store.disconnect(account.id);
   }
 
   protected test(account: TikTokAccount): void {
@@ -64,7 +56,7 @@ export class AccountsPageComponent {
       return;
     }
 
-    void this.store.testConnection(account.id);
+    this.store.testConnection(account.id);
   }
 
   protected privacyLabel(level: PublishPrivacyLevel): string {

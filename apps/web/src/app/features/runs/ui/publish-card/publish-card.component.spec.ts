@@ -202,14 +202,17 @@ describe('PublishCardComponent', () => {
 
     const { fixture, component } = setup();
 
-    await invoke<Promise<void>>(component, 'copyText');
-    fixture.detectChanges();
+    invoke(component, 'copyText');
+
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Текст скопирован');
+    });
 
     expect(writeText).toHaveBeenCalledWith('Топ 5 пород собак\n\n#пород #собак');
-    expect(textOf(fixture)).toContain('Текст скопирован');
   });
 
-  it('falls back to a textarea when the Clipboard API is unavailable', async () => {
+  it('falls back to a textarea when copying fails', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
@@ -222,7 +225,25 @@ describe('PublishCardComponent', () => {
 
     const { component } = setup();
 
-    await invoke<Promise<void>>(component, 'copyText');
+    invoke(component, 'copyText');
+
+    await vi.waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
+  });
+
+  it('falls back to a textarea when the Clipboard API is unavailable', () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+
+    const { component } = setup();
+
+    invoke(component, 'copyText');
 
     expect(execCommand).toHaveBeenCalledWith('copy');
   });
@@ -256,10 +277,11 @@ describe('PublishCardComponent', () => {
     const published = vi.fn();
     component.published.subscribe(published);
 
-    await invoke<Promise<void>>(component, 'publishManually');
+    invoke(component, 'publishManually');
+
+    await vi.waitFor(() => expect(published).toHaveBeenCalled());
 
     expect(api.markPublished).toHaveBeenCalledWith(runId);
-    expect(published).toHaveBeenCalled();
   });
 
   it('is read-only while the run is publishing', () => {
@@ -319,7 +341,10 @@ describe('PublishCardComponent', () => {
     const store = (component as unknown as { store: PublishCardStoreService })
       .store;
 
-    await store.markExported();
+    store.markExported();
+    await vi.waitFor(() =>
+      expect(store.card()?.exportedAt).toBe('2026-11-06T10:05:00.000Z'),
+    );
     fixture.detectChanges();
 
     expect(formOf(component).controls['title']?.value).toBe(

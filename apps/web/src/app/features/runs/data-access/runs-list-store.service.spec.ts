@@ -43,6 +43,9 @@ function setup(api: Partial<RunsApiService>): RunsListStoreService {
   return TestBed.inject(RunsListStoreService);
 }
 
+/** Lets fire-and-forget store commands settle in microtasks. */
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('RunsListStoreService', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
@@ -73,10 +76,12 @@ describe('RunsListStoreService', () => {
   it('creates a run with a trimmed topic', async () => {
     const create = vi.fn().mockReturnValue(of(run));
     const store = setup({ create });
+    const onCreated = vi.fn();
 
-    const created = await store.create('  Почему небо синее  ');
+    store.create('  Почему небо синее  ', onCreated);
 
-    expect(created).toEqual(run);
+    await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith(run));
+
     expect(create).toHaveBeenCalledWith('Почему небо синее');
     expect(store.pending()).toBe(false);
   });
@@ -84,25 +89,30 @@ describe('RunsListStoreService', () => {
   it('ignores an empty topic', async () => {
     const create = vi.fn();
     const store = setup({ create });
+    const onCreated = vi.fn();
 
-    await expect(store.create('   ')).resolves.toBeNull();
+    store.create('   ', onCreated);
+    await flush();
+
     expect(create).not.toHaveBeenCalled();
+    expect(onCreated).not.toHaveBeenCalled();
   });
 
   it('does not start a second create while the first is pending', async () => {
     const created$ = new Subject<Run>();
     const create = vi.fn().mockReturnValue(created$.asObservable());
     const store = setup({ create });
+    const onCreated = vi.fn();
 
-    const first = store.create('Тема');
-    const second = store.create('Другая тема');
+    store.create('Тема', onCreated);
+    store.create('Другая тема', onCreated);
 
-    await expect(second).resolves.toBeNull();
     expect(create).toHaveBeenCalledOnce();
 
     created$.next(run);
     created$.complete();
 
-    await expect(first).resolves.toEqual(run);
+    await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith(run));
+    expect(onCreated).toHaveBeenCalledOnce();
   });
 });
