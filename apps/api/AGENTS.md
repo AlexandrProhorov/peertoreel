@@ -3,12 +3,13 @@
 Applies to the NestJS modular monolith. The root `AGENTS.md` still applies (contracts, run state
 machine, provider error classes, hard rules); this file adds API-specific conventions.
 
-- Modules: `auth`, `accounts` (TikTok token vault), `projects`, `templates`, `pipeline`
-  (runs/stages), `scripts`, `assets`, `renders`, `publish`, `analytics`, `integrations`
-  (provider adapters).
+- Implemented modules: `auth`, `accounts` (TikTok token vault), `runs` (pipeline/stages),
+  `publish`, `system`, `health`, `storage`, `database`, `redis`, `config`, `common`.
+  `projects`, `templates`, `assets`, `renders`, `analytics` and `integrations` are planned;
+  do not assume they exist until they are in `apps/api/src`.
 - Controller → service → repository expresses dependency direction, not folder ceremony. A
   small module keeps `*.controller.ts`, `*.service.ts`, `*.module.ts` and its unit test in one
-  folder (`health/`, `database/`, `redis/`, `config/`, `common/`, `db/`); do not add
+  folder (`health/`, `database/`, `redis/`, `config/`, `common/`); do not add
   `controllers/`, `services/`, `repositories/` or `modules/` subfolders per module.
 - Business rules in services. No vendor SDK calls in controllers or stores.
 - Data access uses Drizzle: schema in `packages/db/src/schema.ts`, `DatabaseService.db` is the

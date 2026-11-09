@@ -1,6 +1,6 @@
 # ADR-0012 — Storyboard contract and scene render architecture
 
-**Status:** accepted · 2026-11-09
+**Status:** accepted · 2026-11-09 · M3.3–M3.7 order revised 2026-11-10 by ADR-0014
 
 ## Context
 

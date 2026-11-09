@@ -114,24 +114,25 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 
 ## M3 — Animated Factory (в работе)
 
-Переход от стоковых клипов (Pixabay) к автоматизированному созданию оригинальных
-анимированных видео. AI-режиссёр (DeepSeek) строит JSON-раскадровку; программный движок
-(Remotion в изолированном render worker) рендерит сцены; AI-изображения/AI-видео — точечно;
-сборка, субтитры и QC остаются за текущим FFmpeg. Решения:
-`docs/adr/0012-storyboard-and-scene-render.md`, исследование:
-`docs/ignore/research/2026-11-08-ai-video-production-research.md`, брифы слайсов для агентов:
-`docs/ignore/plans/2026-11-08-animated-factory-plan.md`.
+Переход от стоковых клипов (Pixabay) к оригинальным анимированным видео. Порядок слайсов
+пересобран 2026-11-10 после read-only аудита: сначала data-driven renderer и режиссёрские
+рецепты, затем сквозная история на двух темах, и только потом asset library, AI-генерация и
+production hardening. Причина — не строить очередь и asset system до того, как доказана
+визуальная связность. Решение: `docs/adr/0014-m3-renderer-first-roadmap.md`. Контракт
+раскадровки и базовая архитектура — ADR-0012; исследование:
+`docs/ignore/research/2026-11-08-ai-video-production-research.md`; брифы:
+`docs/ignore/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
+`docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
 | M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
-| M3.3 | Библиотека компонентов v1 (parallax-city, kinetic-typography, …) | агент | TODO |
-| M3.4 | Продюсер сцен: очередь `scene-render`, per-scene jobs, fallback | агент | TODO |
-| M3.5 | AI-режиссёр: раскадровка из DeepSeek (Zod-retry, тайминги) | агент | TODO |
-| M3.6 | `image_animation`: `ImageProvider` (fal.ai FLUX), реестр персонажей | агент | TODO |
-| M3.7 | `ai_video`: `VideoProvider` (MiniMax H3), ошибки, `provider_usage` | агент | TODO |
-| M3.8 | Storyboard UI: карточка сцен, превью, регенерация одной сцены | агент | TODO |
+| M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | TODO — next |
+| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции | агент | TODO |
+| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion → FFmpeg, без AI-ассетов | агент | TODO |
+| M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, ImageProvider, style preset | агент | TODO |
+| M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
 `timings.ts`, `storyboard.ts` (`peertoreel.storyboard.v1`), фикстура «−15°» на 6 сцен с
@@ -147,27 +148,90 @@ fallback-маппинг для ещё не реализованных компо
 1080×1920/30/h264/`yuv420p`; 140.1 с на dev-машине, 147.6 с в контейнере;
 `buildVisualConcatArgs` склеивает их в 60-секундный трек. Docker-образ с закреплённым
 Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт под non-root. `pnpm check` —
-445 тестов.
+445 тестов. Важно: это fixture-renderer; API/worker/S3, параметры и ассеты в нём ещё не
+подключены — это M3.3+.
 
-**M3 acceptance** (эксперимент «−15°», исследование §I.2): ролик из ≥5 различных сцен
-собирается автоматически без ручного кода сцен; стиль и палитра консистентны; акценты
-типографики синхронны озвучке (±100 мс); рендер ≤15 мин на VPS 4 vCPU; себестоимость ≤$0.5
-(≤$2 с AI-видео сценой); ≥80% сцен проходят review без регенерации; регенерация одной сцены
-не пересобирает ролик.
+**M3.3 — Renderer foundation (next).** Remotion должен принимать любой валидный
+`storyboard.v1` (или отдельную сцену), а не только встроенную фикстуру.
+- `implementation.params`/`fallback.params` доходят до компонентов; для каждого
+  `componentId` есть Zod-схема параметров и дефолты в contracts.
+- Семантика params явная: отсутствие params/поля → defaults; некорректное значение →
+  default для этого поля + диагностическое предупреждение с path; неизвестный
+  `componentId` → ошибка. Молчаливая замена некорректного входа запрещена.
+- `mapping.ts` возвращает разрешённую сцену (`componentId`, `params`, `source`,
+  `diagnostics`); компонент получает только `componentId`/`params` и не знает, почему
+  выбран этот компонент.
+- Общий video target (1080×1920/30, H.264, `yuv420p`, BT.709, без аудио) вынесен в contracts
+  как спецификация; Remotion и FFmpeg мапят её в свои параметры independently. Длительность
+  считается из `scene.durationSec`.
+- Механизм локальных ассетов: `public/` + `staticFile` (или эквивалент в input props), без
+  AI-генерации и без Asset Library.
+- Неизвестный компонент не маскируется под `kinetic-typography`: если ни `implementation`,
+  ни объявленный `fallback` не реализованы, рендер падает с типизированной ошибкой.
+  Существующая фикстура остаётся рендерящейся за счёт явного реализованного fallback.
+- CLI `render-storyboard --input <json> [--scene <idx>] [--out <dir>]`; `render-fixture`
+  остаётся shortcut. В репозитории есть `examples/custom-storyboard.json`, не выведенный из
+  фикстуры.
+- **Acceptance:** фикстура рендерится; `examples/custom-storyboard.json` рендерится через
+  CLI; изменение params видно в кадре; некорректные params дают диагностику, а не тихий
+  default; неизвестный компонент даёт понятную ошибку; длительность/тайминги соответствуют
+  входу; в core render path нет fixture-специфичных импортов; детерминизм проверен на
+  одинаковом seed, изменении seed и независимости от порядка сцен.
 
-## M4 — Quality & Ops (бывш. M3, содержание сохранено)
+**M3.4 — Scene Recipes v1.** Пять рецептов: `hook-hero`, `fact-object`, `comparison`,
+`process`, `cta`; у каждого 2–3 варианта композиции. Рецепт — это способ визуально объяснить
+мысль (слоты, камера, движение, допустимые примитивы), а не шаблон расположения элементов.
+`SceneObjects` разделяется на переиспользуемые слои: текст/pill, частицы, свет, overlay,
+персонаж, chart. **Acceptance:** один storyboard смешивает ≥3 рецепта; два рендера одной
+сцены детерминированы; ролик не выглядит как одинаковые карточки; каталог рецептов доступен
+будущему DeepSeek-режиссёру.
+
+**M3.5 — End-to-end animation spike.** Две темы: «Почему у собак мокрый нос?» и «Почему дома
+строят из кирпича?». DeepSeek выдаёт `storyboard.v1`, render worker рендерит сцены, FFmpeg
+собирает ролик. Без AI-генерации ассетов и без очереди `scene-render`: допустим CLI/скрипт и
+ручная сборка существующим `buildVisualConcatArgs`. **Acceptance:** два ролика 30–60 с,
+≥5 сцен каждый, связная история, разные визуальные сетапы, отсутствие per-topic кода;
+визуальный review фиксирует, что подход работает. **Не входит:** production queue,
+Asset Library, vision QC.
+
+**M3.6 — Asset Library + Asset Generator.** После spike становится видно, каких объектов не
+хватает. Добавляются: общая библиотека ассетов, metadata и content hash, версии/варианты,
+Asset Resolver, `ImageProvider` (fal.ai/Recraft/FLUX), style preset с референсами, палитрой и
+правилами стиля. Процедурные объекты, SVG и AI-иллюстрации сосуществуют; реальные фото в
+flat 2D не попадают. **Acceptance:** две темы M3.5 плюс третья собираются из смеси
+procedural/SVG/AI; персонаж и палитра консистентны между сценами; кэш предотвращает повторные
+оплаты; при отказе генерации сцена деградирует в процедурный fallback.
+
+**M3.7 — Production hardening.** Отдельные `scene_clip` artifacts, per-scene regeneration,
+очередь `scene-render` с payload `{runId, sceneIdx}`, vision QC ассетов и готовых сцен,
+проверка повторяемости композиций, review UI, учёт стоимости и бюджета. **Acceptance:**
+регенерация одной сцены не пересобирает ролик; jobs идемпотентны; vision QC ловит пустые,
+off-style и нечитаемые сцены; стоимость генерации записана.
+
+**M3 acceptance (пересобран 2026-11-10):**
+- M3.3: произвольный storyboard JSON рендерится, params влияют на кадр, неизвестный компонент
+  падает явно, фикстура зелёная.
+- M3.4: пять рецептов с вариантами, ≥3 рецепта в одном ролике, нет «одинаковых карточек».
+- M3.5: две разные темы проходят путь topic → storyboard → сцены → ролик без per-topic кода.
+- M3.6: asset library/resolver/generator, style preset, procedural/SVG/AI coexisting.
+- M3.7: `scene_clip`, per-scene regen, `scene-render` queue, vision QC, review UI, cost ledger.
+- Общий baseline M3.2 (эксперимент «−15°») сохраняется: 1080×1920/30, ≤15 мин рендера,
+  детерминизм, стиль и палитра консистентны.
+
+## M4 — Quality & Ops
 
 | ID | Задача | Статус |
 |---|---|---|
-| M4.1 | Стиль-пресеты (flat_2d_motion + второй стиль) | TODO |
-| M4.2 | Vision-QC кадров (пустые сцены, артефакты, читаемость текста) | TODO |
-| M4.3 | `provider_usage`: cost ledger, бюджетные предупреждения | TODO |
-| M4.4 | Ручная замена сцены в review (таблица `scenes` по ADR-0008) | TODO |
+| M4.1 | Второй style preset (первый studio flat 2D появляется в M3.6) | TODO |
+| M4.2 | Advanced vision QC: артефакты, читаемость на масштабе, сложные офф-стиль кейсы (базовый QC — M3.7) | TODO |
+| M4.3 | Cost dashboard и бюджеты (ledger — M3.7) | TODO |
+| M4.4 | Ручная замена/тонкая правка сцены в review (per-scene regen — M3.7) | TODO |
 | M4.5 | Music + ducking (`@audio/beat`, sidechain в FFmpeg) | TODO |
-| M4.6 | Retry/next-candidate для transient-ошибок скачивания Pixabay | TODO |
+| M4.6 | Retry/next-candidate для transient-ошибок скачивания Pixabay (fallback-путь) | TODO |
 | M4.7 | Мониторинг и операционные улучшения | TODO |
+| M4.8 | AI video (MiniMax H3) как опциональные hero-шоты; не дефолт | TODO |
 
-## M5 — Scale & Monetization (бывш. M4, содержание сохранено)
+## M5 — Scale & Monetization
 
 | ID | Задача | Статус |
 |---|---|---|
@@ -178,10 +242,12 @@ Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт �
 
 ## Следующие сессии
 
-1. M3.3 — полная библиотека компонентов v1 (`image-parallax`, `infographic-gauge`,
-   `particle-field`, `cta-card` + доводка `parallax-city`/`kinetic-typography`).
-2. Quality gate после M3.3 — собрать полный 60-секундный черновик из фикстуры с реальной
-   озвучкой и сверить с §I.2 до M3.4/M3.5.
-3. M3.4 → M3.5 — очередь `scene-render`, оркестратор, AI-режиссёр.
-4. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+1. **M3.3 — Renderer foundation.** Промпт: `docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
+   Data-driven storyboard JSON, params, local assets, explicit unknown-component errors,
+   unified video target; фикстура продолжает рендериться.
+2. M3.4 — Scene Recipes v1: пять рецептов × 2–3 варианта; разделение `SceneObjects` на слои.
+3. M3.5 — End-to-end spike на двух темах (собака, кирпичи) без AI-ассетов и без очереди.
+4. M3.6 — Asset Library, Asset Resolver, `ImageProvider`, style preset.
+5. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
+6. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).

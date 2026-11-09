@@ -5,7 +5,8 @@ of them is wrong — flag it instead of silently following either.
 
 App-specific rules live next to the code and load only when you work there:
 `apps/web/AGENTS.md`, `apps/api/AGENTS.md`, `apps/worker/AGENTS.md`,
-`packages/tiktok/AGENTS.md`. This root file is the map and the cross-cutting contract.
+`apps/render-worker/AGENTS.md`, `packages/tiktok/AGENTS.md`. This root file is the map and the
+cross-cutting contract.
 
 ## 1. What we are building
 
@@ -27,7 +28,7 @@ apps/
   web/          # Angular 22 dashboard
   api/          # NestJS REST API
   worker/       # Node.js BullMQ worker (pipeline stages, FFmpeg, TikTok publish)
-  render-worker/ # Remotion scene renderer (M3.2; React only here)
+  render-worker/ # Remotion scene renderer (M3.3 data-driven; React only here)
 packages/
   contracts/    # Zod schemas, DTOs, stage contracts, error codes — single source of truth
   db/           # Drizzle schema + database handle shared by API and worker
@@ -54,12 +55,12 @@ docs/           # adr/, pipeline contracts, API notes
 | Worker | separate Node.js process | FFmpeg rendering, media downloads, provider calls |
 | Storage | Cloudflare R2 (SeaweedFS locally) | all artifacts; custom domain needed for TikTok `PULL_FROM_URL`. MinIO community images were removed in 2026 — see ADR-0002 |
 | Render | FFmpeg | 1080×1920, 30 fps, H.264/AAC, loudnorm −14 LUFS, ASS karaoke subtitles |
-| Scene render | Remotion 4.0.x in `apps/render-worker` (M3.2) | React only there; pinned Chrome + local woff2; free ≤3 people (ADR-0012) |
+| Scene render | Remotion 4.0.x in `apps/render-worker` (M3.3) | data-driven storyboard renderer; React only there; pinned Chrome + local woff2; free ≤3 people (ADR-0012/0014) |
 | LLM | DeepSeek V4.1 Flash (default), stronger model for QC | behind `LlmProvider` port |
 | TTS | ElevenLabs | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed) |
 | Stock | **Pixabay** API | Pexels dropped (new keys paused); 100 req/60 s, cache 24 h |
 | Images | fal.ai (FLUX.2 `[klein] 4B` default) | `[dev]` weights are non-commercial; `[pro]`/commercial license required for monetized output. Behind `ImageProvider` port |
-| Video gen | MiniMax H3 (via fal.ai), optional M3.7 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |
+| Video gen | MiniMax H3 (via fal.ai), optional M4.8 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |
 | Deploy | Docker Compose on one VPS | web + api + worker + postgres + redis |
 
 Every external provider sits behind a port defined in `packages/contracts` (or a
@@ -75,11 +76,11 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 
 | # | Stage | Input | Output artifact(s) | Executor |
 | --- | --- | --- | --- | --- |
-| 1 | topic-discovery | project config, topic history | `topics[]` (title, angle, hook hypothesis) | LLM |
-| 2 | research | topic | `research_brief` (facts, theses, 2–3 hooks, sources) | LLM |
-| 3 | script | brief + template | `script` (hook → beats[] → CTA; per beat: text, duration, visual_direction) + `storyboard_json` (M3.5) | LLM (Zod-validated) |
+| 1 | topic-discovery (planned) | project config, topic history | `topics[]` (title, angle, hook hypothesis) | LLM |
+| 2 | research (planned) | topic | `research_brief` (facts, theses, 2–3 hooks, sources) | LLM |
+| 3 | script | topic + template | `script` (hook → beats[] → CTA; per beat: text, duration, visual_direction) + `storyboard_json` (M3.5) | LLM (Zod-validated) |
 | 4 | voiceover | beat texts | `voiceover.mp3` + character alignment → derived `word_timings` | ElevenLabs |
-| 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` / `scene_clip` objects | Pixabay today; M3: storyboard scenes via Remotion / `ImageProvider` / `VideoProvider` (ADR-0012) |
+| 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` / `scene_clip` objects | Pixabay today; M3.3/M3.4 storyboard scenes via Remotion; `scene_clip` is M3.7; `ImageProvider` is M3.6 |
 | 6 | render | `visuals_json` + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
 | 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | rules + FFmpeg |
 | 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API via the `publish` queue (manual export fallback) |
@@ -97,14 +98,16 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 - A failed stage restarts **only that stage** — never the whole run.
 - Human gates: `SCRIPT_READY` (edit/approve script) and `REVIEW` (approve/reject final video
   with a comment; rejection regenerates from the chosen stage).
-- Progress of long jobs is streamed to the UI via SSE.
+- Progress of system jobs is streamed via SSE; run-stage progress is currently polled through
+  `GET /runs/:id/stages/:stage/job` (1.5 s). SSE for run stages is not implemented.
 
 ## 5. Data model (core tables)
 
-`packages/db/src/schema.ts` is the authoritative field list — do not mirror the DDL here. Core
-tables: `users`, `sessions`, `tiktok_accounts`, `projects`, `templates`, `topics`, `runs`,
-`run_events`, `artifacts`, `publish_cards`, `jobs_audit`, `provider_usage` (run states and
-their fields are in §4 and ADR-0005/0006).
+`packages/db/src/schema.ts` is the authoritative field list — do not mirror the DDL here.
+Implemented tables: `users`, `sessions`, `tiktok_accounts`, `runs`, `run_events`, `artifacts`,
+`publish_cards`. Planned/not yet in schema: `projects`, `templates`, `topics`, `jobs_audit`,
+`provider_usage` (run states and their fields are in §4 and ADR-0005/0006). Do not assume a
+planned table exists until it is in `schema.ts` and has a migration.
 
 Invariants that must hold regardless of the schema:
 
@@ -126,15 +129,16 @@ ledger is a separate milestone.
 
 | Queue | Concurrency | Hard limits to respect |
 | --- | --- | --- |
-| research, script | 4–8 | validate LLM output against Zod schema; 3 retries on parse failure |
-| tts | 2–4 | ElevenLabs rate limits |
-| visuals | 1 | Pixabay **100 req/60 s**, cache every search for **24 h**; download only the selected asset; fallback to `testsrc2` per scene |
-| scene-render (M3.4) | 1–2 | per-scene Remotion jobs, payload `{runId, sceneIdx}`; Chrome RAM; fallback to the scene's programmatic component |
-| image-gen | 2 | fal.ai pay-per-use; record usage |
-| render | 1–2 | FFmpeg is CPU-heavy (1–3 min per video); clean tmp files; report progress |
-| qc | 1 | read-only checks on the current draft; a new render invalidates the old `qc_report` |
-| publish | 1 | TikTok **6 req/min per token**, **~15 posts/day per account**, status fetch 30/min. The UI job polls status every 5 s; webhooks and a dedicated limiter are M1.2c |
-| analytics-cron | 1 | periodic metrics pull |
+| script (current) | 2 | validate LLM output against Zod schema; 3 retries on parse failure |
+| voiceover (current) | 1 | ElevenLabs rate limits |
+| visuals (current) | 1 | Pixabay **100 req/60 s**, cache every search for **24 h**; download only the selected asset; fallback to `testsrc2` per scene |
+| render (current) | 1 | FFmpeg is CPU-heavy; clean tmp files; report progress |
+| qc (current) | 1 | read-only checks on the current draft; a new render invalidates the old `qc_report` |
+| publish (current) | 1 | TikTok **6 req/min per token**, **~15 posts/day per account**, status fetch 30/min. The UI job polls status every 5 s; webhooks and a dedicated limiter are M1.2c |
+| scene-render (planned M3.7) | 1–2 | per-scene Remotion jobs, payload `{runId, sceneIdx}`; Chrome RAM; fallback to the scene's declared programmatic component |
+| image-gen (planned M3.6) | 2 | fal.ai pay-per-use; record usage in `provider_usage` when the ledger lands |
+| research (planned) | — | not implemented; do not assume the state has a processor |
+| analytics-cron (planned) | 1 | periodic metrics pull |
 
 ## 7. TikTok integration rules
 
@@ -162,7 +166,8 @@ ledger is a separate milestone.
 
 Rules for a single app or package live in its own `AGENTS.md` and load only when you work
 there: `apps/web/AGENTS.md` (Angular), `apps/api/AGENTS.md` (NestJS), `apps/worker/AGENTS.md`
-(BullMQ worker), `packages/tiktok/AGENTS.md` (TikTok HTTP adapter). Put a new app-specific rule
+(BullMQ worker), `apps/render-worker/AGENTS.md` (Remotion renderer),
+`packages/tiktok/AGENTS.md` (TikTok HTTP adapter). Put a new app-specific rule
 in the closest file; the root gets only cross-cutting rules. Never copy a field list, a
 milestone table or a full flow description into these files — link the single source of truth.
 
@@ -210,9 +215,14 @@ resolve conflicts.
   under a lock, creator-info mapping, chunk planning and error classification (token vs
   retryable vs terminal). For the TikTok publish queue: deterministic job id, explicit privacy,
   resume by `publish_id`, terminal/retryable failure mapping and the run/card transition.
-  For the render worker: storyboard scene → component/fallback mapping, clip-local object
-  timing, duration-in-frames and input-prop validation. Unit tests must not launch Chrome or
-  call `renderMedia`.
+  For the render worker: arbitrary storyboard JSON → resolved scene (`componentId`/params/
+  source/diagnostics), per-component params schemas/defaults, invalid-value diagnostics,
+  explicit unknown-component failure, clip-local object timing, duration-in-frames, input-prop
+  validation, local asset resolution, a custom-storyboard boundary test (no fixture imports in
+  the core path), and seed/order determinism. For scene recipes: recipe → component/params
+  composition, 2–3 variants, diversity rules and no per-topic code. For the asset library (when
+  it lands): content hash/dedup, variants, resolver precedence and style-preset matching.
+  Unit tests must not launch Chrome or call `renderMedia`.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.
@@ -221,8 +231,9 @@ resolve conflicts.
 
 `ROADMAP.md` is the plan of record: milestones, tasks, estimates and status. Shape:
 M0 skeleton → M1 publish spike → M2 factory v1 → M3 Animated Factory → M4 quality/ops → M5
-scale. MVP = M0 + M2 + manual export. Change scope or status in `ROADMAP.md`, not here; this
-file only names the current milestone in §1 when it matters for the code.
+scale. MVP = M0 + M2 + manual export. M3.3–M3.7 were reordered on 2026-11-10
+(renderer-first; see ADR-0014). Change scope or status in `ROADMAP.md`, not here; this file
+only names the current milestone in §1 when it matters for the code.
 
 ## 11. Hard rules
 
@@ -236,3 +247,6 @@ file only names the current milestone in §1 when it matters for the code.
 8. Decisions that change these instructions get a short ADR in `docs/adr/` and an update to the
    closest `AGENTS.md` (root only for cross-cutting rules; milestone changes also update
    `ROADMAP.md`).
+9. Unknown or unimplemented scene components must fail explicitly. A fallback is allowed only
+   when the storyboard declares it and the renderer implements it; never silently substitute a
+   generic `kinetic-typography` scene.
