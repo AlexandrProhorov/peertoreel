@@ -1,4 +1,5 @@
 import type {
+  DerivedWord,
   QcCheck,
   QcCheckId,
   QcMetrics,
@@ -7,7 +8,6 @@ import type {
 } from '@peertoreel/contracts';
 import type { MediaProbe } from '../media/ffprobe.js';
 import type { LoudnormMeasurement } from '../media/loudnorm.js';
-import type { DerivedWord } from '../tts/word-timings.js';
 
 export interface QcInput {
   script: Script;

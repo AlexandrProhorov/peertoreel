@@ -1,5 +1,4 @@
-import type { Script } from '@peertoreel/contracts';
-import type { DerivedWord } from '../tts/word-timings.js';
+import type { DerivedWord, Script } from '@peertoreel/contracts';
 
 export type BeatPart = 'hook' | 'beat' | 'cta';
 

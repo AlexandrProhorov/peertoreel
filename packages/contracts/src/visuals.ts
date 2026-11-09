@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { scenePartSchema, type ScenePart } from './scene-part.js';
 
 export const stockAssetKindSchema = z.enum(['video', 'image']);
 export type StockAssetKind = z.infer<typeof stockAssetKindSchema>;
@@ -60,8 +61,8 @@ export interface StockProvider {
   ): Promise<StockDownload>;
 }
 
-export const visualScenePartSchema = z.enum(['hook', 'beat', 'cta']);
-export type VisualScenePart = z.infer<typeof visualScenePartSchema>;
+export const visualScenePartSchema = scenePartSchema;
+export type VisualScenePart = ScenePart;
 
 const fallbackSceneAssetSchema = z.object({
   kind: z.literal('fallback'),

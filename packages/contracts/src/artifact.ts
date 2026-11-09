@@ -29,6 +29,8 @@ export const ARTIFACT_TYPES = [
   'visuals_json',
   'visual_clip',
   'visual_image',
+  'storyboard_json',
+  'scene_clip',
   'qc_report',
   'draft_mp4',
 ] as const;

@@ -1,4 +1,5 @@
 import type {
+  DerivedWord,
   StageJobResult,
   StockAsset,
   StockProvider,
@@ -13,7 +14,6 @@ import type { Logger } from 'pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerEnv } from '../config/env.js';
 import { StockError } from '../stock/errors.js';
-import type { DerivedWord } from '../tts/word-timings.js';
 import type { Script } from '@peertoreel/contracts';
 import { deleteArtifactByObjectKey } from './delete-artifact.js';
 import { findArtifactObjectKey, loadArtifactBuffer } from './load-artifact.js';

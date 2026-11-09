@@ -1,4 +1,5 @@
 import {
+  derivedWordsSchema,
   stageJobDataSchema,
   visualsArtifactSchema,
   type StageJobResult,
@@ -16,7 +17,6 @@ import {
   buildVisualTrack,
   type VisualTrackScene,
 } from '../media/visual-track.js';
-import { derivedWordsSchema } from '../tts/word-timings.js';
 import type { StageDeps } from './context.js';
 import { deleteArtifactByObjectKey } from './delete-artifact.js';
 import { findArtifactObjectKey, loadArtifactBuffer } from './load-artifact.js';

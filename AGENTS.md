@@ -23,6 +23,7 @@ apps/
   web/          # Angular 22 dashboard
   api/          # NestJS REST API
   worker/       # Node.js BullMQ worker (pipeline stages, FFmpeg, TikTok publish)
+  render-worker/ # Remotion scene renderer (M3.2; React only here)
 packages/
   contracts/    # Zod schemas, DTOs, stage contracts, error codes — single source of truth
   db/           # Drizzle schema + database handle shared by API and worker
@@ -47,11 +48,12 @@ docs/           # adr/, pipeline contracts, API notes
 | Worker | separate Node.js process | FFmpeg rendering, media downloads, provider calls |
 | Storage | Cloudflare R2 (SeaweedFS locally) | all artifacts; custom domain needed for TikTok `PULL_FROM_URL`. MinIO community images were removed in 2026 — see ADR-0002 |
 | Render | FFmpeg | 1080×1920, 30 fps, H.264/AAC, loudnorm −14 LUFS, ASS karaoke subtitles |
+| Scene render | Remotion 4.0.x in `apps/render-worker` (M3.2) | React only there; pinned Chrome + local woff2; free ≤3 people (ADR-0012) |
 | LLM | DeepSeek V4.1 Flash (default), stronger model for QC | behind `LlmProvider` port |
 | TTS | ElevenLabs | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed) |
 | Stock | **Pixabay** API | Pexels dropped (new keys paused); 100 req/60 s, cache 24 h |
 | Images | fal.ai (FLUX.2 `[klein] 4B` default) | `[dev]` weights are non-commercial; `[pro]`/commercial license required for monetized output. Behind `ImageProvider` port |
-| Video gen | Runway (optional, M4 only) | behind `VideoProvider` port; disabled by default |
+| Video gen | MiniMax H3 (via fal.ai), optional M3.7 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |
 | Deploy | Docker Compose on one VPS | web + api + worker + postgres + redis |
 
 Every external provider sits behind a port defined in `packages/contracts` (or a
@@ -69,9 +71,9 @@ writes its own artifact(s) to R2 + `artifacts` rows, advances the run state.
 | --- | --- | --- | --- | --- |
 | 1 | topic-discovery | project config, topic history | `topics[]` (title, angle, hook hypothesis) | LLM |
 | 2 | research | topic | `research_brief` (facts, theses, 2–3 hooks, sources) | LLM |
-| 3 | script | brief + template | `script` (hook → beats[] → CTA; per beat: text, duration, visual_direction) | LLM (Zod-validated) |
+| 3 | script | brief + template | `script` (hook → beats[] → CTA; per beat: text, duration, visual_direction) + `storyboard_json` (M3.5) | LLM (Zod-validated) |
 | 4 | voiceover | beat texts | `voiceover.mp3` + character alignment → derived `word_timings` | ElevenLabs |
-| 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` objects | Pixabay (fal.ai scenes = M3) |
+| 5 | visuals | `word_timings` + `visual_direction` per beat | `visuals_json` (scenes) + `visual_clip` / `visual_image` / `scene_clip` objects | Pixabay today; M3: storyboard scenes via Remotion / `ImageProvider` / `VideoProvider` (ADR-0012) |
 | 6 | render | `visuals_json` + voiceover + timings + template | `draft.mp4` + `subtitles.ass` | FFmpeg |
 | 7 | qc | draft + script | `qc_report` (duration, loudness, sync, stop-words, AIGC flag, readability) + verdict | rules + FFmpeg |
 | 8 | publish | video + publish card | TikTok post (`publish_id` → status → `post_id`) | TikTok API via the `publish` queue (manual export fallback) |
@@ -124,6 +126,7 @@ ledger is a separate milestone.
 | research, script | 4–8 | validate LLM output against Zod schema; 3 retries on parse failure |
 | tts | 2–4 | ElevenLabs rate limits |
 | visuals | 1 | Pixabay **100 req/60 s**, cache every search for **24 h**; download only the selected asset; fallback to `testsrc2` per scene |
+| scene-render (M3.4) | 1–2 | per-scene Remotion jobs, payload `{runId, sceneIdx}`; Chrome RAM; fallback to the scene's programmatic component |
 | image-gen | 2 | fal.ai pay-per-use; record usage |
 | render | 1–2 | FFmpeg is CPU-heavy (1–3 min per video); clean tmp files; report progress |
 | qc | 1 | read-only checks on the current draft; a new render invalidates the old `qc_report` |
@@ -308,8 +311,9 @@ ledger is a separate milestone.
 | M0 — skeleton (~1 wk) | pnpm monorepo, compose (api, worker, web, postgres, redis, SeaweedFS), CI, health checks, migrations | `docker compose up` brings up everything; CI green |
 | M1 — publish risk spike (~1 wk) | pre-made video upload to R2, minimal publish card, TikTok OAuth/init/status/webhooks, per-account rate limiter | one pre-made video published to a private test account; status visible in UI; manual export fallback validated |
 | M2 — factory v1 (~2–3 wk) | stages 1–8 end-to-end: RU scripts, ElevenLabs + word timings, Pixabay visuals, FFmpeg assembly with karaoke subtitles, QC checklist, review screen | topic → approved draft video → calendar in one flow |
-| M3 — quality (~2 wk) | style templates, image generation (fal.ai), stage-level regeneration, `provider_usage` cost views + budget warnings, music with ducking | two distinct visual presets render correctly |
-| M4 — scale (ongoing) | batch series generation, A/B hooks, analytics feedback into topic choice, optional `VideoProvider` scenes | weekly batch run works unattended |
+| M3 — Animated Factory (~60–90 h) | `storyboard.v1`; Remotion render worker; component library; `scene-render` queue; AI director; image/AI-video producers; storyboard UI | «−15°» experiment: ≥5 distinct scenes, consistent style, sync ±100 ms, ≤15 min render on 4 vCPU, ≤$0.5 (≤$2 with AI video), ≥80% scenes accepted without regeneration |
+| M4 — Quality & Ops | style presets, vision QC, `provider_usage` cost ledger, manual scene replacement, music/ducking, Pixabay retry | two visual presets render correctly; cost views and budget warnings; scene replacement works |
+| M5 — Scale & Monetization | batch generation, A/B hooks, analytics feedback, multi-platform publish | weekly batch run works unattended |
 
 ## 11. Hard rules
 

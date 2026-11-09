@@ -1,4 +1,5 @@
 import {
+  derivedWordsSchema,
   qcReportSchema,
   scriptSchema,
   stageJobDataSchema,
@@ -13,7 +14,6 @@ import type { WorkerEnv } from '../config/env.js';
 import { measureLoudness } from '../media/ffmpeg.js';
 import { probeMedia } from '../media/ffprobe.js';
 import { runQcChecks } from '../qc/checks.js';
-import { derivedWordsSchema } from '../tts/word-timings.js';
 import type { StageDeps } from './context.js';
 import { loadArtifactBuffer } from './load-artifact.js';
 import { saveArtifact } from './save-artifact.js';

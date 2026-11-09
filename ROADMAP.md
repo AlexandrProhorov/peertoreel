@@ -16,9 +16,9 @@
 
 MVP = M0 + M2 + manual export. M1 — опциональный risk spike. M3 — производство оригинальных
 анимированных видео вместо стоковых клипов (исследование
-`docs/research/2026-11-08-ai-video-production-research.md`, план —
-`docs/plans/2026-11-08-animated-factory-plan.md`). Прежние M3/M4 перенумерованы в M4/M5
-(содержание сохранено).
+`docs/ignore/research/2026-11-08-ai-video-production-research.md`, план —
+`docs/ignore/plans/2026-11-08-animated-factory-plan.md`; оба файла локальные, `docs/ignore/`
+в `.gitignore`). Прежние M3/M4 перенумерованы в M4/M5 (содержание сохранено).
 
 ## M0 — Walking Skeleton
 
@@ -117,13 +117,14 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 Переход от стоковых клипов (Pixabay) к автоматизированному созданию оригинальных
 анимированных видео. AI-режиссёр (DeepSeek) строит JSON-раскадровку; программный движок
 (Remotion в изолированном render worker) рендерит сцены; AI-изображения/AI-видео — точечно;
-сборка, субтитры и QC остаются за текущим FFmpeg. Решения: `docs/adr/0012-*` (в M3.1),
-исследование: `docs/research/2026-11-08-ai-video-production-research.md`,
-брифы слайсов для агентов: `docs/plans/2026-11-08-animated-factory-plan.md`.
+сборка, субтитры и QC остаются за текущим FFmpeg. Решения:
+`docs/adr/0012-storyboard-and-scene-render.md`, исследование:
+`docs/ignore/research/2026-11-08-ai-video-production-research.md`, брифы слайсов для агентов:
+`docs/ignore/plans/2026-11-08-animated-factory-plan.md`.
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
-| M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | TODO |
+| M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | TODO |
 | M3.3 | Библиотека компонентов v1 (parallax-city, kinetic-typography, …) | агент | TODO |
 | M3.4 | Продюсер сцен: очередь `scene-render`, per-scene jobs, fallback | агент | TODO |
@@ -131,6 +132,13 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 | M3.6 | `image_animation`: `ImageProvider` (fal.ai FLUX), реестр персонажей | агент | TODO |
 | M3.7 | `ai_video`: `VideoProvider` (MiniMax H3), ошибки, `provider_usage` | агент | TODO |
 | M3.8 | Storyboard UI: карточка сцен, превью, регенерация одной сцены | агент | TODO |
+
+**M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
+`timings.ts`, `storyboard.ts` (`peertoreel.storyboard.v1`), фикстура «−15°» на 6 сцен с
+детерминированными `word_timings`, типы артефактов `storyboard_json`/`scene_clip`, русские
+ярлыки в web и ADR-0012. `DerivedWord`/`derivedWordsSchema` перенесены из worker в contracts;
+worker собирается. Проверено: contracts 102 теста, worker 96, web 124; `pnpm check` зелёный.
+Никаких изменений в `visuals_json`, render/FFmpeg, API, БД, очередях и UI-страницах нет.
 
 **M3 acceptance** (эксперимент «−15°», исследование §I.2): ролик из ≥5 различных сцен
 собирается автоматически без ручного кода сцен; стиль и палитра консистентны; акценты
@@ -161,9 +169,12 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 
 ## Следующие сессии
 
-1. M3.1 — контракт раскадровки + фикстура «−15°» + ADR-0012 (бриф: `docs/ignore/plans/2026-11-08-animated-factory-plan.md` §4).
-2. M3.2 — render worker bootstrap (Remotion); перед merge — проверить headcount для
-   лицензии Remotion и платёжный канал.
-3. M3.3 → M3.5 — компоненты, продюсер сцен, AI-режиссёр.
-4. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+1. M3.2 — render worker bootstrap (Remotion): `apps/render-worker`, `parallax-city` и
+   `kinetic-typography`, рендер 6 сцен фикстуры в mp4. Лицензия Remotion: команда ≤3 человек,
+   бесплатный tier подтверждён 2026-11-09; при росте — Automators или Revideo.
+2. M3.3 — полная библиотека компонентов v1.
+3. Quality gate после M3.3 — собрать полный 60-секундный черновик из фикстуры с реальной
+   озвучкой и сверить с §I.2 до M3.4/M3.5.
+4. M3.4 → M3.5 — очередь `scene-render`, оркестратор, AI-режиссёр.
+5. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).

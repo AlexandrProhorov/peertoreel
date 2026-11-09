@@ -1,6 +1,5 @@
-import type { Script } from '@peertoreel/contracts';
+import type { DerivedWord, Script } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
-import type { DerivedWord } from '../tts/word-timings.js';
 import { deriveBeatTimings } from './beat-timings.js';
 
 const script: Script = {

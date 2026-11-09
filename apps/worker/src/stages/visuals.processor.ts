@@ -1,5 +1,6 @@
 import { artifacts, type Database } from '@peertoreel/db';
 import {
+  derivedWordsSchema,
   scriptSchema,
   stageJobDataSchema,
   visualsArtifactSchema,
@@ -16,7 +17,6 @@ import { and, eq } from 'drizzle-orm';
 import { requireProviderKey, type WorkerEnv } from '../config/env.js';
 import { STOCK_LIMITS } from '../stock/limits.js';
 import { StockError } from '../stock/errors.js';
-import { derivedWordsSchema } from '../tts/word-timings.js';
 import { deriveVisualAnchor, anchorTokens } from '../visuals/anchor.js';
 import { deriveBeatTimings } from '../visuals/beat-timings.js';
 import {

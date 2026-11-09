@@ -1,8 +1,7 @@
-import type { Script } from '@peertoreel/contracts';
+import type { DerivedWord, Script } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import type { MediaProbe } from '../media/ffprobe.js';
 import type { LoudnormMeasurement } from '../media/loudnorm.js';
-import type { DerivedWord } from '../tts/word-timings.js';
 import { runQcChecks } from './checks.js';
 
 const script: Script = {
