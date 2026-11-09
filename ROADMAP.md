@@ -122,14 +122,14 @@ production hardening. Причина — не строить очередь и a
 раскадровки и базовая архитектура — ADR-0012; исследование:
 `docs/ignore/research/2026-11-08-ai-video-production-research.md`; брифы:
 `docs/ignore/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
-`docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
+`docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
 | M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
-| M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | TODO — next |
-| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции | агент | TODO |
+| M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
+| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции | агент | TODO — next |
 | M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion → FFmpeg, без AI-ассетов | агент | TODO |
 | M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, ImageProvider, style preset | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
@@ -151,8 +151,9 @@ Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт �
 445 тестов. Важно: это fixture-renderer; API/worker/S3, параметры и ассеты в нём ещё не
 подключены — это M3.3+.
 
-**M3.3 — Renderer foundation (next).** Remotion должен принимать любой валидный
-`storyboard.v1` (или отдельную сцену), а не только встроенную фикстуру.
+**M3.3 — Renderer foundation (закрыт 2026-11-10).** Remotion принимает любой валидный
+`storyboard.v1` (или отдельную сцену), а не только встроенную фикстуру; fixture-импорт остался
+только в CLI. Итог ниже фиксирует acceptance.
 - `implementation.params`/`fallback.params` доходят до компонентов; для каждого
   `componentId` есть Zod-схема параметров и дефолты в contracts.
 - Семантика params явная: отсутствие params/поля → defaults; некорректное значение →
@@ -177,6 +178,19 @@ Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт �
   default; неизвестный компонент даёт понятную ошибку; длительность/тайминги соответствуют
   входу; в core render path нет fixture-специфичных импортов; детерминизм проверен на
   одинаковом seed, изменении seed и независимости от порядка сцен.
+
+**Итог M3.3.** Добавлены `storyboard.components.ts` (6 схем/defaults + per-field diagnostics),
+`video.ts` (единая спецификация), resolved scene в `mapping.ts` с
+`UnsupportedSceneComponentError`, param-aware `ParallaxCity`/`KineticTypography`, общий
+`public/` + `staticFile` + resolver ассетов, CLI `render-storyboard`, манифест с diagnostics и
+boundary test. Fixture CTA fallback переведён на реализованный `kinetic-typography`;
+`image-parallax` stretch не взят (M3.6). FFmpeg/Remotion мапят video target раздельно;
+цветовые флаги не добавлялись, потому что `ffprobe` уже показывает BT.709. Проверено:
+`pnpm check` — 485 тестов; фикстура 143.3 с, custom 75.0 с; concat 28.0 с; одинаковый
+SHA-256 для сцены в полном прогоне, одиночно и после другой сцены; изменение seed меняет
+кадр; invalid params пишут diagnostics в лог/манифест; unsupported component завершает CLI
+ошибкой; Docker-образ `peertoreel-render-worker:m3-3` собирается. Полная сборка с озвучкой —
+отдельная проверка (см. `SESSION_LOG.md`).
 
 **M3.4 — Scene Recipes v1.** Пять рецептов: `hook-hero`, `fact-object`, `comparison`,
 `process`, `cta`; у каждого 2–3 варианта композиции. Рецепт — это способ визуально объяснить
@@ -242,12 +256,11 @@ off-style и нечитаемые сцены; стоимость генерац�
 
 ## Следующие сессии
 
-1. **M3.3 — Renderer foundation.** Промпт: `docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
-   Data-driven storyboard JSON, params, local assets, explicit unknown-component errors,
-   unified video target; фикстура продолжает рендериться.
-2. M3.4 — Scene Recipes v1: пять рецептов × 2–3 варианта; разделение `SceneObjects` на слои.
-3. M3.5 — End-to-end spike на двух темах (собака, кирпичи) без AI-ассетов и без очереди.
-4. M3.6 — Asset Library, Asset Resolver, `ImageProvider`, style preset.
-5. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
-6. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+1. **M3.4 — Scene Recipes v1.** Пять рецептов × 2–3 варианта; разделение `SceneObjects` на
+   слои. M3.3 закрыт 2026-11-10. Промпт:
+   `docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
+2. M3.5 — End-to-end spike на двух темах (собака, кирпичи) без AI-ассетов и без очереди.
+3. M3.6 — Asset Library, Asset Resolver, `ImageProvider`, style preset.
+4. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
+5. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).

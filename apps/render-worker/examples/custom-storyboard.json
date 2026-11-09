@@ -1,0 +1,232 @@
+{
+  "schemaVersion": "peertoreel.storyboard.v1",
+  "runId": "7f3c1a52-2222-4a2b-8c3d-000000000033",
+  "style": {
+    "styleId": "flat_2d_motion",
+    "palette": {
+      "background": ["#0b1220", "#1b2a41"],
+      "accent": "#ffd166",
+      "text": "#ffffff",
+      "cold": "#8ecae6",
+      "danger": "#ef476f"
+    },
+    "typography": {
+      "heading": "Montserrat",
+      "body": "Inter",
+      "headingWeight": 900
+    },
+    "effects": ["vignette", "glow"]
+  },
+  "characters": [],
+  "audio": {
+    "wordTimingsKey": "runs/7f3c1a52-2222-4a2b-8c3d-000000000033/voiceover/word_timings.json",
+    "durationSec": 28
+  },
+  "scenes": [
+    {
+      "id": "city-hook",
+      "part": "hook",
+      "beatIndex": null,
+      "voiceover": {
+        "text": "Почему в городе теплее, чем за городом?",
+        "startSec": 0,
+        "endSec": 6
+      },
+      "durationSec": 6,
+      "description": "Ночной город, тёплое свечение над крышами, крупная подпись «ГОРОД +3°»",
+      "environment": {
+        "setting": "city-night-heat",
+        "layers": ["sky", "skyline", "lamp", "road"]
+      },
+      "camera": {
+        "shot": "wide",
+        "movement": "pan",
+        "speed": 0.12,
+        "parallax": [0.2, 0.5, 0.8, 1]
+      },
+      "objects": [
+        {
+          "id": "city-title",
+          "kind": "text",
+          "content": "ГОРОД +3°",
+          "animation": "zoom-in-glow",
+          "syncToWord": null,
+          "startSec": 1.2,
+          "endSec": 6
+        }
+      ],
+      "effects": ["text-glow", "vignette"],
+      "transition": { "type": "crossfade", "durationSec": 0.4 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "parallax-city",
+        "params": {
+          "buildingsSeed": 2026,
+          "lamp": "left",
+          "snowDensity": 0,
+          "focus": "skyline",
+          "roadGlow": true
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "parallax-city",
+        "params": { "buildingsSeed": 2026 }
+      },
+      "version": 1
+    },
+    {
+      "id": "city-asphalt",
+      "part": "beat",
+      "beatIndex": 0,
+      "voiceover": {
+        "text": "Асфальт и бетон днём накапливают тепло, а ночью отдают его городу.",
+        "startSec": 6,
+        "endSec": 14
+      },
+      "durationSec": 8,
+      "description": "Крупная типографика о нагретом камне, сетка и акцентное свечение",
+      "environment": {
+        "setting": "kinetic-dark",
+        "layers": ["grid", "glow", "text"]
+      },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "asphalt-pill",
+          "kind": "text",
+          "content": "АСФАЛЬТ ДЕРЖИТ ТЕПЛО",
+          "animation": "slide-up-pill",
+          "syncToWord": null,
+          "startSec": 7,
+          "endSec": 14
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": {
+          "text": "ТЕПЛО В КАМНЕ",
+          "accentWords": ["ТЕПЛО"],
+          "preset": "statement",
+          "align": "center",
+          "underline": true
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ТЕПЛО В КАМНЕ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "city-engines",
+      "part": "beat",
+      "beatIndex": 1,
+      "voiceover": {
+        "text": "Машины и кондиционеры добавляют ещё несколько градусов.",
+        "startSec": 14,
+        "endSec": 22
+      },
+      "durationSec": 8,
+      "description": "Город с высоты, машины и светящиеся окна, подпись «+3 °C»",
+      "environment": {
+        "setting": "city-street-heat",
+        "layers": ["buildings", "street", "lights"]
+      },
+      "camera": { "shot": "medium", "movement": "zoom_in", "speed": 0.1 },
+      "objects": [
+        {
+          "id": "heat-number",
+          "kind": "text",
+          "content": "+3 °C",
+          "animation": "zoom-in-glow",
+          "syncToWord": null,
+          "startSec": 15,
+          "endSec": 22
+        }
+      ],
+      "effects": ["text-glow", "vignette"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "parallax-city",
+        "params": {
+          "buildingsSeed": 707,
+          "lamp": "center",
+          "snowDensity": 0.35,
+          "focus": "car-silhouette",
+          "roadGlow": false
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "parallax-city",
+        "params": { "buildingsSeed": 707, "focus": "car-silhouette" }
+      },
+      "version": 1
+    },
+    {
+      "id": "city-cta",
+      "part": "cta",
+      "beatIndex": null,
+      "voiceover": {
+        "text": "Запоминай: город греет сам себя.",
+        "startSec": 22,
+        "endSec": 28
+      },
+      "durationSec": 6,
+      "description": "Финальный экран с плашкой «ГОРОД ГРЕЕТ СЕБЯ»",
+      "environment": {
+        "setting": "kinetic-dark",
+        "layers": ["glow", "text"]
+      },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "cta-title",
+          "kind": "text",
+          "content": "ЗАПОМНИ",
+          "animation": "zoom-in-glow",
+          "syncToWord": null,
+          "startSec": 22.4,
+          "endSec": 26
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": {
+          "text": "ГОРОД ГРЕЕТ СЕБЯ",
+          "accentWords": ["ГРЕЕТ"],
+          "preset": "pill",
+          "align": "center",
+          "underline": false
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ГОРОД ГРЕЕТ СЕБЯ" }
+      },
+      "version": 1
+    }
+  ]
+}

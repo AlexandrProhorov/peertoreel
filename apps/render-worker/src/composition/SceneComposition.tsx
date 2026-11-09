@@ -1,24 +1,11 @@
 import { AbsoluteFill, continueRender, delayRender } from 'remotion';
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
 import type { StoryboardScene, StoryboardStyle } from '@peertoreel/contracts';
 import { KineticTypography } from '../components/KineticTypography.js';
 import { ParallaxCity } from '../components/ParallaxCity.js';
 import { SceneObjects } from '../components/SceneObjects.js';
-import { resolveSceneComponent } from '../mapping.js';
-import type { ImplementedComponentId } from '../mapping.js';
+import type { ResolvedSceneProps } from '../mapping.js';
 import type { SceneInputProps } from '../props.js';
-
-interface SceneBaseProps {
-  scene: StoryboardScene;
-  style: StoryboardStyle;
-}
-
-/** Adding a component to `IMPLEMENTED_COMPONENTS` is a compile error here. */
-const COMPONENT_RENDERERS: Record<ImplementedComponentId, FC<SceneBaseProps>> = {
-  'parallax-city': ParallaxCity,
-  'kinetic-typography': KineticTypography,
-};
 
 const FONT_SPECS = ['900 64px Montserrat', '700 64px Montserrat'];
 
@@ -51,14 +38,38 @@ function useLocalFontsReady(): void {
   }, [handle]);
 }
 
+function BaseScene({
+  resolved,
+  scene,
+  style,
+}: {
+  resolved: ResolvedSceneProps;
+  scene: StoryboardScene;
+  style: StoryboardStyle;
+}) {
+  switch (resolved.componentId) {
+    case 'parallax-city':
+      return (
+        <ParallaxCity scene={scene} style={style} params={resolved.params} />
+      );
+    case 'kinetic-typography':
+      return (
+        <KineticTypography
+          scene={scene}
+          style={style}
+          params={resolved.params}
+        />
+      );
+  }
+}
+
 export function SceneComposition({
   scene,
   style,
+  resolved,
   wordTimings,
 }: SceneInputProps) {
   useLocalFontsReady();
-  const choice = resolveSceneComponent(scene);
-  const Base = COMPONENT_RENDERERS[choice.componentId];
 
   return (
     <AbsoluteFill
@@ -67,7 +78,7 @@ export function SceneComposition({
         overflow: 'hidden',
       }}
     >
-      <Base scene={scene} style={style} />
+      <BaseScene resolved={resolved} scene={scene} style={style} />
       <SceneObjects scene={scene} style={style} wordTimings={wordTimings} />
     </AbsoluteFill>
   );

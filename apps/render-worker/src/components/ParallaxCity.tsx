@@ -1,4 +1,8 @@
-import type { StoryboardScene, StoryboardStyle } from '@peertoreel/contracts';
+import type {
+  ParallaxCityParams,
+  StoryboardScene,
+  StoryboardStyle,
+} from '@peertoreel/contracts';
 import {
   AbsoluteFill,
   interpolate,
@@ -11,6 +15,7 @@ import type { CSSProperties } from 'react';
 interface ParallaxCityProps {
   scene: StoryboardScene;
   style: StoryboardStyle;
+  params: ParallaxCityParams;
 }
 
 function backgroundColors(style: StoryboardStyle): [string, string] {
@@ -53,6 +58,28 @@ function cameraStyle(
       };
     default:
       return {};
+  }
+}
+
+function focusTransformOrigin(focus: ParallaxCityParams['focus']): string {
+  switch (focus) {
+    case 'skyline':
+      return '50% 35%';
+    case 'car-silhouette':
+      return '60% 72%';
+    case 'street':
+      return '50% 80%';
+  }
+}
+
+function focusGradientPoint(focus: ParallaxCityParams['focus']): string {
+  switch (focus) {
+    case 'skyline':
+      return '50% 22%';
+    case 'car-silhouette':
+      return '62% 66%';
+    case 'street':
+      return '50% 84%';
   }
 }
 
@@ -141,13 +168,118 @@ function BuildingLayer({
   );
 }
 
-export function ParallaxCity({ scene, style }: ParallaxCityProps) {
+/** Ambient snow driven by `params.snowDensity` (0 hides the layer). */
+function SkySnow({
+  density,
+  seed,
+  seconds,
+  style,
+}: {
+  density: number;
+  seed: number;
+  seconds: number;
+  style: StoryboardStyle;
+}) {
+  if (density <= 0) {
+    return null;
+  }
+
+  const count = Math.round(density * 28);
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: 'none' }}>
+      {Array.from({ length: count }, (_, index) => {
+        const left = random(`city-${seed}-snow-x-${index}`) * 100;
+        const size = 2 + random(`city-${seed}-snow-size-${index}`) * 4;
+        const speed = 0.03 + random(`city-${seed}-snow-speed-${index}`) * 0.08;
+        const offset = random(`city-${seed}-snow-offset-${index}`);
+        const top = ((offset + seconds * speed) % 1) * 108 - 4;
+
+        return (
+          <span
+            key={index}
+            style={{
+              position: 'absolute',
+              left: `${left}%`,
+              top: `${top}%`,
+              width: size,
+              height: size,
+              borderRadius: '50%',
+              background: style.palette.text,
+              opacity: 0.2 + random(`city-${seed}-snow-opacity-${index}`) * 0.4,
+              filter: 'blur(0.3px)',
+            }}
+          />
+        );
+      })}
+    </AbsoluteFill>
+  );
+}
+
+function Lamp({
+  side,
+  seconds,
+  style,
+}: {
+  side: ParallaxCityParams['lamp'];
+  seconds: number;
+  style: StoryboardStyle;
+}) {
+  const pulse = 0.78 + Math.sin(seconds * 1.7) * 0.08;
+  const left = side === 'left' ? '12%' : side === 'center' ? '50%' : '84%';
+
+  return (
+    <div style={{ position: 'absolute', left, bottom: 0 }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: -280,
+          bottom: 180,
+          width: 560,
+          height: 700,
+          background: `linear-gradient(to bottom, ${style.palette.accent}55, ${style.palette.accent}00)`,
+          clipPath: 'polygon(46% 0, 54% 0, 100% 100%, 0% 100%)',
+          filter: 'blur(18px)',
+          opacity: pulse,
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: -7,
+          bottom: 220,
+          width: 14,
+          height: 620,
+          borderRadius: 8,
+          background: `linear-gradient(180deg, ${style.palette.cold}55, #070b12)`,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: -23,
+          bottom: 800,
+          width: 46,
+          height: 46,
+          borderRadius: '50%',
+          background: style.palette.accent,
+          boxShadow: `0 0 60px 24px ${style.palette.accent}55`,
+        }}
+      />
+    </div>
+  );
+}
+
+export function ParallaxCity({ scene, style, params }: ParallaxCityProps) {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
   const progress = durationInFrames <= 1 ? 0 : frame / (durationInFrames - 1);
+  const seconds = frame / fps;
   const [skyTop, skyBottom] = backgroundColors(style);
-  const farBuildings = makeBuildings(14, 'far', 260);
-  const nearBuildings = makeBuildings(9, 'near', 420);
+  const seedPrefix = `city-${params.buildingsSeed}`;
+  const farBuildings = makeBuildings(14, `${seedPrefix}-far`, 260);
+  const nearBuildings = makeBuildings(9, `${seedPrefix}-near`, 420);
   const camera = cameraStyle(scene.camera.movement, scene.camera.speed, progress);
 
   return (
@@ -158,11 +290,16 @@ export function ParallaxCity({ scene, style }: ParallaxCityProps) {
     >
       <AbsoluteFill
         style={{
-          background: `radial-gradient(circle at 78% 18%, ${style.palette.accent}22, transparent 30%), radial-gradient(circle at 20% 10%, ${style.palette.cold}14, transparent 26%)`,
+          background: `radial-gradient(circle at ${focusGradientPoint(params.focus)}, ${style.palette.accent}22, transparent 32%), radial-gradient(circle at 20% 10%, ${style.palette.cold}14, transparent 26%)`,
         }}
       />
 
-      <AbsoluteFill style={{ ...camera, transformOrigin: '50% 55%' }}>
+      <AbsoluteFill
+        style={{
+          ...camera,
+          transformOrigin: focusTransformOrigin(params.focus),
+        }}
+      >
         <BuildingLayer
           buildings={farBuildings}
           color={skyBottom}
@@ -197,33 +334,19 @@ export function ParallaxCity({ scene, style }: ParallaxCityProps) {
             borderRadius: 8,
             background: `${style.palette.accent}33`,
             filter: 'blur(4px)',
+            opacity: params.roadGlow ? 1 : 0,
           }}
         />
 
-        <div
-          style={{
-            position: 'absolute',
-            right: '10%',
-            bottom: 220,
-            width: 14,
-            height: 620,
-            borderRadius: 8,
-            background: `linear-gradient(180deg, ${style.palette.cold}55, #070b12)`,
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            right: '9%',
-            bottom: 820,
-            width: 46,
-            height: 46,
-            borderRadius: '50%',
-            background: style.palette.accent,
-            boxShadow: `0 0 60px 24px ${style.palette.accent}55`,
-          }}
-        />
+        <Lamp side={params.lamp} seconds={seconds} style={style} />
       </AbsoluteFill>
+
+      <SkySnow
+        density={params.snowDensity}
+        seed={params.buildingsSeed}
+        seconds={seconds}
+        style={style}
+      />
 
       <AbsoluteFill
         style={{

@@ -417,7 +417,7 @@ export const storyboardFixture15Deg: Storyboard = {
       },
       fallback: {
         type: 'programmatic',
-        componentId: 'cta-card',
+        componentId: 'kinetic-typography',
         params: { text: 'ЗДОРОВЕЕ' },
       },
       version: 1,

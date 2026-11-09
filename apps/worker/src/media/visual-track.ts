@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { RENDER_TARGET, runFfmpeg, type RenderOptions } from './ffmpeg.js';
+import { VIDEO_SCALE_FILTER, buildVideoCodecArgs } from './video-target.js';
 
 export type VisualTrackKind = 'video' | 'image' | 'fallback';
 
@@ -126,26 +127,14 @@ export function planVisualTrack(
   };
 }
 
-const VIDEO_FILTER = [
-  `scale=${RENDER_TARGET.width}:${RENDER_TARGET.height}:force_original_aspect_ratio=increase`,
-  `crop=${RENDER_TARGET.width}:${RENDER_TARGET.height}`,
-  'setsar=1',
-  `fps=${RENDER_TARGET.fps}`,
-].join(',');
-
 function encodeArgs(outputName: string): string[] {
   return [
     '-an',
-    '-c:v',
-    'libx264',
+    ...buildVideoCodecArgs(),
     '-preset',
     'veryfast',
     '-crf',
     '20',
-    '-pix_fmt',
-    'yuv420p',
-    '-r',
-    String(RENDER_TARGET.fps),
     '-video_track_timescale',
     '90000',
     '-movflags',
@@ -186,7 +175,7 @@ export function buildVisualSegmentArgs(
       '-t',
       duration,
       '-vf',
-      VIDEO_FILTER,
+      VIDEO_SCALE_FILTER,
       ...encodeArgs(outputName),
     ];
   }
@@ -201,7 +190,7 @@ export function buildVisualSegmentArgs(
     '-t',
     duration,
     '-vf',
-    VIDEO_FILTER,
+    VIDEO_SCALE_FILTER,
     ...encodeArgs(outputName),
   ];
 }
