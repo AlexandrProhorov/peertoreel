@@ -3,6 +3,10 @@
 Working agreement for humans and agents on this repo. If this file contradicts the code, one
 of them is wrong — flag it instead of silently following either.
 
+App-specific rules live next to the code and load only when you work there:
+`apps/web/AGENTS.md`, `apps/api/AGENTS.md`, `apps/worker/AGENTS.md`,
+`packages/tiktok/AGENTS.md`. This root file is the map and the cross-cutting contract.
+
 ## 1. What we are building
 
 A content factory that takes a topic and produces a finished vertical short video
@@ -36,6 +40,8 @@ docs/           # adr/, pipeline contracts, API notes
 - One lockfile, one CI, atomic changes across packages. `packages/contracts` is the only
   place where request/response/stage payload shapes are defined.
 - Node.js 24 LTS, pnpm 10+. Angular 22.x pinned; other deps latest stable at bootstrap.
+- An app/package with its own conventions carries an `AGENTS.md` next to its code; it loads
+  when an agent reads that area. The root file stays the map and the cross-cutting contract.
 
 ## 3. Stack (decided — do not swap without an ADR)
 
@@ -95,15 +101,12 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 
 ## 5. Data model (core tables)
 
-```text
-users, sessions, tiktok_accounts (user_id, open_id, encrypted tokens, expiry, scope), projects, templates, topics,
-runs (state, current_stage, failed_stage, failure_reason, resume_state, cost_estimate),
-run_events (run_id, from_state, to_state, stage, reason, created_at), artifacts (stage, type, r2_key, meta),
-publish_cards (run_id unique, title, hashtags jsonb, privacy_level, is_aigc, scheduled_at,
-               exported_at, published_at, state, publish_id, post_id, fail_reason),
-jobs_audit (queue, job_id, run_id, state, attempts, error),
-provider_usage (provider, model, units, cost_usd, run_id)
-```
+`packages/db/src/schema.ts` is the authoritative field list — do not mirror the DDL here. Core
+tables: `users`, `sessions`, `tiktok_accounts`, `projects`, `templates`, `topics`, `runs`,
+`run_events`, `artifacts`, `publish_cards`, `jobs_audit`, `provider_usage` (run states and
+their fields are in §4 and ADR-0005/0006).
+
+Invariants that must hold regardless of the schema:
 
 `publish_cards` is created automatically in the same transaction as `REVIEW → SCHEDULED`
 (title from the script title, fallback to the run topic) and is the manual-export card until
@@ -140,19 +143,11 @@ ledger is a separate milestone.
   `SCHEDULED → PUBLISHING → PUBLISHED/FAILED`, resumes by `publish_id` instead of creating a
   duplicate post, and uses the latest active account. Webhooks, a per-token rate limiter,
   per-card account selection and scheduled auto-publish are the next slice (ADR-0013).
-- OAuth (Login Kit): scopes `user.info.basic` + `video.publish`. Read token lifetimes from the
-  token response (`expires_in`, `refresh_expires_in`); the docs checked on 2026-11-07 say
-  access ≈2 h and refresh ≈180 days. **Refresh tokens rotate** — replace the stored refresh
-  token on every refresh, and serialize refreshes per account. Tokens are encrypted at rest
-  and never logged. Desktop/localhost authorization requires **PKCE**: send `code_challenge`
-  (`S256`, hex SHA-256 per TikTok's desktop guide), keep the verifier server-side and send
-  `code_verifier` during the code exchange.
-- Upload: `FILE_UPLOAD` (5–64 MB chunks, sequential) is the first path; `PULL_FROM_URL`
-  requires verified domain/URL-prefix ownership and a publicly reachable https URL (no redirects,
-  available ~1 h).
-- Publish flow: `creator_info/query` → `video/init` → poll `status/fetch` + webhooks
-  (`post.publish.complete/failed/publicly_available`). TikTok has **no scheduling parameter**;
-  our own delayed job triggers `video/init` at `scheduled_at`.
+- Publish flow, OAuth/PKCE, token rotation and upload mechanics (endpoint sequence,
+  `FILE_UPLOAD` chunking) are adapter details — see `packages/tiktok/AGENTS.md`
+  (ADR-0011, ADR-0013). The product rules below stay here.
+- TikTok has **no scheduling parameter**; our own delayed job triggers `video/init` at
+  `scheduled_at`.
 - **`is_aigc: true` on every publish** — product/ethics rule and platform disclosure. The API
   field is optional; we always send it.
 - Unaudited app: content is restricted to `SELF_ONLY`, accounts must be private, and at most
@@ -164,6 +159,12 @@ ledger is a separate milestone.
   publish UI (preview before publish, no default privacy value, no watermark on content).
 
 ## 8. Conventions
+
+Rules for a single app or package live in its own `AGENTS.md` and load only when you work
+there: `apps/web/AGENTS.md` (Angular), `apps/api/AGENTS.md` (NestJS), `apps/worker/AGENTS.md`
+(BullMQ worker), `packages/tiktok/AGENTS.md` (TikTok HTTP adapter). Put a new app-specific rule
+in the closest file; the root gets only cross-cutting rules. Never copy a field list, a
+milestone table or a full flow description into these files — link the single source of truth.
 
 ### Shared
 
@@ -186,102 +187,11 @@ ledger is a separate milestone.
 - Update `SESSION_LOG.md` after each session. `LEARNING.md` is a local, gitignored
   learning artifact and is not part of the repository.
 
-### Web (Angular)
+### App-specific
 
-- Global `AGENTS_ANGULAR.md` conventions apply (signals, `input()`/`output()`, `@if`/`@for`
-  with `track`, no zone.js assumptions, typed reactive forms, lazy routes).
-- Feature layout: `features/<feature>/{api,data-access,pages,ui}`; `core/` for
-  config/http/auth/layout; `shared/` for reusable UI.
-
-  ```text
-  features/<feature>/
-  ├── api/
-  │   ├── <feature>-api.service.ts
-  │   └── <feature>-api.service.spec.ts
-  ├── data-access/
-  │   ├── <feature>-store.service.ts
-  │   ├── <feature>-store.service.spec.ts
-  │   └── local helpers/types only when needed
-  ├── pages/
-  ├── ui/
-  └── <feature>.routes.ts
-  ```
-
-- Run progress, publish states and cost views render from signal stores fed by SSE.
-
-#### Frontend data layer
-
-- `api/<feature>-api.service.ts` (class `<Feature>ApiService`) extends `BaseApiService`
-  (`core/api/base-api.service.ts`) and stays transport only: build the path, choose the HTTP
-  method, pass parameters, map DTO → interface, validate the response schema through
-  `get`/`post`/`postVoid`. It must not own state, cache, retry, `catchError`, user-facing
-  messages, `firstValueFrom`/`lastValueFrom` or business decisions. A mapper that starts making
-  business decisions belongs in the store/domain.
-- `data-access/<feature>-store.service.ts` (class `<Feature>StoreService`) extends `BaseStore`
-  (`core/state/base-store.ts`) and owns the feature state. Use `query(source)` for cancellable
-  reads and `command(key, factory)` for one-shot mutations; `loading`, `pending` and `error` come
-  from the base class. `query()` does not clear a previous error — call `clearError()` only at an
-  explicit entry point (`load`, `setRelativeId`, `command`).
-- Per-entity state is scoped by Angular DI: declare the store in the route `providers` (or a
-  repeated component's `providers`), not `providedIn: 'root'`. Root stores are only for genuinely
-  global state (session/auth, health, the system SSE job). Never keep a registry of per-entity
-  store instances.
-- A scoped detail store uses `setRelativeId(id)`; the component binds the route input once with
-  `effect(() => store.setRelativeId(this.id()))`. Do not write `clear*()` methods or clean up a
-  store from `ngOnDestroy`: leaving the route destroys the store.
-- Progress of an in-flight job is rehydrated from the server when a scoped store is created (the
-  BullMQ snapshot is the source of truth), not cached in a root singleton. This is what makes the
-  progress bar survive navigation, F5 and a second tab.
-- `data-access/` also holds domain helpers and local types tied to that store (e.g.
-  `health.error.ts`). It is not a dumping ground for unrelated business logic, and a store or
-  helper file must not exist without a current use.
-- Use `switchMap` for cancellable reads. Use `BaseStore.command()` (an in-flight key) for
-  submit/mutation flows so the same operation cannot be started twice; `exhaustMap`/`concatMap`
-  remain fine inside a command when a stream itself needs serialization.
-- `catchError` receives `unknown`; narrow it immediately to `HttpErrorResponse` or a domain
-  error and normalize it through one shared mapper. `unknown` must not leak into public
-  API/store signatures.
-- A component may call `firstValueFrom` directly only for a trivial one-shot request with no
-  shared state and no business logic. Otherwise the request belongs in a store.
-- Cache and retry policies live in the store or a dedicated service, never in
-  `<feature>-api.service.ts`.
-- Tests sit next to the file they cover with a `.spec.ts` suffix; do not create a mirrored
-  `tests/` tree. `api/<feature>-api.service.spec.ts` covers URL, method, mapping/validation
-  with `HttpTestingController`; `data-access/<feature>-store.service.spec.ts` covers stores
-  with fake Observables (`of`/`throwError`) and assertions on signals, error and loading state.
-  `BaseStore` and `BaseApiService` have their own specs: counters, command deduplication,
-  relative-id transitions, malformed payloads.
-- Do not use the legacy `*.api.ts` / `*.store.ts` names for new web data services; no barrel
-  files or path aliases were introduced with this layout.
-
-### API (NestJS)
-
-- Modules: `auth`, `accounts` (TikTok token vault), `projects`, `templates`, `pipeline`
-  (runs/stages), `scripts`, `assets`, `renders`, `publish`, `analytics`, `integrations`
-  (provider adapters).
-- Controller → service → repository expresses dependency direction, not folder ceremony. A
-  small module keeps `*.controller.ts`, `*.service.ts`, `*.module.ts` and its unit test in one
-  folder (`health/`, `database/`, `redis/`, `config/`, `common/`, `db/`); do not add
-  `controllers/`, `services/`, `repositories/` or `modules/` subfolders per module.
-- Business rules in services. No vendor SDK calls in controllers or stores.
-- Data access uses Drizzle: schema in `packages/db/src/schema.ts`, `DatabaseService.db` is the
-  `NodePgDatabase`, repositories receive that handle. No SQL in controllers or stores.
-- Schema changes are `drizzle-kit generate` migrations committed with the code. Applied
-  migrations are immutable; never edit them, generate a new one. Production uses
-  `drizzle-kit migrate`, never `push`.
-- Multi-row invariants (run state transition + audit row) run in one transaction.
-
-### Worker
-
-- `apps/worker` is a separate plain Node.js process, not a Nest application. Job payloads,
-  results and queue names live in `packages/contracts`.
-- Every job handler is **idempotent**: re-running a job must not duplicate artifacts,
-  posts or charges. Use run/stage state as the idempotency guard; use a deterministic
-  `jobId` where the queue supports it.
-- Classify provider errors: retryable vs terminal (see §7). Max attempts + backoff are
-  configured per queue, never hardcoded in handlers.
-- FFmpeg arguments come from structured inputs only — never interpolate user text into
-  shell strings. Shell out with argument arrays.
+See the files listed at the start of this section. If a local rule contradicts a Shared rule,
+fix one of them — do not assume the root wins; OpenCode combines instruction files and does not
+resolve conflicts.
 
 ## 9. Testing
 
@@ -309,14 +219,10 @@ ledger is a separate milestone.
 
 ## 10. Roadmap
 
-| Milestone | Scope | Done when |
-| --- | --- | --- |
-| M0 — skeleton (~1 wk) | pnpm monorepo, compose (api, worker, web, postgres, redis, SeaweedFS), CI, health checks, migrations | `docker compose up` brings up everything; CI green |
-| M1 — publish risk spike (~1 wk) | pre-made video upload to R2, minimal publish card, TikTok OAuth/init/status/webhooks, per-account rate limiter | one pre-made video published to a private test account; status visible in UI; manual export fallback validated |
-| M2 — factory v1 (~2–3 wk) | stages 1–8 end-to-end: RU scripts, ElevenLabs + word timings, Pixabay visuals, FFmpeg assembly with karaoke subtitles, QC checklist, review screen | topic → approved draft video → calendar in one flow |
-| M3 — Animated Factory (~60–90 h) | `storyboard.v1`; Remotion render worker; component library; `scene-render` queue; AI director; image/AI-video producers; storyboard UI | «−15°» experiment: ≥5 distinct scenes, consistent style, sync ±100 ms, ≤15 min render on 4 vCPU, ≤$0.5 (≤$2 with AI video), ≥80% scenes accepted without regeneration |
-| M4 — Quality & Ops | style presets, vision QC, `provider_usage` cost ledger, manual scene replacement, music/ducking, Pixabay retry | two visual presets render correctly; cost views and budget warnings; scene replacement works |
-| M5 — Scale & Monetization | batch generation, A/B hooks, analytics feedback, multi-platform publish | weekly batch run works unattended |
+`ROADMAP.md` is the plan of record: milestones, tasks, estimates and status. Shape:
+M0 skeleton → M1 publish spike → M2 factory v1 → M3 Animated Factory → M4 quality/ops → M5
+scale. MVP = M0 + M2 + manual export. Change scope or status in `ROADMAP.md`, not here; this
+file only names the current milestone in §1 when it matters for the code.
 
 ## 11. Hard rules
 
@@ -327,4 +233,6 @@ ledger is a separate milestone.
 5. Stage re-entry must be idempotent; if you cannot make it idempotent, do not ship it.
 6. No `any` in public interfaces; no vendor SDK imports outside provider adapters.
 7. Record external spend in `provider_usage` at call time — no invented numbers anywhere.
-8. Decisions that change this file get a short ADR in `docs/adr/` and an update here.
+8. Decisions that change these instructions get a short ADR in `docs/adr/` and an update to the
+   closest `AGENTS.md` (root only for cross-cutting rules; milestone changes also update
+   `ROADMAP.md`).
