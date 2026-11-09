@@ -8,6 +8,7 @@ import type {
 import {
   STORYBOARD_SCHEMA_VERSION,
   normalizeStoryboardToken,
+  storyboardSceneSchema,
   storyboardSchema,
   storyboardTextContainsWord,
 } from './storyboard.js';
@@ -77,6 +78,20 @@ describe('storyboard contract', () => {
     expect(derivedWordsSchema.safeParse(wordTimingsFixture15Deg).success).toBe(
       true,
     );
+  });
+
+  it('validates per-scene invariants without the whole storyboard', () => {
+    const broken = structuredClone(storyboardFixture15Deg.scenes[0]!);
+    broken.durationSec += 1;
+
+    expect(storyboardSceneSchema.safeParse(broken).success).toBe(false);
+  });
+
+  it('rejects a standalone scene with an empty object window', () => {
+    const broken = structuredClone(storyboardFixture15Deg.scenes[0]!);
+    broken.objects[0]!.endSec = broken.objects[0]!.startSec;
+
+    expect(storyboardSceneSchema.safeParse(broken).success).toBe(false);
   });
 
   it('has a timing for every sync trigger inside its scene', () => {

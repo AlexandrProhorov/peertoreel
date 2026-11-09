@@ -233,42 +233,133 @@ export type StoryboardAudio = z.infer<typeof storyboardAudioSchema>;
 
 export type StoryboardScenePart = ScenePart;
 
-export const storyboardSceneSchema = z.object({
-  id: z.string().min(1).max(80),
-  part: scenePartSchema,
-  beatIndex: z.number().int().nonnegative().nullable(),
-  voiceover: z.object({
-    text: z.string().min(1).max(2000),
-    startSec: z.number().finite().nonnegative(),
-    endSec: z.number().finite().positive(),
-  }),
-  /** Derived from the voiceover window; see ADR-0012. */
-  durationSec: z.number().finite().positive(),
-  description: z.string().min(1).max(2000),
-  environment: z.object({
-    setting: z.string().min(1).max(120),
-    layers: z.array(z.string().min(1).max(120)).max(20),
-  }),
-  camera: sceneCameraSchema,
-  objects: z.array(sceneObjectSchema).max(50),
-  effects: z.array(z.string().min(1).max(80)).max(20),
-  transition: sceneTransitionSchema,
-  imagePrompt: z.string().min(1).max(2000).nullable(),
-  videoPrompt: z.string().min(1).max(2000).nullable(),
-  /** Character ids used by this scene; resolved through characters[].refImageKey. */
-  refs: z.array(z.string().min(1).max(80)).max(12).nullable(),
-  implementation: sceneImplementationSchema,
-  fallback: sceneFallbackSchema,
-  /** Incremented when one scene is regenerated. */
-  version: z.number().int().positive().default(1),
-});
-export type StoryboardScene = z.infer<typeof storyboardSceneSchema>;
-
 const DURATION_TOLERANCE_SEC = 0.15;
 const SCENE_JOIN_TOLERANCE_SEC = 0.05;
 const AUDIO_SUM_TOLERANCE_SEC = 1;
 const FIRST_SCENE_START_TOLERANCE_SEC = 0.5;
 const LAST_SCENE_END_TOLERANCE_SEC = 0.5;
+
+export const storyboardSceneSchema = z
+  .object({
+    id: z.string().min(1).max(80),
+    part: scenePartSchema,
+    beatIndex: z.number().int().nonnegative().nullable(),
+    voiceover: z.object({
+      text: z.string().min(1).max(2000),
+      startSec: z.number().finite().nonnegative(),
+      endSec: z.number().finite().positive(),
+    }),
+    /** Derived from the voiceover window; see ADR-0012. */
+    durationSec: z.number().finite().positive(),
+    description: z.string().min(1).max(2000),
+    environment: z.object({
+      setting: z.string().min(1).max(120),
+      layers: z.array(z.string().min(1).max(120)).max(20),
+    }),
+    camera: sceneCameraSchema,
+    objects: z.array(sceneObjectSchema).max(50),
+    effects: z.array(z.string().min(1).max(80)).max(20),
+    transition: sceneTransitionSchema,
+    imagePrompt: z.string().min(1).max(2000).nullable(),
+    videoPrompt: z.string().min(1).max(2000).nullable(),
+    /** Character ids used by this scene; resolved through characters[].refImageKey. */
+    refs: z.array(z.string().min(1).max(80)).max(12).nullable(),
+    implementation: sceneImplementationSchema,
+    fallback: sceneFallbackSchema,
+    /** Incremented when one scene is regenerated. */
+    version: z.number().int().positive().default(1),
+  })
+  .superRefine((scene, ctx) => {
+    const { startSec, endSec } = scene.voiceover;
+
+    if (endSec <= startSec) {
+      addIssue(
+        ctx,
+        ['voiceover', 'endSec'],
+        'Scene voiceover must end after it starts',
+      );
+    }
+
+    const windowSec = endSec - startSec;
+
+    if (Math.abs(scene.durationSec - windowSec) > DURATION_TOLERANCE_SEC) {
+      addIssue(
+        ctx,
+        ['durationSec'],
+        'Scene duration must match its voiceover window',
+      );
+    }
+
+    if (scene.transition.durationSec > scene.durationSec) {
+      addIssue(
+        ctx,
+        ['transition', 'durationSec'],
+        'Transition must fit inside the scene',
+      );
+    }
+
+    const objectIds = new Set<string>();
+
+    scene.objects.forEach((object, objectIndex) => {
+      const objectPath = ['objects', objectIndex] as const;
+      const hasStart = object.startSec !== null;
+      const hasEnd = object.endSec !== null;
+
+      if (objectIds.has(object.id)) {
+        addIssue(
+          ctx,
+          [...objectPath, 'id'],
+          'Object ids must be unique within a scene',
+        );
+      }
+
+      objectIds.add(object.id);
+
+      if (
+        object.syncToWord !== null &&
+        !storyboardTextContainsWord(scene.voiceover.text, object.syncToWord)
+      ) {
+        addIssue(
+          ctx,
+          [...objectPath, 'syncToWord'],
+          'syncToWord must appear in the scene voiceover',
+        );
+      }
+
+      if (hasStart !== hasEnd) {
+        addIssue(
+          ctx,
+          [...objectPath, 'startSec'],
+          'Object window must define both startSec and endSec',
+        );
+        return;
+      }
+
+      if (object.startSec === null || object.endSec === null) {
+        return;
+      }
+
+      if (object.endSec <= object.startSec) {
+        addIssue(
+          ctx,
+          [...objectPath, 'endSec'],
+          'Object window must end after it starts',
+        );
+      }
+
+      if (
+        object.startSec < startSec - DURATION_TOLERANCE_SEC ||
+        object.endSec > endSec + DURATION_TOLERANCE_SEC
+      ) {
+        addIssue(
+          ctx,
+          [...objectPath, 'startSec'],
+          'Object window must stay inside its scene',
+        );
+      }
+    });
+  });
+export type StoryboardScene = z.infer<typeof storyboardSceneSchema>;
 
 export function normalizeStoryboardToken(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
@@ -340,51 +431,28 @@ export const storyboardSchema = z
 
     storyboard.scenes.forEach((scene, sceneIndex) => {
       const scenePath = ['scenes', sceneIndex] as const;
-      const { startSec, endSec } = scene.voiceover;
 
       if (sceneIds.has(scene.id)) {
         addIssue(ctx, [...scenePath, 'id'], 'Scene ids must be unique');
       }
 
       sceneIds.add(scene.id);
-
-      if (endSec <= startSec) {
-        addIssue(
-          ctx,
-          [...scenePath, 'voiceover', 'endSec'],
-          'Scene voiceover must end after it starts',
-        );
-      }
-
-      const windowSec = endSec - startSec;
-
-      if (Math.abs(scene.durationSec - windowSec) > DURATION_TOLERANCE_SEC) {
-        addIssue(
-          ctx,
-          [...scenePath, 'durationSec'],
-          'Scene duration must match its voiceover window',
-        );
-      }
-
       durationSumSec += scene.durationSec;
 
-      if (scene.transition.durationSec > scene.durationSec) {
-        addIssue(
-          ctx,
-          [...scenePath, 'transition', 'durationSec'],
-          'Transition must fit inside the scene',
-        );
-      }
-
       if (previousEndSec !== null) {
-        if (Math.abs(startSec - previousEndSec) > SCENE_JOIN_TOLERANCE_SEC) {
+        if (
+          Math.abs(scene.voiceover.startSec - previousEndSec) >
+          SCENE_JOIN_TOLERANCE_SEC
+        ) {
           addIssue(
             ctx,
             [...scenePath, 'voiceover', 'startSec'],
             'Scenes must be contiguous and must not overlap',
           );
         }
-      } else if (startSec > FIRST_SCENE_START_TOLERANCE_SEC) {
+      } else if (
+        scene.voiceover.startSec > FIRST_SCENE_START_TOLERANCE_SEC
+      ) {
         addIssue(
           ctx,
           [...scenePath, 'voiceover', 'startSec'],
@@ -392,7 +460,7 @@ export const storyboardSchema = z
         );
       }
 
-      previousEndSec = endSec;
+      previousEndSec = scene.voiceover.endSec;
 
       scene.refs?.forEach((refId, refIndex) => {
         if (!characterIds.has(refId)) {
@@ -418,67 +486,6 @@ export const storyboardSchema = z
           }
         });
       }
-
-      const objectIds = new Set<string>();
-
-      scene.objects.forEach((object, objectIndex) => {
-        const objectPath = [...scenePath, 'objects', objectIndex] as const;
-        const hasStart = object.startSec !== null;
-        const hasEnd = object.endSec !== null;
-
-        if (objectIds.has(object.id)) {
-          addIssue(
-            ctx,
-            [...objectPath, 'id'],
-            'Object ids must be unique within a scene',
-          );
-        }
-
-        objectIds.add(object.id);
-
-        if (
-          object.syncToWord !== null &&
-          !storyboardTextContainsWord(scene.voiceover.text, object.syncToWord)
-        ) {
-          addIssue(
-            ctx,
-            [...objectPath, 'syncToWord'],
-            'syncToWord must appear in the scene voiceover',
-          );
-        }
-
-        if (hasStart !== hasEnd) {
-          addIssue(
-            ctx,
-            [...objectPath, 'startSec'],
-            'Object window must define both startSec and endSec',
-          );
-          return;
-        }
-
-        if (object.startSec === null || object.endSec === null) {
-          return;
-        }
-
-        if (object.endSec <= object.startSec) {
-          addIssue(
-            ctx,
-            [...objectPath, 'endSec'],
-            'Object window must end after it starts',
-          );
-        }
-
-        if (
-          object.startSec < startSec - DURATION_TOLERANCE_SEC ||
-          object.endSec > endSec + DURATION_TOLERANCE_SEC
-        ) {
-          addIssue(
-            ctx,
-            [...objectPath, 'startSec'],
-            'Object window must stay inside its scene',
-          );
-        }
-      });
     });
 
     const firstScene = storyboard.scenes[0];

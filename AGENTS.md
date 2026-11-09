@@ -300,6 +300,9 @@ ledger is a separate milestone.
   under a lock, creator-info mapping, chunk planning and error classification (token vs
   retryable vs terminal). For the TikTok publish queue: deterministic job id, explicit privacy,
   resume by `publish_id`, terminal/retryable failure mapping and the run/card transition.
+  For the render worker: storyboard scene → component/fallback mapping, clip-local object
+  timing, duration-in-frames and input-prop validation. Unit tests must not launch Chrome or
+  call `renderMedia`.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.
 - Do not claim coverage, performance or cost numbers that were not measured.

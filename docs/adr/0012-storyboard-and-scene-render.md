@@ -82,6 +82,30 @@ may appear before the word it emphasises (the hook does exactly that).
 The storyboard UI (M3.8) uses `renderStill()` frames and presigned `<video>` URLs. Remotion
 `<Player>` and React islands are not embedded in Angular.
 
+## M3.2 implementation
+
+`apps/render-worker` is a plain Node.js package (`@peertoreel/render-worker`) with Remotion
+4.0.542 and React 19. The composition id is `Scene`; `inputProps` are `{ scene, style,
+wordTimings? }` and `calculateMetadata()` computes `round(scene.durationSec * 30)`.
+
+- M3.2 implements `parallax-city` and `kinetic-typography`. `image_animation`/`ai_video` and
+  unimplemented components fall back to `scene.fallback`, then to generic
+  `kinetic-typography`, so every fixture scene is renderable.
+- `SceneObjects` renders text, particles, light cones, frost, a car silhouette and a battery
+  gauge. Objects use clip-local windows; `syncToWord` is an accent anchor, not the visible
+  start.
+- `renderMedia()` writes h264/`yuv420p`/`bt709`, CRF 18, `concurrency: 1`, `muted: true`.
+  Output is `scene-<idx>.mp4` without an audio track.
+- `scene.transition` is declared but not rendered in M3.2: clips are hard-cut. In-window
+  transitions are a M3.3/M3.4 enhancement.
+- Fonts are local `@fontsource` woff2 (Montserrat 700/900); the used weights are explicitly
+  loaded via `document.fonts.load()` inside `delayRender()`/`continueRender()`.
+- The Docker image pins the Remotion-managed Chrome Headless Shell
+  (158.0.8127.2 at the time of the session) and installs the Debian libraries it needs.
+- Measured on 2026-11-09: 140.1 s for the six-scene fixture on the dev machine, 147.6 s in
+  the non-root container; clips concatenate via the existing `buildVisualConcatArgs` into a
+  60 s silent 1080×1920/30 track.
+
 ## Contract details
 
 - Schema version: `peertoreel.storyboard.v1`. No compatibility with the pre-rename

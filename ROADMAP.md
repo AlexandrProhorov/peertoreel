@@ -125,7 +125,7 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
 | M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
-| M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | TODO |
+| M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
 | M3.3 | Библиотека компонентов v1 (parallax-city, kinetic-typography, …) | агент | TODO |
 | M3.4 | Продюсер сцен: очередь `scene-render`, per-scene jobs, fallback | агент | TODO |
 | M3.5 | AI-режиссёр: раскадровка из DeepSeek (Zod-retry, тайминги) | агент | TODO |
@@ -139,6 +139,15 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 ярлыки в web и ADR-0012. `DerivedWord`/`derivedWordsSchema` перенесены из worker в contracts;
 worker собирается. Проверено: contracts 102 теста, worker 96, web 124; `pnpm check` зелёный.
 Никаких изменений в `visuals_json`, render/FFmpeg, API, БД, очередях и UI-страницах нет.
+
+**M3.2 закрыт 2026-11-09.** Добавлены `apps/render-worker` (Remotion 4.0.542, React 19),
+композиция `Scene`, компоненты `parallax-city`/`kinetic-typography` + общий `SceneObjects`,
+fallback-маппинг для ещё не реализованных компонентов, CLI `render-fixture` и
+`infra/render-worker.Dockerfile`. Фикстура рендерится в 6 беззвучных клипов
+1080×1920/30/h264/`yuv420p`; 140.1 с на dev-машине, 147.6 с в контейнере;
+`buildVisualConcatArgs` склеивает их в 60-секундный трек. Docker-образ с закреплённым
+Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт под non-root. `pnpm check` —
+445 тестов.
 
 **M3 acceptance** (эксперимент «−15°», исследование §I.2): ролик из ≥5 различных сцен
 собирается автоматически без ручного кода сцен; стиль и палитра консистентны; акценты
@@ -169,12 +178,10 @@ worker собирается. Проверено: contracts 102 теста, worke
 
 ## Следующие сессии
 
-1. M3.2 — render worker bootstrap (Remotion): `apps/render-worker`, `parallax-city` и
-   `kinetic-typography`, рендер 6 сцен фикстуры в mp4. Лицензия Remotion: команда ≤3 человек,
-   бесплатный tier подтверждён 2026-11-09; при росте — Automators или Revideo.
-2. M3.3 — полная библиотека компонентов v1.
-3. Quality gate после M3.3 — собрать полный 60-секундный черновик из фикстуры с реальной
+1. M3.3 — полная библиотека компонентов v1 (`image-parallax`, `infographic-gauge`,
+   `particle-field`, `cta-card` + доводка `parallax-city`/`kinetic-typography`).
+2. Quality gate после M3.3 — собрать полный 60-секундный черновик из фикстуры с реальной
    озвучкой и сверить с §I.2 до M3.4/M3.5.
-4. M3.4 → M3.5 — очередь `scene-render`, оркестратор, AI-режиссёр.
-5. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+3. M3.4 → M3.5 — очередь `scene-render`, оркестратор, AI-режиссёр.
+4. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).

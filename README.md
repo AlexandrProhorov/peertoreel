@@ -77,6 +77,8 @@ pnpm infra:down
 | `pnpm --filter @peertoreel/api db:studio` | Drizzle Studio для локальной БД |
 | `pnpm infra:up` | Postgres + Redis + S3 |
 | `pnpm infra:down` | Останавливает инфраструктуру |
+| `pnpm --filter @peertoreel/render-worker render-fixture` | Рендерит 6 сцен фикстуры «−15°» в `apps/render-worker/out` |
+| `docker build -f infra/render-worker.Dockerfile -t peertoreel-render-worker .` | Собирает образ render worker с закреплённым Chrome |
 
 ## Структура
 
@@ -85,6 +87,7 @@ apps/
   api/          NestJS REST API
   web/          Angular dashboard
   worker/       BullMQ worker
+  render-worker/ Remotion scene renderer (React только здесь)
 packages/
   contracts/    Zod-схемы и общие типы
   db/           Drizzle-схема и database handle
@@ -96,6 +99,21 @@ apps/api/
   src/db/schema.ts   Drizzle-схема
   drizzle/           сгенерированные SQL-миграции
 ```
+
+## Render worker
+
+`apps/render-worker` — отдельный Node.js процесс с Remotion: он рендерит сцены
+`peertoreel.storyboard.v1` в беззвучные mp4 1080×1920/30 (h264, `yuv420p`). React
+существует только здесь; финальную сборку, субтитры и QC по-прежнему делает FFmpeg в
+`apps/worker`.
+
+```bash
+pnpm --filter @peertoreel/render-worker render-fixture
+pnpm --filter @peertoreel/render-worker render-fixture -- --scene 0
+```
+
+Результат — `apps/render-worker/out/scene-<idx>.mp4` и `render-fixture.json` с
+длительностями и временем рендера. Docker-образ: `infra/render-worker.Dockerfile`.
 
 ## Локальный S3
 

@@ -40,3 +40,4 @@ Thumbs.db
 
 # generated media
 spikes/**/out/
+apps/render-worker/out/
