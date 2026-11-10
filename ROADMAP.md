@@ -16,8 +16,8 @@
 
 MVP = M0 + M2 + manual export. M1 — опциональный risk spike. M3 — производство оригинальных
 анимированных видео вместо стоковых клипов (исследование
-`docs/ignore/research/2026-11-08-ai-video-production-research.md`, план —
-`docs/ignore/plans/2026-11-08-animated-factory-plan.md`; оба файла локальные, `docs/ignore/`
+`docs/workspace/research/2026-11-08-ai-video-production-research.md`, план —
+`docs/workspace/plans/2026-11-08-animated-factory-plan.md`; оба файла локальные, `docs/workspace/`
 в `.gitignore`). Прежние M3/M4 перенумерованы в M4/M5 (содержание сохранено).
 
 ## M0 — Walking Skeleton
@@ -121,10 +121,10 @@ production hardening. Причина — не строить очередь и a
 визуальная связность. Решения: `docs/adr/0014-m3-renderer-first-roadmap.md` и
 `docs/adr/0015-subject-assets-and-mvp-formats.md`. Контракт
 раскадровки и базовая архитектура — ADR-0012; исследования:
-`docs/ignore/research/2026-11-08-ai-video-production-research.md`,
-`docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`; брифы:
-`docs/ignore/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
-`docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
+`docs/workspace/research/2026-11-08-ai-video-production-research.md`,
+`docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`; брифы:
+`docs/workspace/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
+`docs/workspace/plans/2026-11-10-m3-4-scene-recipes-session.md`.
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|

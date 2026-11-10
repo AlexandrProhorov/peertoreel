@@ -163,8 +163,8 @@ references implemented backgrounds, so a valid recipe always resolves in M3.4.
 
 ## References
 
-- `docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`
+- `docs/workspace/plans/2026-11-10-m3-4-scene-recipes-session.md`
 - `docs/adr/0012-storyboard-and-scene-render.md`
 - `docs/adr/0014-m3-renderer-first-roadmap.md` (D2, D6)
 - `docs/adr/0015-subject-assets-and-mvp-formats.md` (D1–D6)
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md` (§2, §6, §10.1)
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md` (§2, §6, §10.1)

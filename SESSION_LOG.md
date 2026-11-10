@@ -2,7 +2,7 @@
 
 ## 2026-11-10 — M3.5: End-to-end animation spike на двух темах
 
-**Статус:** DONE. Ветка `feat/m3-4-scene-recipes`.
+**Статус:** DONE. Ветка `feat/m3-animated-factory`.
 
 **Цель:** проверить путь topic → DeepSeek draft → TTS → `storyboard.v1` → Remotion-сцены →
 FFmpeg-ролик на темах «Почему у собак мокрый нос?» и «Почему дома строят из кирпича?», без
@@ -101,7 +101,7 @@ BiRefNet), OKLab-нормализация, `cartoon-character`, style preset `st
 
 ## 2026-11-10 — M3.4: Scene Recipes v1, слои и локальный starter SVG
 
-**Статус:** DONE. Ветка `feat/m3-4-scene-recipes`.
+**Статус:** DONE. Ветка `feat/m3-animated-factory`.
 
 **Цель:** превратить рецепты сцен в данные (5 × 2–3 варианта), разделить `SceneObjects` на
 переиспользуемые слои, включить локальный `image`/`subject`-слой и добавить стартовый SVG-пак
@@ -220,12 +220,12 @@ render worker рендерит сцены, FFmpeg собирает ролик.
 ## 2026-11-10 — Research: subject assets, нормализация и форматы роликов (ADR-0015)
 
 **Цель:** выполнить исследовательский бриф
-`docs/ignore/research/2026-11-10-asset-pipeline-and-format-research-plan.md` (E0–E8, гейты
+`docs/workspace/research/2026-11-10-asset-pipeline-and-format-research-plan.md` (E0–E8, гейты
 G1–G5) и зафиксировать решения по subject-слою, форматам MVP и границе M3.4/M3.5/M3.6.
 
 **Сделано (только документы, код не менялся):**
 
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md` — полный отчёт:
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md` — полный отчёт:
   аудит E0 (20 тем / 120 сцен), прототипы форматов E1, bake-off ассетов E2, консистентность
   персонажей E3, точность диаграмм E4, схема библиотеки и нормализации E5, unit economics E6,
   ответы на 10 research questions и прохождение гейтов G1–G5.
@@ -246,7 +246,7 @@ G1–G5) и зафиксировать решения по subject-слою, ф�
 - `apps/render-worker/AGENTS.md` — правила ассетов и стиля уточнены: стартовый SVG-пак
   `public/assets/starter/`, запрет реальных фото и AI-схем с запечённым текстом, все подписи и
   выноски рисует Remotion.
-- `docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md` — бриф M3.4 обновлён: добавлены
+- `docs/workspace/plans/2026-11-10-m3-4-scene-recipes-session.md` — бриф M3.4 обновлён: добавлены
   `subject`-слот и валидация `assetKey` по списку стартовых ключей, слой `image`/`subject`
   (больше не `null`), стартовый пак 10–16 SVG без `<text>`, обязательный ADR-0016 для формы
   контракта рецепта, тесты на существование/валидность ассетов, обновлённые риски и
@@ -272,7 +272,7 @@ BiRefNet/Bria, Remotion docs, Pixabay API, Open Peeps/DiceBear); `pnpm check` н
 реальных прогонах остаётся за E6.
 
 **Следующая сессия:** M3.4 — Scene Recipes v1 по обновлённому промпту
-`docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
+`docs/workspace/plans/2026-11-10-m3-4-scene-recipes-session.md`.
 
 ### Теория сессии
 
@@ -411,7 +411,7 @@ BiRefNet/Bria, Remotion docs, Pixabay API, Open Peeps/DiceBear); `pnpm check` н
   реализованы; их сцены обязаны иметь явный реализованный fallback.
 
 **Следующая сессия:** M3.4 — Scene Recipes v1 по промпту
-`docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
+`docs/workspace/plans/2026-11-10-m3-4-scene-recipes-session.md`.
 
 ### Теория сессии
 
@@ -460,7 +460,7 @@ BiRefNet/Bria, Remotion docs, Pixabay API, Open Peeps/DiceBear); `pnpm check` н
   testing targets и hard rule 9 (unknown component fails explicitly).
 - `apps/api/AGENTS.md`: список модулей приведён к фактическому (`runs`, `publish`, `system`,
   `health`, `storage`, `database`, `redis`, `config`, `common`; остальные — planned).
-- `docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`: готовый промпт следующей
+- `docs/workspace/plans/2026-11-10-m3-3-renderer-foundation-session.md`: готовый промпт следующей
   сессии (data-driven CLI, params, explicit unknown components, unified video target, local
   asset mechanism, acceptance/commands).
 - Промпт M3.3 уточнён по ревью: invalid params ≠ missing params (per-field default +
@@ -491,7 +491,7 @@ BiRefNet/Bria, Remotion docs, Pixabay API, Open Peeps/DiceBear); `pnpm check` н
 
 **Проверено:** только чтение и документы; `pnpm check` не запускался, код не менялся.
 **Следующая сессия:** M3.3 по промпту
-`docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
+`docs/workspace/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
 
 ## 2026-11-09 — AGENTS.md: разбивка по приложениям
 
@@ -645,7 +645,7 @@ BiRefNet/Bria, Remotion docs, Pixabay API, Open Peeps/DiceBear); `pnpm check` н
   `transition` как исходящее ребро внутри окна сцены, лицензия Remotion (≤3 человек —
   бесплатно, подтверждено 2026-11-09), `provider_usage` до M4.3.
 - `AGENTS.md` §2/§3/§4/§6/§10 и `ROADMAP.md` синхронизированы с M3/M4/M5; пути к
-  research/plan исправлены на фактические `docs/ignore/...` (файлы локальные, gitignored).
+  research/plan исправлены на фактические `docs/workspace/...` (файлы локальные, gitignored).
 
 **По ревью (APPROVE WITH FIXES → исправлено):**
 
@@ -942,7 +942,7 @@ Kadence International) до старта M3.1, пока контракт рас�
 - Локальная инфра пересоздана: старые контейнеры и volumes `kadence-*` удалены вручную
   (проект compose переименован, поэтому `down -v` их уже не находил), затем `up -d`,
   `db:migrate`, bucket создан init-джобой.
-- `docs/ignore/**` (gitignored research/prompts) намеренно не трогали — там исторический
+- `docs/workspace/**` (gitignored research/prompts) намеренно не трогали — там исторический
   материал.
 
 **Найденный баг (не связан с переименованием):** в `tiktok-token.service.spec.ts`

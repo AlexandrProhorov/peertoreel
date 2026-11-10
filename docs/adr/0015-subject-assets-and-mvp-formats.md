@@ -8,8 +8,8 @@
 data-driven Remotion foundation (M3.3) → scene recipes (M3.4) → two-topic end-to-end spike
 (M3.5) → Asset Library and generator (M3.6) → production hardening (M3.7).
 
-A follow-up research study (`docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`,
-executing `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research-plan.md`) audited
+A follow-up research study (`docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`,
+executing `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research-plan.md`) audited
 the M3.3 renderer against 20 representative topics (120 scenes) and evaluated asset providers,
 character consistency, technical diagram accuracy and unit economics:
 
@@ -124,7 +124,7 @@ refinement so M3.5 tests real subject-based videos without premature cloud infra
 
 ## References
 
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research-plan.md`
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research-plan.md`
 - `docs/adr/0012-storyboard-and-scene-render.md`
 - `docs/adr/0014-m3-renderer-first-roadmap.md`

@@ -9,9 +9,9 @@ photo: mixed styles, frozen stills, hard cuts and no scene-level typography. The
 step is **original animated scenes** produced from a structured storyboard instead of stock
 footage.
 
-The design was researched in `docs/ignore/research/2026-11-08-ai-video-production-research.md`
-and sliced in `docs/ignore/plans/2026-11-08-animated-factory-plan.md` (both are local-only:
-`docs/ignore/` is gitignored). M3.1 fixes the data model **before** any renderer exists, so the
+The design was researched in `docs/workspace/research/2026-11-08-ai-video-production-research.md`
+and sliced in `docs/workspace/plans/2026-11-08-animated-factory-plan.md` (both are local-only:
+`docs/workspace/` is gitignored). M3.1 fixes the data model **before** any renderer exists, so the
 render worker and the AI director cannot invent incompatible shapes. The contract must be
 generic for any topic; the «−15°» storyboard is a fixed acceptance fixture, not a product
 limitation.
