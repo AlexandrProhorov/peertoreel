@@ -1,6 +1,6 @@
 # ADR-0014 — M3 renderer-first roadmap reset
 
-**Status:** accepted · 2026-11-10
+**Status:** accepted · 2026-11-10 · M3.4–M3.6 subject-asset boundary refined by ADR-0015
 
 ## Context
 
@@ -48,21 +48,28 @@ render path does not import fixtures.
 M3.4 introduces five recipes: `hook-hero`, `fact-object`, `comparison`, `process`, `cta`, each
 with 2–3 composition variants. A recipe explains an idea (slots, camera/motion, allowed
 primitives), it is not a layout template. The recipe catalog is data for the future DeepSeek
-director. `SceneObjects` is split into reusable layers.
+director. `SceneObjects` is split into reusable layers, including an `image`/`subject` layer
+that renders local `public/assets/` keys via the M3.3 asset resolver and a small curated starter
+SVG pack (`public/assets/starter/`, see ADR-0015).
 
 ### D3 — End-to-end proof before infrastructure
 
 M3.5 runs two topics (“why does a dog have a wet nose?”, “why are houses built from bricks?”)
-through DeepSeek → storyboard → Remotion scenes → FFmpeg assembly. It uses a CLI/script and the
-existing `buildVisualConcatArgs`; it does **not** add `scene-render`, `scene_clip`, S3 asset
-storage, vision QC or AI assets. The goal is to test narrative and visual coherence.
+through DeepSeek → storyboard → Remotion scenes → FFmpeg assembly. It uses a CLI/script, the
+curated local starter SVG pack (`public/assets/starter/`) and the existing `buildVisualConcatArgs`;
+it does **not** add `scene-render`, `scene_clip`, S3 asset storage, vision QC or cloud AI image
+generation. The goal is to test narrative and visual coherence with real subject slots before
+building cloud asset infrastructure (ADR-0015).
 
 ### D4 — Assets after the vocabulary is proven
 
-M3.6 adds the Asset Library (metadata, content hash, variants/versions), Asset Resolver,
-`ImageProvider` (fal.ai/Recraft/FLUX), and the first style preset with references, palette and
-style rules. Procedural objects, SVG and AI illustrations must coexist. If generation fails,
-the scene degrades to a declared procedural fallback.
+M3.6 adds the Asset Library (metadata, content hash, variants/versions, license enforcement),
+Asset Resolver, `ImageProvider` (Recraft V4/V4.1 Vector SVG + fal.ai FLUX.2 `[klein] 4B`/`[pro]`
++ BiRefNet v2 matting), automated SVG/cutout normalization (`svgo` + OKLab palette quantization
+to `style.assetPalette`), the parametric `cartoon-character` rig, and the first style preset
+(`studio_flat_2d_v1`). Procedural objects, SVG and AI illustrations coexist; technical diagrams
+never bake text into AI images (ADR-0015). If generation fails, the scene degrades to a Tier 0
+starter icon or a declared procedural fallback.
 
 ### D5 — Hardening last
 
@@ -99,5 +106,7 @@ not a component branch; assets are validated against it before use.
 ## References
 
 - `docs/adr/0012-storyboard-and-scene-render.md`
+- `docs/adr/0015-subject-assets-and-mvp-formats.md`
 - `ROADMAP.md` (M3.3–M3.7)
 - `docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`
+- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`

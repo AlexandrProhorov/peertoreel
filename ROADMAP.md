@@ -118,20 +118,22 @@ retry/next-candidate Pixabay → M4.6, ручная замена сцены → 
 пересобран 2026-11-10 после read-only аудита: сначала data-driven renderer и режиссёрские
 рецепты, затем сквозная история на двух темах, и только потом asset library, AI-генерация и
 production hardening. Причина — не строить очередь и asset system до того, как доказана
-визуальная связность. Решение: `docs/adr/0014-m3-renderer-first-roadmap.md`. Контракт
-раскадровки и базовая архитектура — ADR-0012; исследование:
-`docs/ignore/research/2026-11-08-ai-video-production-research.md`; брифы:
+визуальная связность. Решения: `docs/adr/0014-m3-renderer-first-roadmap.md` и
+`docs/adr/0015-subject-assets-and-mvp-formats.md`. Контракт
+раскадровки и базовая архитектура — ADR-0012; исследования:
+`docs/ignore/research/2026-11-08-ai-video-production-research.md`,
+`docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`; брифы:
 `docs/ignore/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
-`docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
+`docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
 | M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
-| M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | TODO — next |
-| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции | агент | TODO |
-| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion → FFmpeg, без AI-ассетов | агент | TODO |
-| M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, ImageProvider, style preset | агент | TODO |
+| M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
+| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | TODO — next |
+| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | TODO |
+| M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, Recraft Vector / FLUX.2 + BiRefNet, OKLab нормализация, `cartoon-character`, style preset | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -151,8 +153,9 @@ Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт �
 445 тестов. Важно: это fixture-renderer; API/worker/S3, параметры и ассеты в нём ещё не
 подключены — это M3.3+.
 
-**M3.3 — Renderer foundation (next).** Remotion должен принимать любой валидный
-`storyboard.v1` (или отдельную сцену), а не только встроенную фикстуру.
+**M3.3 — Renderer foundation (закрыт 2026-11-10).** Remotion принимает любой валидный
+`storyboard.v1` (или отдельную сцену), а не только встроенную фикстуру; fixture-импорт остался
+только в CLI. Итог ниже фиксирует acceptance.
 - `implementation.params`/`fallback.params` доходят до компонентов; для каждого
   `componentId` есть Zod-схема параметров и дефолты в contracts.
 - Семантика params явная: отсутствие params/поля → defaults; некорректное значение →
@@ -178,29 +181,51 @@ Chrome Headless Shell 158.0.8127.2 собирается, рендер идёт �
   входу; в core render path нет fixture-специфичных импортов; детерминизм проверен на
   одинаковом seed, изменении seed и независимости от порядка сцен.
 
+**Итог M3.3.** Добавлены `storyboard.components.ts` (6 схем/defaults + per-field diagnostics),
+`video.ts` (единая спецификация), resolved scene в `mapping.ts` с
+`UnsupportedSceneComponentError`, param-aware `ParallaxCity`/`KineticTypography`, общий
+`public/` + `staticFile` + resolver ассетов, CLI `render-storyboard`, манифест с diagnostics и
+boundary test. Fixture CTA fallback переведён на реализованный `kinetic-typography`;
+`image-parallax` stretch не взят (M3.6). FFmpeg/Remotion мапят video target раздельно;
+цветовые флаги не добавлялись, потому что `ffprobe` уже показывает BT.709. Проверено:
+`pnpm check` — 485 тестов; фикстура 143.3 с, custom 75.0 с; concat 28.0 с; одинаковый
+SHA-256 для сцены в полном прогоне, одиночно и после другой сцены; изменение seed меняет
+кадр; invalid params пишут diagnostics в лог/манифест; unsupported component завершает CLI
+ошибкой; Docker-образ `peertoreel-render-worker:m3-3` собирается. Полная сборка с озвучкой —
+отдельная проверка (см. `SESSION_LOG.md`).
+
 **M3.4 — Scene Recipes v1.** Пять рецептов: `hook-hero`, `fact-object`, `comparison`,
 `process`, `cta`; у каждого 2–3 варианта композиции. Рецепт — это способ визуально объяснить
 мысль (слоты, камера, движение, допустимые примитивы), а не шаблон расположения элементов.
-`SceneObjects` разделяется на переиспользуемые слои: текст/pill, частицы, свет, overlay,
-персонаж, chart. **Acceptance:** один storyboard смешивает ≥3 рецепта; два рендера одной
-сцены детерминированы; ролик не выглядит как одинаковые карточки; каталог рецептов доступен
-будущему DeepSeek-режиссёру.
+`SceneObjects` разделяется на переиспользуемые слои: текст/pill (вкл. HUD-чипы), частицы, свет,
+overlay, персонаж, chart и `image`/`subject` (рендер локальных SVG/PNG через M3.3
+`resolveAssetKey` + `assetUrl`). Добавляется небольшой локальный стартовый пакет плоских SVG без
+запечённого текста в `apps/render-worker/public/assets/starter/` под showcase и будущие темы
+M3.5 (ADR-0015). **Acceptance:** один storyboard смешивает ≥3 рецепта (включая предметный слот из
+`starter/`); два рендера одной сцены детерминированы; ролик не выглядит как одинаковые карточки;
+каталог рецептов доступен будущему DeepSeek-режиссёру.
 
 **M3.5 — End-to-end animation spike.** Две темы: «Почему у собак мокрый нос?» и «Почему дома
-строят из кирпича?». DeepSeek выдаёт `storyboard.v1`, render worker рендерит сцены, FFmpeg
-собирает ролик. Без AI-генерации ассетов и без очереди `scene-render`: допустим CLI/скрипт и
-ручная сборка существующим `buildVisualConcatArgs`. **Acceptance:** два ролика 30–60 с,
-≥5 сцен каждый, связная история, разные визуальные сетапы, отсутствие per-topic кода;
-визуальный review фиксирует, что подход работает. **Не входит:** production queue,
-Asset Library, vision QC.
+строят из кирпича?». DeepSeek выдаёт `storyboard.v1` (используя каталог рецептов M3.4 и список
+ключей локального стартового пакета `public/assets/starter/`), render worker рендерит сцены,
+FFmpeg собирает ролик. Без облачной AI-генерации ассетов и без очереди `scene-render`: допустим
+CLI/скрипт и ручная сборка существующим `buildVisualConcatArgs`. **Acceptance:** два ролика
+30–60 с, ≥5 сцен каждый, связная история с предметным слоем (собака/нос, кирпич/дом), разные
+визуальные сетапы, отсутствие per-topic кода; визуальный review фиксирует, что подход работает.
+**Не входит:** production queue, облачный `ImageProvider`, R2 Asset Library, vision QC.
 
 **M3.6 — Asset Library + Asset Generator.** После spike становится видно, каких объектов не
-хватает. Добавляются: общая библиотека ассетов, metadata и content hash, версии/варианты,
-Asset Resolver, `ImageProvider` (fal.ai/Recraft/FLUX), style preset с референсами, палитрой и
-правилами стиля. Процедурные объекты, SVG и AI-иллюстрации сосуществуют; реальные фото в
-flat 2D не попадают. **Acceptance:** две темы M3.5 плюс третья собираются из смеси
-procedural/SVG/AI; персонаж и палитра консистентны между сценами; кэш предотвращает повторные
-оплаты; при отказе генерации сцена деградирует в процедурный fallback.
+хватает в стартовом пакете. Добавляются: общая библиотека ассетов, metadata и content hash,
+версии/варианты, проверка лицензий (`commercialUse: true`), трёхуровневый `AssetResolver`
+(Tier 0 локальный стартовый пакет / кэш R2 → Tier 1 Recraft V4/V4.1 Vector SVG или FLUX.2
+`[klein] 4B` + Vectorize → Tier 2 FLUX.2 `[klein]`/`[pro]` + BiRefNet v2 cutout), обязательная
+нормализация стиля (`svgo` + OKLab квантование палитры в `style.assetPalette`, стикер-контур для
+растра), параметрический rig `cartoon-character` (5 эмоций по `syncToWord` + аксессуары) и
+первый style preset (`studio_flat_2d_v1`, ADR-0015). Процедурные объекты, SVG и AI-иллюстрации
+сосуществуют; реальные фото и AI-схемы с текстом в flat 2D не попадают. **Acceptance:** две темы
+M3.5 плюс третья собираются из смеси procedural/SVG/AI; персонаж и палитра консистентны между
+сценами; кэш предотвращает повторные оплаты; при отказе генерации сцена деградирует в Tier 0
+иконку или процедурный fallback.
 
 **M3.7 — Production hardening.** Отдельные `scene_clip` artifacts, per-scene regeneration,
 очередь `scene-render` с payload `{runId, sceneIdx}`, vision QC ассетов и готовых сцен,
@@ -208,12 +233,15 @@ procedural/SVG/AI; персонаж и палитра консистентны �
 регенерация одной сцены не пересобирает ролик; jobs идемпотентны; vision QC ловит пустые,
 off-style и нечитаемые сцены; стоимость генерации записана.
 
-**M3 acceptance (пересобран 2026-11-10):**
+**M3 acceptance (пересобран 2026-11-10, дополнен ADR-0015):**
 - M3.3: произвольный storyboard JSON рендерится, params влияют на кадр, неизвестный компонент
   падает явно, фикстура зелёная.
-- M3.4: пять рецептов с вариантами, ≥3 рецепта в одном ролике, нет «одинаковых карточек».
-- M3.5: две разные темы проходят путь topic → storyboard → сцены → ролик без per-topic кода.
-- M3.6: asset library/resolver/generator, style preset, procedural/SVG/AI coexisting.
+- M3.4: пять рецептов с вариантами, ≥3 рецепта в одном ролике, нет «одинаковых карточек»,
+  локальный `subject`-слой и стартовый SVG-пак без `<text>`.
+- M3.5: две разные темы проходят путь topic → storyboard → сцены → ролик без per-topic кода и
+  с предметным слоем из стартового пака.
+- M3.6: asset library/resolver/generator (Tier 0–2), OKLab-нормализация, `cartoon-character`,
+  style preset, procedural/SVG/AI coexisting.
 - M3.7: `scene_clip`, per-scene regen, `scene-render` queue, vision QC, review UI, cost ledger.
 - Общий baseline M3.2 (эксперимент «−15°») сохраняется: 1080×1920/30, ≤15 мин рендера,
   детерминизм, стиль и палитра консистентны.
@@ -242,12 +270,14 @@ off-style и нечитаемые сцены; стоимость генерац�
 
 ## Следующие сессии
 
-1. **M3.3 — Renderer foundation.** Промпт: `docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`.
-   Data-driven storyboard JSON, params, local assets, explicit unknown-component errors,
-   unified video target; фикстура продолжает рендериться.
-2. M3.4 — Scene Recipes v1: пять рецептов × 2–3 варианта; разделение `SceneObjects` на слои.
-3. M3.5 — End-to-end spike на двух темах (собака, кирпичи) без AI-ассетов и без очереди.
-4. M3.6 — Asset Library, Asset Resolver, `ImageProvider`, style preset.
-5. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
-6. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+1. **M3.4 — Scene Recipes v1.** Пять рецептов × 2–3 варианта; разделение `SceneObjects` на
+   слои, включая локальный `image`/`subject`-слой и стартовый SVG-пак
+   `apps/render-worker/public/assets/starter/` (ADR-0015). M3.3 закрыт 2026-11-10. Промпт:
+   `docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
+2. M3.5 — End-to-end spike на двух темах (собака, кирпичи) на каталоге рецептов + локальном
+   стартовом паке, без облачных AI-ассетов и без очереди.
+3. M3.6 — Asset Library, Asset Resolver (Tier 0–2), `ImageProvider` (Recraft Vector /
+   FLUX.2 + BiRefNet), OKLab-нормализация, `cartoon-character`, style preset.
+4. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
+5. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).

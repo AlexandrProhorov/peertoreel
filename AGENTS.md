@@ -59,7 +59,7 @@ docs/           # adr/, pipeline contracts, API notes
 | LLM | DeepSeek V4.1 Flash (default), stronger model for QC | behind `LlmProvider` port |
 | TTS | ElevenLabs | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed) |
 | Stock | **Pixabay** API | Pexels dropped (new keys paused); 100 req/60 s, cache 24 h |
-| Images | fal.ai (FLUX.2 `[klein] 4B` default) | `[dev]` weights are non-commercial; `[pro]`/commercial license required for monetized output. Behind `ImageProvider` port |
+| Images / Vectors | Recraft V4/V4.1 Vector (SVG) + fal.ai (FLUX.2 `[klein] 4B` / `[pro]` + BiRefNet v2) | `FLUX.2 [klein] 4B` (Apache 2.0) and `BiRefNet v2` (MIT) are commercial-safe; `FLUX [dev]` and self-hosted `Bria RMBG 2.0` (`CC BY-NC 4.0`) are non-commercial. Behind `ImageProvider` port (ADR-0015) |
 | Video gen | MiniMax H3 (via fal.ai), optional M4.8 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |
 | Deploy | Docker Compose on one VPS | web + api + worker + postgres + redis |
 
@@ -232,7 +232,8 @@ resolve conflicts.
 `ROADMAP.md` is the plan of record: milestones, tasks, estimates and status. Shape:
 M0 skeleton → M1 publish spike → M2 factory v1 → M3 Animated Factory → M4 quality/ops → M5
 scale. MVP = M0 + M2 + manual export. M3.3–M3.7 were reordered on 2026-11-10
-(renderer-first; see ADR-0014). Change scope or status in `ROADMAP.md`, not here; this file
+(renderer-first; see ADR-0014), and the subject-asset strategy plus MVP formats are fixed in
+ADR-0015. Change scope or status in `ROADMAP.md`, not here; this file
 only names the current milestone in §1 when it matters for the code.
 
 ## 11. Hard rules
@@ -250,3 +251,6 @@ only names the current milestone in §1 when it matters for the code.
 9. Unknown or unimplemented scene components must fail explicitly. A fallback is allowed only
    when the storyboard declares it and the renderer implements it; never silently substitute a
    generic `kinetic-typography` scene.
+10. AI image/vector models must never generate technical diagrams with baked-in labels or
+    arrows. Diagrams use structured Remotion layers or verified text-free SVGs with Remotion
+    callouts (ADR-0015).
