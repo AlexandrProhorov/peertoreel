@@ -15,6 +15,7 @@ import {
   type ImplementedComponentId,
   type SceneComponentSource,
 } from './mapping.js';
+import type { ResolvedSceneRecipe } from './recipes.js';
 import {
   SCENE_COMPOSITION_ID,
   sceneInputPropsSchema,
@@ -37,6 +38,8 @@ export interface RenderSceneResult {
   sizeBytes: number;
   componentId: ImplementedComponentId;
   source: SceneComponentSource;
+  recipe: ResolvedSceneRecipe | null;
+  slotDiagnostics: ComponentParamDiagnostic[];
   diagnostics: ComponentParamDiagnostic[];
 }
 
@@ -96,6 +99,7 @@ export async function renderScene({
     resolved: {
       componentId: resolved.componentId,
       params: resolved.params,
+      recipe: resolved.recipe,
     },
     wordTimings,
   });
@@ -136,6 +140,8 @@ export async function renderScene({
     sizeBytes: file.size,
     componentId: resolved.componentId,
     source: resolved.source,
+    recipe: resolved.recipe,
+    slotDiagnostics: resolved.slotDiagnostics,
     diagnostics: resolved.diagnostics,
   };
 }

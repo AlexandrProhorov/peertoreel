@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { jsonObjectSchema } from './json.js';
 import { type ScenePart, scenePartSchema } from './scene-part.js';
+import {
+  InvalidRecipeSlotError,
+  UnknownRecipeVariantError,
+  UnknownSceneRecipeError,
+  parseRecipeSlots,
+  recipeImplementationSchema,
+} from './storyboard.recipes.js';
 
 export const STORYBOARD_SCHEMA_VERSION = 'peertoreel.storyboard.v1';
 
@@ -49,6 +56,7 @@ export type HexColor = z.infer<typeof hexColorSchema>;
 export const sceneObjectKindSchema = z.enum([
   'shape',
   'image',
+  'subject',
   'text',
   'particles',
   'chart',
@@ -92,6 +100,7 @@ const CONTENT_REQUIRED_OBJECT_KINDS = new Set([
   'text',
   'character',
   'image',
+  'subject',
   'chart',
 ]);
 
@@ -184,6 +193,7 @@ export const sceneImplementationSchema = z.discriminatedUnion('type', [
   imageAnimationImplementationSchema,
   aiVideoImplementationSchema,
   hybridImplementationSchema,
+  recipeImplementationSchema,
 ]);
 export type SceneImplementation = z.infer<typeof sceneImplementationSchema>;
 
@@ -358,8 +368,61 @@ export const storyboardSceneSchema = z
         );
       }
     });
+
+    validateRecipeScene(scene, ctx);
   });
 export type StoryboardScene = z.infer<typeof storyboardSceneSchema>;
+
+/**
+ * A recipe scene has exactly one visual source (ADR-0016 D5): the resolved
+ * background plus the recipe layer plan. `scene.objects` must stay empty, and
+ * slots are validated here so bad input fails at the JSON boundary.
+ */
+function validateRecipeScene(
+  scene: StoryboardScene,
+  ctx: z.RefinementCtx,
+): void {
+  if (scene.implementation.type !== 'recipe') {
+    return;
+  }
+
+  if (scene.objects.length > 0) {
+    addIssue(
+      ctx,
+      ['objects'],
+      'Recipe scenes derive visuals from the recipe; objects must be empty',
+    );
+  }
+
+  try {
+    parseRecipeSlots(
+      scene.implementation.recipeId,
+      scene.implementation.variant,
+      scene.implementation.slots,
+    );
+  } catch (error) {
+    if (error instanceof InvalidRecipeSlotError) {
+      addIssue(
+        ctx,
+        ['implementation', 'slots', ...error.path.split('.')],
+        error.message,
+      );
+      return;
+    }
+
+    if (error instanceof UnknownSceneRecipeError) {
+      addIssue(ctx, ['implementation', 'recipeId'], error.message);
+      return;
+    }
+
+    if (error instanceof UnknownRecipeVariantError) {
+      addIssue(ctx, ['implementation', 'variant'], error.message);
+      return;
+    }
+
+    throw error;
+  }
+}
 
 export function normalizeStoryboardToken(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');

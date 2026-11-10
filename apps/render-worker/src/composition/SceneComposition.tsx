@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { StoryboardScene, StoryboardStyle } from '@peertoreel/contracts';
 import { KineticTypography } from '../components/KineticTypography.js';
 import { ParallaxCity } from '../components/ParallaxCity.js';
+import { RecipeLayers } from '../components/RecipeLayers.js';
 import { SceneObjects } from '../components/SceneObjects.js';
 import type { ResolvedSceneProps } from '../mapping.js';
 import type { SceneInputProps } from '../props.js';
@@ -79,7 +80,15 @@ export function SceneComposition({
       }}
     >
       <BaseScene resolved={resolved} scene={scene} style={style} />
-      <SceneObjects scene={scene} style={style} wordTimings={wordTimings} />
+      {resolved.recipe === null ? (
+        <SceneObjects scene={scene} style={style} wordTimings={wordTimings} />
+      ) : (
+        <RecipeLayers
+          recipe={resolved.recipe}
+          scene={scene}
+          style={style}
+        />
+      )}
     </AbsoluteFill>
   );
 }

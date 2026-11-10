@@ -14,6 +14,7 @@ import {
 const resolved = {
   componentId: 'parallax-city' as const,
   params: {},
+  recipe: null,
 };
 
 describe('scene input props', () => {

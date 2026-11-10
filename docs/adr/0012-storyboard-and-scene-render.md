@@ -203,6 +203,28 @@ so assets will first be consumed visually in M3.6.
 `camera.shot`, `camera.parallax`, `scene.transition`, `effects`, recipes, DeepSeek, the
 `scene-render` queue, `scene_clip`, `ImageProvider` and the review UI are unchanged.
 
+## M3.4 implementation
+
+M3.4 adds recipes, layers and a local subject pack; the full contract is ADR-0016.
+
+- `implementation.type = 'recipe'` (`recipeId`, `variant`, `slots`) is a new branch; `scene.objects`
+  must be empty for recipe scenes, so a recipe has exactly one visual source.
+- `packages/contracts/src/storyboard.recipes.ts` holds the catalog (5 recipes × 2 variants), slot
+  specs, layer plans, camera hints and the 12-key `STARTER_ASSET_KEYS` pack. Slots are validated at
+  the storyboard boundary; unknown ids, required slots and starter keys fail with a JSON path.
+- `apps/render-worker/src/recipes.ts` binds slots to the selected variant once; `mapping.ts`
+  returns `{ componentId, params, source, recipe, slotDiagnostics, diagnostics }`.
+- `SceneObjects` is now a thin dispatcher over `components/layers/*` (`text`, `pill`, `hud-chip`,
+  `subject`/`image`, `chart`, `particles`, `light`, `overlay`, `character`). `image`/`subject`
+  renders local SVG through `resolveAssetKey()` + `assetUrl()`; unknown kinds throw.
+- `camera.ts` owns `shot`/`movement`/`speed`/`parallax`; `ParallaxCity` and `KineticTypography`
+  consume it. `shot` maps to a base scale, `parallax` defaults to
+  `[0.15, 0.35, 0.6, 0.8, 1]` sampled by depth.
+- `kinetic-typography` gains `preset: 'backdrop'` for recipe backgrounds, and
+  `sceneObjectKindSchema` gains `subject`. Both are additive.
+- `examples/recipe-showcase.json` mixes all five recipes and is rendered by the existing CLI;
+  the M3.3 fixture and `custom-storyboard.json` still render with their original scene data.
+
 ## Contract details
 
 - Schema version: `peertoreel.storyboard.v1`. No compatibility with the pre-rename

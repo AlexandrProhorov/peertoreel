@@ -131,7 +131,7 @@ production hardening. Причина — не строить очередь и a
 | M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
 | M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
-| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | TODO — next |
+| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | DONE |
 | M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | TODO |
 | M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, Recraft Vector / FLUX.2 + BiRefNet, OKLab нормализация, `cartoon-character`, style preset | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
@@ -204,6 +204,23 @@ overlay, персонаж, chart и `image`/`subject` (рендер локаль
 M3.5 (ADR-0015). **Acceptance:** один storyboard смешивает ≥3 рецепта (включая предметный слот из
 `starter/`); два рендера одной сцены детерминированы; ролик не выглядит как одинаковые карточки;
 каталог рецептов доступен будущему DeepSeek-режиссёру.
+
+**Итог M3.4.** Форма контракта зафиксирована в ADR-0016: `implementation.type = 'recipe'` с
+`recipeId`/`variant`/`slots`, `programmatic` остаётся escape hatch. Добавлены
+`packages/contracts/src/storyboard.recipes.ts` (5 рецептов × 2 варианта, slot specs, layer plan,
+camera hint, `STARTER_ASSET_KEYS`/`STARTER_ASSET_CATALOG`), слот-диагностика с семантикой
+`parseComponentParams`, `subject` в `sceneObjectKindSchema` и `preset: 'backdrop'` у
+`kinetic-typography`. В render worker: `recipes.ts` (единственный resolution), `camera.ts`
+(shot/movement/speed/parallax), слои `components/layers/*`, рабочий `image`/`subject` через
+`resolveAssetKey` + `assetUrl`, manifest с `recipeId`/`variant`/slot diagnostics. В
+`public/assets/starter/` лежат 12 authored SVG без `<text>`; `examples/recipe-showcase.json`
+смешивает все 5 рецептов. Проверено: contracts 137 тестов, render-worker 84; showcase 78.5 с,
+фикстура 135.9 с, custom 77.7 с; все клипы 1080×1920/30/h264/`yuv420p`/BT.709 без аудио;
+SHA-256 сцены совпадает в полном прогоне, одиночно и после другой сцены; смена варианта меняет
+кадр; неизвестные recipeId/variant/slot/assetKey дают Zod-путь и exit 1; невалидный optional
+slot рендерится с diagnostics в манифесте. Камера теперь влияет на кадры fixture/custom
+(`shot`/`parallax` — требование M3.4), длительности и состав сцен не менялись. Полная сборка
+showcase с озвучкой и FFmpeg concat — задача M3.5.
 
 **M3.5 — End-to-end animation spike.** Две темы: «Почему у собак мокрый нос?» и «Почему дома
 строят из кирпича?». DeepSeek выдаёт `storyboard.v1` (используя каталог рецептов M3.4 и список

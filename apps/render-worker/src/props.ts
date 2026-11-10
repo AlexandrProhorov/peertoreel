@@ -89,5 +89,5 @@ export const DEFAULT_SCENE_INPUT_PROPS: SceneInputProps =
   sceneInputPropsSchema.parse({
     scene: DEFAULT_PREVIEW_SCENE,
     style: DEFAULT_PREVIEW_STYLE,
-    resolved: { componentId: 'kinetic-typography', params: {} },
+    resolved: { componentId: 'kinetic-typography', params: {}, recipe: null },
   });

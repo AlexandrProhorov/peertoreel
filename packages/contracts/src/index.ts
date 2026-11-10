@@ -12,6 +12,7 @@ export * from './script.js';
 export * from './stages.js';
 export * from './storyboard.components.js';
 export * from './storyboard.fixture.js';
+export * from './storyboard.recipes.js';
 export * from './storyboard.js';
 export * from './system.js';
 export * from './tiktok.js';

@@ -18,11 +18,13 @@ interface RenderedScene {
   part: string;
   componentId: string;
   source: string;
+  recipe: { id: string; variant: string } | null;
   durationInFrames: number;
   durationSec: number;
   sizeBytes: number;
   renderMs: number;
   outPath: string;
+  slotDiagnostics: ComponentParamDiagnostic[];
   diagnostics: ComponentParamDiagnostic[];
 }
 
@@ -127,10 +129,14 @@ async function readStoryboard(
   return { storyboard: parsed.data, inputPath };
 }
 
-function logDiagnostics(sceneId: string, diagnostics: ComponentParamDiagnostic[]): void {
+function logDiagnostics(
+  sceneId: string,
+  kind: 'params' | 'slots',
+  diagnostics: ComponentParamDiagnostic[],
+): void {
   for (const diagnostic of diagnostics) {
     console.warn(
-      `  params diagnostic: ${sceneId} ${diagnostic.path} ${diagnostic.reason} received=${JSON.stringify(diagnostic.received)}`,
+      `  ${kind} diagnostic: ${sceneId} ${diagnostic.path} ${diagnostic.reason} received=${JSON.stringify(diagnostic.received)}`,
     );
   }
 }
@@ -187,9 +193,12 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
       },
     });
 
-    logDiagnostics(scene.id, result.diagnostics);
+    logDiagnostics(scene.id, 'slots', result.slotDiagnostics);
+    logDiagnostics(scene.id, 'params', result.diagnostics);
     console.log(
-      `  resolved: ${result.componentId} (${result.source}), ${result.diagnostics.length} diagnostic(s)`,
+      `  resolved: ${result.componentId} (${result.source}), recipe: ${
+        result.recipe ? `${result.recipe.id}/${result.recipe.variant}` : 'none'
+      }, ${result.diagnostics.length} param diagnostic(s), ${result.slotDiagnostics.length} slot diagnostic(s)`,
     );
 
     const renderMs = Date.now() - sceneStartedAt;
@@ -200,11 +209,15 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
       part: scene.part,
       componentId: result.componentId,
       source: result.source,
+      recipe: result.recipe
+        ? { id: result.recipe.id, variant: result.recipe.variant }
+        : null,
       durationInFrames: result.durationInFrames,
       durationSec: result.durationSec,
       sizeBytes: result.sizeBytes,
       renderMs,
       outPath,
+      slotDiagnostics: result.slotDiagnostics,
       diagnostics: result.diagnostics,
     });
 

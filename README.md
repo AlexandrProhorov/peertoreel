@@ -79,6 +79,7 @@ pnpm infra:down
 | `pnpm infra:down` | Останавливает инфраструктуру |
 | `pnpm --filter @peertoreel/render-worker render-fixture` | Рендерит 6 сцен фикстуры «−15°» в `apps/render-worker/out` |
 | `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom` | Рендерит произвольный `storyboard.v1` из JSON (путь к примеру — от `apps/render-worker`) |
+| `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/recipe-showcase.json --out out/recipes` | Рендерит showcase из 5 рецептов с локальными subject-SVG |
 | `docker build -f infra/render-worker.Dockerfile -t peertoreel-render-worker .` | Собирает образ render worker с закреплённым Chrome |
 
 ## Структура
@@ -116,18 +117,29 @@ pnpm --filter @peertoreel/render-worker render-fixture -- --scene 0
 # любой валидный storyboard.v1 (путь считается от apps/render-worker)
 pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom
 pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --scene 1 --out out/custom
+
+# showcase рецептов M3.4: hook-hero, fact-object, comparison, process, cta
+pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/recipe-showcase.json --out out/recipes
 ```
 
-Пример независимой раскадровки: `apps/render-worker/examples/custom-storyboard.json` (тема
-«город теплее загородной зоны»). Params каждого компонента описаны в
+Примеры для рендера: `apps/render-worker/examples/custom-storyboard.json` (low-level
+`programmatic`, тема «город теплее загородной зоны») и `examples/recipe-showcase.json`
+(пять рецептов M3.4 с предметными SVG). Params каждого компонента описаны в
 `packages/contracts/src/storyboard.components.ts`; некорректные значения заменяются дефолтом
 **с диагностикой** в логе и манифесте. Неизвестный компонент без реализованного fallback
-завершает CLI ошибкой. Локальные ассеты лежат в `apps/render-worker/public/` и резолвятся
-через `staticFile` (`src/assets.ts`).
+завершает CLI ошибкой.
+
+**Рецепты — данные, не код.** Каталог (5 рецептов × 2 варианта, слоты, слои, camera hint)
+лежит в `packages/contracts/src/storyboard.recipes.ts`; сцена выбирает его через
+`implementation: { type: 'recipe', recipeId, variant, slots }`. Слот `subject` принимает только
+ключ из `STARTER_ASSET_KEYS`; ключи и теги описаны в `STARTER_ASSET_CATALOG`, файлы — в
+`apps/render-worker/public/assets/starter/` (12 плоских SVG без запечённого текста). Слой
+`image`/`subject` резолвит их через `staticFile` (`src/assets.ts`) и общий `camera.ts`.
 
 Результат — `apps/render-worker/out/scene-<idx>.mp4`, `render-fixture.json` для shortcut'а
-или `manifest.json` для `render-storyboard` (компонент, source, diagnostics, длительности и
-время рендера). Docker-образ: `infra/render-worker.Dockerfile`.
+или `manifest.json` для `render-storyboard` (компонент, source, `recipeId`/`variant`, params и
+slot diagnostics, длительности и время рендера). Docker-образ:
+`infra/render-worker.Dockerfile`.
 
 ## Локальный S3
 
