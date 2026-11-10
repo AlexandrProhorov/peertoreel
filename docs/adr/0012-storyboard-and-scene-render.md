@@ -1,6 +1,6 @@
 # ADR-0012 — Storyboard contract and scene render architecture
 
-**Status:** accepted · 2026-11-09 · M3.3–M3.7 order revised 2026-11-10 by ADR-0014
+**Status:** accepted · 2026-11-09 · M3.3–M3.7 order revised 2026-11-10 by ADR-0014 · M3.3 implemented 2026-11-10
 
 ## Context
 
@@ -105,6 +105,103 @@ wordTimings? }` and `calculateMetadata()` computes `round(scene.durationSec * 30
 - Measured on 2026-11-09: 140.1 s for the six-scene fixture on the dev machine, 147.6 s in
   the non-root container; clips concatenate via the existing `buildVisualConcatArgs` into a
   60 s silent 1080×1920/30 track.
+
+## M3.3 implementation
+
+M3.3 makes the renderer data-driven. It does not add recipes, AI assets, the asset library or
+the scene queue; those stay in M3.4–M3.7.
+
+### Params and diagnostics
+
+- `packages/contracts/src/storyboard.components.ts` defines a Zod schema and defaults for every
+  id in `STORYBOARD_COMPONENT_IDS` (six ids). The contract is additive: adding a component means
+  adding a schema + defaults there and a renderer branch.
+- `parseComponentParams(componentId, params)` returns `{ params, diagnostics }`. Diagnostics
+  carry `path` (`$`, `field`, or `field.1`), `reason` (`params_missing`, `invalid_value`,
+  `unknown_key`) and the rejected `received` value.
+- Resolution rules: absent object → defaults + `params_missing`; absent field → default without
+  a warning; invalid value → default for **that field** + `invalid_value` per Zod issue; unknown
+  key → dropped + `unknown_key`; unknown `componentId` → `UnknownStoryboardComponentError`.
+  A frame that renders with bad input always leaves a diagnostic in the log and the manifest.
+- `mapping.ts` returns one resolved value:
+  `{ componentId, params, source: 'implementation' | 'fallback', diagnostics }`. The composition
+  receives only `componentId`/`params` through input props; `source` and `diagnostics` are
+  log/test metadata and are stripped by `resolvedScenePropsSchema` before Remotion sees them.
+
+### Explicit unknown components
+
+The generic `kinetic-typography` fallback is removed. If neither the implementation nor the
+declared fallback is implemented, `resolveSceneComponent()` throws
+`UnsupportedSceneComponentError` with the scene id and component id. The fixture's CTA scene
+keeps `implementation: cta-card` but now declares the implemented
+`fallback: kinetic-typography`; this is a data change, not a hidden substitution. `cta-card`,
+`infographic-gauge`, `image-parallax` and `particle-field` remain unimplemented.
+
+`ParallaxCity` reads `buildingsSeed`, `lamp`, `snowDensity`, `focus`, `roadGlow`;
+`KineticTypography` reads `text`, `accentWords`, `preset`, `align`, `underline`. Both were
+checked visually: seed changes building layout, lamp moves the light, density adds/removes ambient
+snow, focus moves the framing/vignette, road glow toggles, and the typography preset changes the
+ghost headline, accent words and underline.
+
+### Video target
+
+`packages/contracts/src/video.ts` exports one specification (`1080×1920`, 30 fps, h264,
+`yuv420p`, BT.709, no audio). Remotion maps it in
+`apps/render-worker/src/video-target.ts`; FFmpeg maps it in
+`apps/worker/src/media/video-target.ts` (`libx264`, `-pix_fmt`, `-r`, scale filter). The two
+adapters do not share an options object.
+
+`ffprobe` before and after the change shows every Remotion clip and the FFmpeg concat with
+`color_space=bt709`, `color_primaries=bt709`, `color_transfer=bt709`, `yuv420p`, 30 fps and no
+audio track. Because the metadata is already correct, FFmpeg gets **no** explicit
+`-colorspace`/`-color_primaries`/`-color_trc` flags. If a future input loses that metadata, the
+FFmpeg adapter is where the mapping belongs; this is a known limitation, not silently “fixed”
+by copying flags from Remotion.
+
+### Local assets
+
+`bundle({ publicDir: 'apps/render-worker/public' })` plus `staticFile` are configured in
+`render.ts`; `public/assets/test-scene.svg` is the sample asset. `src/assets.ts` classifies keys
+into `local` (safe relative public path), `remote` (`http(s)`) or `data` (data URI), and rejects
+traversal, absolute paths and unknown protocols. This is only the mechanism: no S3/fal.ai
+downloads and no Asset Library. The optional minimal `image-parallax` stretch was **not** taken,
+so assets will first be consumed visually in M3.6.
+
+### CLI and independence
+
+- `render-fixture [--scene <idx>] [--out <dir>]` is a shortcut for
+  `storyboardFixture15Deg` and remains the regression baseline.
+- `render-storyboard --input <file> [--scene <idx>] [--out <dir>]` reads JSON, validates it with
+  `storyboardSchema` and prints Zod paths on failure.
+- Only `src/cli.ts` may import fixture symbols. `src/boundary.spec.ts` fails if `render.ts`,
+  `composition/**` or `components/**` mention `storyboardFixture15Deg`,
+  `wordTimingsFixture15Deg` or `storyboard.fixture`. `composition/index.tsx` uses a neutral
+  preview scene instead of the fixture.
+- `apps/render-worker/examples/custom-storyboard.json` is a real second storyboard (urban heat
+  island, four scenes) with different params. `src/examples.spec.ts` validates it, resolves every
+  scene and asserts that its params differ from the fixture.
+- The manifest written by the CLI contains kind, input, runId, styleId, scene component/source,
+  params diagnostics, durations, size and render time.
+
+### Determinism (measured 2026-11-10, dev machine)
+
+- The six-scene fixture rendered in **143.3 s**; the four-scene custom storyboard in **75.0 s**.
+  The custom clips are 6/8/8/6 s; FFmpeg concat produced a 28.0 s, 1 935 695-byte file with
+  BT.709 metadata and no audio.
+- Scene 0 of the custom storyboard rendered in the full run, alone, and after scene 1 in the same
+  process produced **identical SHA-256** files (and identical `framemd5` decoded frames).
+- Changing only `buildingsSeed` (2026 → 2027) changed the file hash and the building layout while
+  the lamp, text and framing stayed in place.
+- The Docker image renders the same custom scene with the same target metadata. Cross-platform
+  pixel parity between Windows and Linux was not established (font/Chrome rasterization), so it
+  is not claimed.
+- Unit tests still never launch Chrome or call `renderMedia`; rendering checks are a separate CLI
+  step.
+
+### Still outside M3.3
+
+`camera.shot`, `camera.parallax`, `scene.transition`, `effects`, recipes, DeepSeek, the
+`scene-render` queue, `scene_clip`, `ImageProvider` and the review UI are unchanged.
 
 ## Contract details
 

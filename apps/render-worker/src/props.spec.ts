@@ -4,15 +4,24 @@ import {
 } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_SCENE_INPUT_PROPS,
+  SCENE_HEIGHT,
+  SCENE_WIDTH,
   sceneDurationInFrames,
   sceneInputPropsSchema,
 } from './props.js';
 
+const resolved = {
+  componentId: 'parallax-city' as const,
+  params: {},
+};
+
 describe('scene input props', () => {
-  it('accepts the fixture scene, style and timings', () => {
+  it('accepts the fixture scene, style, resolution and timings', () => {
     const result = sceneInputPropsSchema.safeParse({
       scene: storyboardFixture15Deg.scenes[0]!,
       style: storyboardFixture15Deg.style,
+      resolved,
       wordTimings: wordTimingsFixture15Deg,
     });
 
@@ -23,15 +32,45 @@ describe('scene input props', () => {
     const result = sceneInputPropsSchema.safeParse({
       scene: storyboardFixture15Deg.scenes[0]!,
       style: storyboardFixture15Deg.style,
+      resolved,
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('rejects props without a resolved scene', () => {
+    const result = sceneInputPropsSchema.safeParse({
+      scene: storyboardFixture15Deg.scenes[0]!,
+      style: storyboardFixture15Deg.style,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('fills component params defaults in the resolved boundary', () => {
+    const parsed = sceneInputPropsSchema.parse({
+      scene: storyboardFixture15Deg.scenes[0]!,
+      style: storyboardFixture15Deg.style,
+      resolved,
+    });
+
+    expect(parsed.resolved).toMatchObject({
+      componentId: 'parallax-city',
+      params: {
+        buildingsSeed: 42,
+        lamp: 'right',
+        snowDensity: 1,
+        focus: 'street',
+        roadGlow: true,
+      },
+    });
   });
 
   it('rejects an invalid scene', () => {
     const result = sceneInputPropsSchema.safeParse({
       scene: { ...storyboardFixture15Deg.scenes[0]!, durationSec: -1 },
       style: storyboardFixture15Deg.style,
+      resolved,
     });
 
     expect(result.success).toBe(false);
@@ -44,6 +83,7 @@ describe('scene input props', () => {
     const result = sceneInputPropsSchema.safeParse({
       scene,
       style: storyboardFixture15Deg.style,
+      resolved,
     });
 
     expect(result.success).toBe(false);
@@ -61,5 +101,16 @@ describe('scene input props', () => {
     };
 
     expect(sceneDurationInFrames(scene)).toBe(1);
+  });
+
+  it('has a valid neutral preview default', () => {
+    expect(sceneInputPropsSchema.safeParse(DEFAULT_SCENE_INPUT_PROPS).success).toBe(
+      true,
+    );
+  });
+
+  it('takes scene dimensions from the shared video target', () => {
+    expect(SCENE_WIDTH).toBe(1080);
+    expect(SCENE_HEIGHT).toBe(1920);
   });
 });

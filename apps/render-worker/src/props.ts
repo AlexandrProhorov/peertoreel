@@ -2,18 +2,22 @@ import {
   derivedWordSchema,
   storyboardSceneSchema,
   storyboardStyleSchema,
+  type StoryboardStyle,
   type StoryboardScene,
 } from '@peertoreel/contracts';
 import { z } from 'zod';
+import { resolvedScenePropsSchema } from './mapping.js';
+import { SCENE_FPS } from './video-target.js';
+
+export { SCENE_FPS, SCENE_HEIGHT, SCENE_WIDTH } from './video-target.js';
 
 export const SCENE_COMPOSITION_ID = 'Scene';
-export const SCENE_WIDTH = 1080;
-export const SCENE_HEIGHT = 1920;
-export const SCENE_FPS = 30;
 
 export const sceneInputPropsSchema = z.object({
   scene: storyboardSceneSchema,
   style: storyboardStyleSchema,
+  /** Already resolved by `mapping.ts`; the composition does not choose again. */
+  resolved: resolvedScenePropsSchema,
   wordTimings: z.array(derivedWordSchema).optional(),
 });
 export type SceneInputProps = z.infer<typeof sceneInputPropsSchema>;
@@ -22,3 +26,68 @@ export type SceneInputProps = z.infer<typeof sceneInputPropsSchema>;
 export function sceneDurationInFrames(scene: StoryboardScene): number {
   return Math.max(1, Math.round(scene.durationSec * SCENE_FPS));
 }
+
+/**
+ * Neutral preview props for Remotion Studio. Not a fixture and not a product
+ * topic: the CLI always supplies real input props. Keeping this here (instead
+ * of importing `storyboardFixture15Deg`) is what makes the core render path
+ * fixture-free — see the boundary test.
+ */
+const DEFAULT_PREVIEW_SCENE: StoryboardScene = {
+  id: 'preview',
+  part: 'hook',
+  beatIndex: null,
+  voiceover: {
+    text: 'Превью сцены',
+    startSec: 0,
+    endSec: 3,
+  },
+  durationSec: 3,
+  description: 'Neutral preview scene for Remotion Studio',
+  environment: {
+    setting: 'preview',
+    layers: [],
+  },
+  camera: { shot: 'wide', movement: 'static', speed: 0 },
+  objects: [],
+  effects: [],
+  transition: { type: 'cut', durationSec: 0 },
+  imagePrompt: null,
+  videoPrompt: null,
+  refs: null,
+  implementation: {
+    type: 'programmatic',
+    componentId: 'kinetic-typography',
+    params: {},
+  },
+  fallback: {
+    type: 'programmatic',
+    componentId: 'kinetic-typography',
+    params: {},
+  },
+  version: 1,
+};
+
+const DEFAULT_PREVIEW_STYLE: StoryboardStyle = {
+  styleId: 'flat_2d_motion',
+  palette: {
+    background: ['#0b1220', '#16233c'],
+    accent: '#ffd166',
+    text: '#ffffff',
+    cold: '#8ecae6',
+    danger: '#ef476f',
+  },
+  typography: {
+    heading: 'Montserrat',
+    body: 'Inter',
+    headingWeight: 900,
+  },
+  effects: ['vignette'],
+};
+
+export const DEFAULT_SCENE_INPUT_PROPS: SceneInputProps =
+  sceneInputPropsSchema.parse({
+    scene: DEFAULT_PREVIEW_SCENE,
+    style: DEFAULT_PREVIEW_STYLE,
+    resolved: { componentId: 'kinetic-typography', params: {} },
+  });

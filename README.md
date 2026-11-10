@@ -78,6 +78,7 @@ pnpm infra:down
 | `pnpm infra:up` | Postgres + Redis + S3 |
 | `pnpm infra:down` | Останавливает инфраструктуру |
 | `pnpm --filter @peertoreel/render-worker render-fixture` | Рендерит 6 сцен фикстуры «−15°» в `apps/render-worker/out` |
+| `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom` | Рендерит произвольный `storyboard.v1` из JSON (путь к примеру — от `apps/render-worker`) |
 | `docker build -f infra/render-worker.Dockerfile -t peertoreel-render-worker .` | Собирает образ render worker с закреплённым Chrome |
 
 ## Структура
@@ -103,17 +104,30 @@ apps/api/
 ## Render worker
 
 `apps/render-worker` — отдельный Node.js процесс с Remotion: он рендерит сцены
-`peertoreel.storyboard.v1` в беззвучные mp4 1080×1920/30 (h264, `yuv420p`). React
+`peertoreel.storyboard.v1` в беззвучные mp4 1080×1920/30 (h264, `yuv420p`, BT.709). React
 существует только здесь; финальную сборку, субтитры и QC по-прежнему делает FFmpeg в
 `apps/worker`.
 
 ```bash
+# shortcut для встроенной фикстуры «−15°»
 pnpm --filter @peertoreel/render-worker render-fixture
 pnpm --filter @peertoreel/render-worker render-fixture -- --scene 0
+
+# любой валидный storyboard.v1 (путь считается от apps/render-worker)
+pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom
+pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --scene 1 --out out/custom
 ```
 
-Результат — `apps/render-worker/out/scene-<idx>.mp4` и `render-fixture.json` с
-длительностями и временем рендера. Docker-образ: `infra/render-worker.Dockerfile`.
+Пример независимой раскадровки: `apps/render-worker/examples/custom-storyboard.json` (тема
+«город теплее загородной зоны»). Params каждого компонента описаны в
+`packages/contracts/src/storyboard.components.ts`; некорректные значения заменяются дефолтом
+**с диагностикой** в логе и манифесте. Неизвестный компонент без реализованного fallback
+завершает CLI ошибкой. Локальные ассеты лежат в `apps/render-worker/public/` и резолвятся
+через `staticFile` (`src/assets.ts`).
+
+Результат — `apps/render-worker/out/scene-<idx>.mp4`, `render-fixture.json` для shortcut'а
+или `manifest.json` для `render-storyboard` (компонент, source, diagnostics, длительности и
+время рендера). Docker-образ: `infra/render-worker.Dockerfile`.
 
 ## Локальный S3
 
