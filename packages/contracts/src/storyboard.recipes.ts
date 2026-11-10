@@ -579,7 +579,7 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
           subjectLayer('object', 'subject', 'center', 'hero', 0.08),
           pillLayer('fact', 'fact', 'bottom-center', 'lg', 'accent', 0.35),
           chipLayer('caption', 'caption', 'top-center'),
-          textLayer('metric', 'metric', 'top-right', 'lg', 'cold', 0.2),
+          textLayer('metric', 'metric', 'upper-center', 'lg', 'cold', 0.2),
         ],
       },
       {

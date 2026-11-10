@@ -225,6 +225,28 @@ M3.4 adds recipes, layers and a local subject pack; the full contract is ADR-001
 - `examples/recipe-showcase.json` mixes all five recipes and is rendered by the existing CLI;
   the M3.3 fixture and `custom-storyboard.json` still render with their original scene data.
 
+## M3.5 implementation
+
+M3.5 is a CLI spike, not a new pipeline stage. It proves the recipe vocabulary on two topics
+without API/DB/queue changes.
+
+- `packages/contracts/src/storyboard.director.ts` defines the DeepSeek draft
+  (`{ title, scenes[] }`, 5–8 scenes, no timings). Recipe/variant/slots are validated with the
+  same `parseRecipeSlots` as the final storyboard.
+- `apps/worker/src/storyboard/` contains the director prompt (built from
+  `STORYBOARD_RECIPES` + `STARTER_ASSET_KEYS`), `buildStoryboardFromDraft` (timings from real
+  TTS word counts, camera from the variant hint, empty `objects`, kinetic fallback), and the
+  `storyboard:episode` CLI.
+- The CLI reuses `generateJson`, `synthesizeWithTimestamps`, `deriveWordTimings`,
+  `buildKaraokeAss`, `buildVisualConcatArgs`, `renderDraft` and `probeMedia`; scene clips are
+  rendered by the existing render-worker CLI.
+- The production TTS path is ElevenLabs. Because the session quota was exhausted (290 credits
+  left), the spike also accepts `--tts google`: per-scene Google Translate TTS with exact scene
+  durations and proportional word times. It is CLI-only; the `voiceover` stage stays on
+  ElevenLabs and the manifest records the provider.
+- Measured: «собака» — 7 scenes / 50.4 s, «кирпичи» — 6 scenes / 46.0 s; both 1080×1920/30,
+  H.264 + AAC, BT.709. Scene render 146/137 s, concat 3.2/3.3 s, final render 6.4/5.5 s.
+
 ## Contract details
 
 - Schema version: `peertoreel.storyboard.v1`. No compatibility with the pre-rename

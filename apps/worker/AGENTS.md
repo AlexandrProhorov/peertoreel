@@ -18,3 +18,8 @@ conventions.
   are configured per queue, never hardcoded in handlers.
 - FFmpeg arguments come from structured inputs only — never interpolate user text into
   shell strings. Shell out with argument arrays.
+- **The director returns a draft, not timings.** The M3.5 director draft may choose
+  recipes/variants/slots and narration text only; scene windows are derived from real TTS audio
+  and a word-count mismatch fails instead of shifting scenes. The `--tts google` fallback is
+  CLI-spike-only: the production `voiceover` stage stays on ElevenLabs and the provider is
+  recorded in the manifest.

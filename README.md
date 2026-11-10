@@ -80,6 +80,7 @@ pnpm infra:down
 | `pnpm --filter @peertoreel/render-worker render-fixture` | Рендерит 6 сцен фикстуры «−15°» в `apps/render-worker/out` |
 | `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom` | Рендерит произвольный `storyboard.v1` из JSON (путь к примеру — от `apps/render-worker`) |
 | `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/recipe-showcase.json --out out/recipes` | Рендерит showcase из 5 рецептов с локальными subject-SVG |
+| `pnpm --filter @peertoreel/worker storyboard:episode -- --topic "…" --slug dog-nose` | M3.5: DeepSeek → storyboard → сцены → FFmpeg-ролик с озвучкой (нужны ключи) |
 | `docker build -f infra/render-worker.Dockerfile -t peertoreel-render-worker .` | Собирает образ render worker с закреплённым Chrome |
 
 ## Структура
@@ -140,6 +141,26 @@ pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/re
 или `manifest.json` для `render-storyboard` (компонент, source, `recipeId`/`variant`, params и
 slot diagnostics, длительности и время рендера). Docker-образ:
 `infra/render-worker.Dockerfile`.
+
+### M3.5 — эпизод из темы
+
+`apps/worker` содержит spike-скрипт, который проходит путь тема → DeepSeek → `storyboard.v1` →
+Remotion-сцены → FFmpeg (озвучка, loudnorm, ASS):
+
+```bash
+pnpm --filter @peertoreel/worker storyboard:episode -- \
+  --topic "Почему у собак мокрый нос?" --slug dog-nose
+
+# если квота ElevenLabs исчерпана — только для спайка
+pnpm --filter @peertoreel/worker storyboard:episode -- \
+  --topic "Почему у собак мокрый нос?" --slug dog-nose --tts google
+```
+
+Драфт режиссёра (`draft.json`) не содержит таймингов: окна сцен выводятся из реальной
+озвучки. Результат — `apps/worker/out/episodes/<slug>/episode.mp4`, `storyboard.json`,
+`voiceover.mp3`, `word_timings.json`, `subtitles.ass`, `scenes/` и `manifest.json` (LLM usage,
+TTS provider, длительности, ffprobe). `--tts google` — бесплатный fallback только для спайка;
+production-стадия voiceover остаётся на ElevenLabs, провайдер фиксируется в манифесте.
 
 ## Локальный S3
 

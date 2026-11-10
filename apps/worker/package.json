@@ -11,7 +11,8 @@
     "lint": "oxlint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts"
+    "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts",
+    "storyboard:episode": "tsx src/storyboard/episode-spike.ts"
   },
   "dependencies": {
     "@peertoreel/contracts": "workspace:*",

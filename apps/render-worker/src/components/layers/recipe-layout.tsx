@@ -50,11 +50,11 @@ export function layoutFrameStyle(layout: RecipeLayerLayout): CSSProperties {
 
   switch (layout.anchor) {
     case 'top-left':
-      return { ...common, top: '7%', left: '6%', maxWidth: '70%' };
+      return { ...common, top: '7%', left: '6%', width: '70%' };
     case 'top-center':
       return { ...common, top: '7%', left: '6%', right: '6%' };
     case 'top-right':
-      return { ...common, top: '7%', right: '6%', maxWidth: '70%' };
+      return { ...common, top: '7%', right: '6%', width: '70%' };
     case 'upper-center':
       return { ...common, top: '24%', left: '6%', right: '6%' };
     case 'center':
@@ -68,11 +68,11 @@ export function layoutFrameStyle(layout: RecipeLayerLayout): CSSProperties {
     case 'lower-center':
       return { ...common, bottom: '24%', left: '6%', right: '6%' };
     case 'bottom-left':
-      return { ...common, bottom: '9%', left: '6%', maxWidth: '70%' };
+      return { ...common, bottom: '9%', left: '6%', width: '70%' };
     case 'bottom-center':
       return { ...common, bottom: '9%', left: '6%', right: '6%' };
     case 'bottom-right':
-      return { ...common, bottom: '9%', right: '6%', maxWidth: '70%' };
+      return { ...common, bottom: '9%', right: '6%', width: '70%' };
   }
 }
 

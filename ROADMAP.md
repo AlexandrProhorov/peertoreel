@@ -132,7 +132,7 @@ production hardening. Причина — не строить очередь и a
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
 | M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
 | M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | DONE |
-| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | TODO |
+| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | DONE |
 | M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, Recraft Vector / FLUX.2 + BiRefNet, OKLab нормализация, `cartoon-character`, style preset | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
@@ -231,6 +231,19 @@ CLI/скрипт и ручная сборка существующим `buildVis
 визуальные сетапы, отсутствие per-topic кода; визуальный review фиксирует, что подход работает.
 **Не входит:** production queue, облачный `ImageProvider`, R2 Asset Library, vision QC.
 
+**Итог M3.5.** Добавлены `packages/contracts/src/storyboard.director.ts` (драфт 5–8 сцен:
+recipeId/variant/slots, без таймингов) и CLI `storyboard:episode` в `apps/worker`:
+DeepSeek → ElevenLabs (или spike-fallback) → `buildStoryboardFromDraft` → render-storyboard →
+`buildVisualConcatArgs` → `renderDraft`. Промпт собирается из каталога рецептов и
+`STARTER_ASSET_KEYS`, тайминги выводятся из реальной озвучки, а не из LLM. Оба ролика собраны:
+«собака» — 7 сцен / 50.4 с / 86 слов, «кирпичи» — 6 сцен / 46.0 с / 75 слов; LLM с первой
+попытки (2511/916 и 2512/795 токенов). Оба — 1080×1920/30, h264 + AAC, BT.709; сцены
+146/137 с, concat 3.2/3.3 с, финальная сборка 6.4/5.5 с. Визуальный review: разные рецепты,
+предметный слой и ASS-субтитры читаются, per-topic кода нет. Из-за исчерпанной квоты
+ElevenLabs (осталось 290 кредитов) спайк озвучен `--tts google`: точные длительности сцен,
+word timings — пропорциональная оценка; production-путь voiceover остаётся ElevenLabs,
+провайдер записан в manifest.
+
 **M3.6 — Asset Library + Asset Generator.** После spike становится видно, каких объектов не
 хватает в стартовом пакете. Добавляются: общая библиотека ассетов, metadata и content hash,
 версии/варианты, проверка лицензий (`commercialUse: true`), трёхуровневый `AssetResolver`
@@ -287,14 +300,9 @@ off-style и нечитаемые сцены; стоимость генерац�
 
 ## Следующие сессии
 
-1. **M3.4 — Scene Recipes v1.** Пять рецептов × 2–3 варианта; разделение `SceneObjects` на
-   слои, включая локальный `image`/`subject`-слой и стартовый SVG-пак
-   `apps/render-worker/public/assets/starter/` (ADR-0015). M3.3 закрыт 2026-11-10. Промпт:
-   `docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
-2. M3.5 — End-to-end spike на двух темах (собака, кирпичи) на каталоге рецептов + локальном
-   стартовом паке, без облачных AI-ассетов и без очереди.
-3. M3.6 — Asset Library, Asset Resolver (Tier 0–2), `ImageProvider` (Recraft Vector /
-   FLUX.2 + BiRefNet), OKLab-нормализация, `cartoon-character`, style preset.
-4. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
-5. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+1. **M3.6 — Asset Library + Asset Generator.** Resolver Tier 0–2, `ImageProvider` (Recraft
+   Vector / FLUX.2 + BiRefNet), OKLab-нормализация, `cartoon-character`, style preset. M3.5
+   закрыт 2026-11-10.
+2. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
+3. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).
