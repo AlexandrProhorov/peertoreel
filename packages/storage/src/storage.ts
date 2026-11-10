@@ -5,6 +5,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { buildAssetObjectKey as contractAssetObjectKey } from '@peertoreel/contracts';
 
 export interface StorageConfig {
   endpoint: string;
@@ -31,6 +32,18 @@ export function buildArtifactKey(
   }
 
   return `runs/${runId}/${safeStage}/${safeName}`;
+}
+
+/**
+ * Content-addressed key for a normalized asset (`assets/<hash[0..1]>/<hash>/<hash>.<ext>`).
+ * The format is owned by `@peertoreel/contracts` so the resolver, the DB row and
+ * this storage adapter cannot drift (ADR-0017 D1/D3).
+ */
+export function buildAssetObjectKey(
+  contentHash: string,
+  extension: string,
+): string {
+  return contractAssetObjectKey(contentHash, extension);
 }
 
 export class ObjectStorage {

@@ -142,6 +142,40 @@ pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/re
 slot diagnostics, длительности и время рендера). Docker-образ:
 `infra/render-worker.Dockerfile`.
 
+### Asset Library и resolver (M3.6a)
+
+Стартовый SVG-пак — это Tier 0 библиотеки, а не единственный источник. Контракт и порты
+(`AssetRecord`, `AssetVariant`, `AssetLicense`, `AssetRequest`, `AssetResolution`,
+`AssetResolver`, `ImageProvider`, typed-ошибки) живут в `packages/contracts/src/assets.ts`,
+реализация — в `packages/assets`. ADR — `docs/adr/0017-asset-library-and-resolver.md`.
+
+- **Порядок резолва:** starter → cache (по `key`/тегам) → provider (только при
+  `allowProvider: true` и включённом провайдере) → `fallbackKey` → typed error. Одинаковый
+  запрос даёт одинаковый результат; без флага провайдер не вызывается.
+- **Идентичность байтов:** SHA-256 нормализованных байтов, дедупликация по `contentHash`,
+  объектный ключ `assets/<hash[0..1]>/<hash>/<name>` (`buildAssetObjectKey`).
+- **Лицензии:** `commercialUse: true` обязателен; `false` отклоняется и в resolver, и
+  check-constraint'ом таблицы `assets`.
+- **Нормализация:** `normalizeSvg` (svgo, удаление full-bleed `<rect>`, padding viewBox 8%,
+  OKLab-квантование `fill`/`stroke` в `style.assetPalette`) и чистые alpha-проверки растра
+  (`alphaOccupancy`/`alphaBounds`; декодирование PNG — M3.6b).
+- **Стиль:** `studio_flat_2d_v1` в `packages/contracts/src/style.ts` (palette, `assetPalette`,
+  typography, effects). Showcase использует его; старые `flat_2d_motion`-входы не меняются.
+
+```bash
+# resolver → data URI в Remotion input props (Tier 0, без сети)
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6a --resolve-assets
+
+# offline fake ImageProvider для ключей вне Tier 0
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6a --resolve-assets --provider=fake
+```
+
+Манифест в этом режиме добавляет `assets.resolutions` (key, tier, cacheHit, contentHash,
+objectKey) и `assets.usage`. Renderer получает только `assets: Record<key, { url }>`; компоненты
+не ходят в S3/сеть, а неизвестный ключ без подстановки по-прежнему падает.
+
 ### M3.5 — эпизод из темы
 
 `apps/worker` содержит spike-скрипт, который проходит путь тема → DeepSeek → `storyboard.v1` →

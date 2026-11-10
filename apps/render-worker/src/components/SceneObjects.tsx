@@ -11,6 +11,7 @@ import {
   useVideoConfig,
 } from 'remotion';
 import { objectAccentSec, objectWindowSec } from '../timing.js';
+import type { InjectedAssetMap } from '../assets.js';
 import {
   CharacterLayer,
   LightLayer,
@@ -26,6 +27,7 @@ interface SceneObjectsProps {
   scene: StoryboardScene;
   style: StoryboardStyle;
   wordTimings?: readonly DerivedWord[];
+  assets?: InjectedAssetMap;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -39,6 +41,7 @@ function ObjectVisual({
   progress,
   animationProgress,
   accentPulse,
+  assets,
 }: {
   object: SceneObject;
   style: StoryboardStyle;
@@ -46,6 +49,7 @@ function ObjectVisual({
   progress: number;
   animationProgress: number;
   accentPulse: number;
+  assets?: InjectedAssetMap;
 }) {
   switch (sceneObjectRenderer(object.kind)) {
     case 'text':
@@ -106,6 +110,7 @@ function ObjectVisual({
             opacity={progress}
             style={style}
             widthPercent={100}
+            assets={assets}
           />
         </AbsoluteFill>
       );
@@ -130,6 +135,7 @@ export function SceneObjects({
   scene,
   style,
   wordTimings,
+  assets,
 }: SceneObjectsProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -188,6 +194,7 @@ export function SceneObjects({
             progress={Math.min(appear, disappear)}
             animationProgress={animationProgress}
             accentPulse={accentPulse}
+            assets={assets}
           />
         );
       })}

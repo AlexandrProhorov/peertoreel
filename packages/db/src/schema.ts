@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -261,6 +262,85 @@ export const publishCards = pgTable(
   ],
 );
 
+/**
+ * Asset Library (ADR-0017). `assets` is the logical record, `asset_variants`
+ * the stored bytes. Object storage holds the file; these rows are the source of
+ * truth. Values are duplicated from contracts on purpose — drizzle-kit loads
+ * this file through CJS and cannot resolve the ESM-only contracts package.
+ */
+export const assetSourceValues = [
+  'starter',
+  'library',
+  'recraft',
+  'flux',
+  'upload',
+] as const;
+
+export const assetKindValues = ['svg', 'png', 'raster-cutout'] as const;
+
+export const assetSourceEnum = pgEnum('asset_source', assetSourceValues);
+export const assetKindEnum = pgEnum('asset_kind', assetKindValues);
+
+export const assets = pgTable(
+  'assets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Logical key (`dog-snout`, `subject/robot`). */
+    key: text('key').notNull(),
+    source: assetSourceEnum('source').notNull(),
+    kind: assetKindEnum('kind').notNull(),
+    styleId: text('style_id').notNull().default('studio_flat_2d_v1'),
+    /** SHA-256 of the normalized bytes; identity for deduplication. */
+    contentHash: text('content_hash').notNull(),
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    licenseName: text('license_name').notNull(),
+    /** Non-commercial assets never reach the production library. */
+    commercialUse: boolean('commercial_use').notNull().default(true),
+    attribution: text('attribution'),
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('assets_key_style_unique').on(table.key, table.styleId),
+    uniqueIndex('assets_content_hash_unique').on(table.contentHash),
+    check('assets_commercial_use_true', sql`${table.commercialUse} = true`),
+    index('assets_tags_idx').using('gin', table.tags),
+  ],
+);
+
+export const assetVariants = pgTable(
+  'asset_variants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    assetId: uuid('asset_id')
+      .notNull()
+      .references(() => assets.id, { onDelete: 'cascade' }),
+    /** Variant id inside the logical asset (`default`, `outline`, …). */
+    variantId: text('variant_id').notNull(),
+    objectKey: text('object_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    contentHash: text('content_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('asset_variants_asset_variant_unique').on(
+      table.assetId,
+      table.variantId,
+    ),
+    index('asset_variants_object_key_idx').on(table.objectKey),
+    index('asset_variants_content_hash_idx').on(table.contentHash),
+  ],
+);
+
 export const schema = {
   appMeta,
   users,
@@ -270,4 +350,6 @@ export const schema = {
   artifacts,
   tiktokAccounts,
   publishCards,
+  assets,
+  assetVariants,
 };

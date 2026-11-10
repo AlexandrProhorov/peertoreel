@@ -11,6 +11,7 @@ import {
 } from 'remotion';
 import type { ResolvedRecipeLayer, ResolvedSceneRecipe } from '../recipes.js';
 import { UnsupportedRecipeLayerError } from '../recipes.js';
+import type { InjectedAssetMap } from '../assets.js';
 import { CharacterLayer, LightLayer, OverlayLayer, ParticlesLayer } from './layers/AmbientLayers.js';
 import { RecipeChartLayer } from './layers/ChartLayers.js';
 import { recipeRenderer } from './layers/layer-kind.js';
@@ -42,6 +43,7 @@ function RecipeLayerView({
   seconds,
   opacity,
   progress,
+  assets,
 }: {
   recipeId: string;
   layer: ResolvedRecipeLayer;
@@ -49,6 +51,7 @@ function RecipeLayerView({
   seconds: number;
   opacity: number;
   progress: number;
+  assets?: InjectedAssetMap;
 }) {
   const renderer = recipeRenderer(layer.kind);
 
@@ -77,6 +80,7 @@ function RecipeLayerView({
             opacity={1}
             style={style}
             widthPercent={subjectWidth(layer.layout)}
+            assets={assets}
           />
         </RecipeLayerFrame>
       );
@@ -154,10 +158,12 @@ export function RecipeLayers({
   recipe,
   scene,
   style,
+  assets,
 }: {
   recipe: ResolvedSceneRecipe;
   scene: StoryboardScene;
   style: StoryboardStyle;
+  assets?: InjectedAssetMap;
 }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -206,6 +212,7 @@ export function RecipeLayers({
             seconds={seconds}
             opacity={Math.min(appear, disappear)}
             progress={progress}
+            assets={assets}
           />
         );
       })}

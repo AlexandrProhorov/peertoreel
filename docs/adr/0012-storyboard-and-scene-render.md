@@ -247,6 +247,23 @@ without API/DB/queue changes.
 - Measured: «собака» — 7 scenes / 50.4 s, «кирпичи» — 6 scenes / 46.0 s; both 1080×1920/30,
   H.264 + AAC, BT.709. Scene render 146/137 s, concat 3.2/3.3 s, final render 6.4/5.5 s.
 
+## M3.6a implementation
+
+M3.6a is the asset-library half of M3.6; the paid generators stay in M3.6b (ADR-0017).
+
+- `SceneInputProps` gains optional `assets: Record<string, { url: string }>`. `SubjectLayer`
+  uses an injected URL first and falls back to the M3.3 `resolveAssetKey` + `assetUrl` path, so
+  fixture/custom/M3.5 storyboards render unchanged.
+- `render-storyboard --resolve-assets [--provider=fake]` resolves subject keys through the
+  `@peertoreel/assets` resolver, turns Tier 0 files into data URIs and records
+  `assets.resolutions`/`assets.usage` in the manifest. There is no network access in the
+  renderer.
+- `storyboardStyleSchema` gains optional `assetPalette`; `studio_flat_2d_v1` is a style id and
+  `examples/recipe-showcase.json` now uses it. Palette changes alter frames, not timing or
+  output format.
+- Measured: showcase 79.5 s (5 scenes), fixture 137.1 s (6), custom 78.2 s (4); every clip
+  1080×1920/30, h264, `yuv420p`, BT.709.
+
 ## Contract details
 
 - Schema version: `peertoreel.storyboard.v1`. No compatibility with the pre-rename

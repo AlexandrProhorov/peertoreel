@@ -3,6 +3,7 @@ import {
   InvalidAssetKeyError,
   assetUrl,
   resolveAssetKey,
+  subjectAssetSource,
 } from './assets.js';
 
 describe('asset key resolver', () => {
@@ -44,6 +45,24 @@ describe('asset key resolver', () => {
     );
     expect(assetUrl({ kind: 'data', url: 'data:image/png;base64,AA==' })).toBe(
       'data:image/png;base64,AA==',
+    );
+  });
+});
+
+describe('resolved asset injection', () => {
+  const injected = {
+    'assets/starter/brick.svg': { url: 'data:image/svg+xml;base64,PHN2Zy8+' },
+  };
+
+  it('prefers an injected resolved URL over the local key', () => {
+    expect(subjectAssetSource('assets/starter/brick.svg', injected)).toBe(
+      'data:image/svg+xml;base64,PHN2Zy8+',
+    );
+  });
+
+  it('still rejects an unknown key without an injected URL', () => {
+    expect(() => subjectAssetSource('../escape.svg', {})).toThrow(
+      InvalidAssetKeyError,
     );
   });
 });

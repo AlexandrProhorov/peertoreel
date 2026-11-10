@@ -8,6 +8,14 @@ import {
 } from '@peertoreel/contracts';
 import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  resolveStoryboardAssets,
+  type ProviderMode,
+  type ResolvedAssetSummary,
+  type StoryboardAssetResolution,
+} from './asset-resolution.js';
+import type { ResolvedAssetMap } from './props.js';
 import { renderScene, sceneOutputPath } from './render.js';
 
 type RenderKind = 'fixture' | 'custom';
@@ -36,6 +44,10 @@ interface RenderManifest {
   generatedAt: string;
   totalMs: number;
   scenes: RenderedScene[];
+  assets?: {
+    resolutions: readonly ResolvedAssetSummary[];
+    usage: StoryboardAssetResolution['usage'];
+  };
 }
 
 interface RenderRunInput {
@@ -43,6 +55,8 @@ interface RenderRunInput {
   input: string | null;
   storyboard: Storyboard;
   wordTimings?: readonly DerivedWord[];
+  assets?: ResolvedAssetMap;
+  assetResolution?: StoryboardAssetResolution;
   outDir: string;
   sceneFilter?: number;
   manifestName: string;
@@ -52,13 +66,31 @@ function usage(): void {
   console.log(`Usage:
   pnpm --filter @peertoreel/render-worker render-fixture [--scene <index>] [--out <dir>]
   pnpm --filter @peertoreel/render-worker render-storyboard -- --input <storyboard.json> [--scene <index>] [--out <dir>]
+      [--resolve-assets] [--provider=fake]
 
 Renders silent 1080x1920/30 h264 scene clips from a peertoreel.storyboard.v1
 document. render-fixture is the shortcut for the built-in -15° fixture.
+--resolve-assets resolves subject keys through the Asset Resolver and passes
+data-URI URLs into Remotion input props; --provider=fake enables the offline
+fake ImageProvider for keys missing from Tier 0.
 `);
 }
 
 function optionValue(name: string): string | undefined {
+  const inline = process.argv.find((argument) =>
+    argument.startsWith(`${name}=`),
+  );
+
+  if (inline !== undefined) {
+    const value = inline.slice(name.length + 1);
+
+    if (value.length === 0) {
+      throw new Error(`Option ${name} requires a value`);
+    }
+
+    return value;
+  }
+
   const index = process.argv.indexOf(name);
 
   if (index < 0) {
@@ -88,6 +120,24 @@ function sceneFilterValue(): number | undefined {
   }
 
   return index;
+}
+
+function providerModeValue(): ProviderMode {
+  const raw = optionValue('--provider');
+
+  if (raw === undefined || raw === 'none') {
+    return 'none';
+  }
+
+  if (raw === 'fake') {
+    return 'fake';
+  }
+
+  throw new Error(`--provider must be "fake" or "none", received "${raw}"`);
+}
+
+function publicDirPath(): string {
+  return fileURLToPath(new URL('../public', import.meta.url));
 }
 
 function formatIssues(error: {
@@ -182,6 +232,7 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
       scene,
       style: input.storyboard.style,
       wordTimings: input.wordTimings,
+      assets: input.assets,
       outPath,
       onProgress: (progress) => {
         const percent = Math.floor(progress * 10) * 10;
@@ -235,6 +286,14 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
     generatedAt: new Date().toISOString(),
     totalMs,
     scenes: rendered,
+    ...(input.assetResolution
+      ? {
+          assets: {
+            resolutions: input.assetResolution.resolutions,
+            usage: input.assetResolution.usage,
+          },
+        }
+      : {}),
   };
   const manifestPath = path.join(input.outDir, input.manifestName);
 
@@ -251,6 +310,7 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
 async function main(): Promise<void> {
   const command = process.argv[2];
   const sceneFilter = sceneFilterValue();
+  const providerMode = providerModeValue();
   const outDir = path.resolve(process.cwd(), optionValue('--out') ?? 'out');
 
   if (command === 'render-fixture') {
@@ -275,11 +335,29 @@ async function main(): Promise<void> {
     }
 
     const loaded = await readStoryboard(input);
+    const resolveAssets = process.argv.includes('--resolve-assets');
+    const assetResolution = resolveAssets
+      ? await resolveStoryboardAssets(
+          loaded.storyboard,
+          publicDirPath(),
+          providerMode,
+        )
+      : undefined;
+
+    if (assetResolution !== undefined) {
+      console.log(
+        `Resolved ${assetResolution.resolutions.length} asset(s): ${assetResolution.resolutions
+          .map((entry) => `${entry.assetKey}(${entry.tier})`)
+          .join(', ')}`,
+      );
+    }
 
     await renderStoryboard({
       kind: 'custom',
       input: loaded.inputPath,
       storyboard: loaded.storyboard,
+      assets: assetResolution?.assets,
+      assetResolution,
       outDir,
       sceneFilter,
       manifestName: 'manifest.json',

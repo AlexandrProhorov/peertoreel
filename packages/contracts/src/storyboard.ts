@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { jsonObjectSchema } from './json.js';
 import { type ScenePart, scenePartSchema } from './scene-part.js';
+import { STYLE_PRESET_IDS } from './style.js';
 import {
   InvalidRecipeSlotError,
   UnknownRecipeVariantError,
@@ -20,6 +21,7 @@ export const STORYBOARD_STYLE_IDS = [
   'science_infographic',
   'cinematic_ai',
   'mixed',
+  ...STYLE_PRESET_IDS,
 ] as const;
 export const storyboardStyleIdSchema = z.enum(STORYBOARD_STYLE_IDS);
 export type StoryboardStyleId = z.infer<typeof storyboardStyleIdSchema>;
@@ -223,6 +225,11 @@ export const storyboardStyleSchema = z.object({
     headingWeight: z.number().int().min(100).max(900),
   }),
   effects: z.array(storyboardEffectIdSchema).max(8),
+  /**
+   * Allowed colors for imported subjects (ADR-0017 D5/D7). Absent means the
+   * style has no quantization target; normalization never invents one.
+   */
+  assetPalette: z.array(hexColorSchema).min(1).max(32).optional(),
 });
 export type StoryboardStyle = z.infer<typeof storyboardStyleSchema>;
 

@@ -1,0 +1,185 @@
+import {
+  STARTER_ASSET_CATALOG,
+  STARTER_ASSET_KEYS,
+  type AssetResolutionTier,
+  type AssetUsage,
+  type Storyboard,
+} from '@peertoreel/contracts';
+import {
+  InMemoryAssetRepository,
+  TieredAssetResolver,
+  assetPaletteFor,
+  buildStarterAssets,
+  createFakeImageProvider,
+} from '@peertoreel/assets';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { resolveSceneComponent } from './mapping.js';
+import type { ResolvedAssetMap } from './props.js';
+
+/**
+ * Resolver → renderer bridge for the CLI (ADR-0017 D6).
+ *
+ * Tier 0 resolves the curated starter pack; `--provider=fake` exercises the
+ * provider branch without a network call. The renderer only sees URLs.
+ */
+
+export type ProviderMode = 'none' | 'fake';
+
+export interface ResolvedAssetSummary {
+  readonly assetKey: string;
+  readonly tier: AssetResolutionTier;
+  readonly cacheHit: boolean;
+  readonly contentHash: string;
+  readonly objectKey: string;
+}
+
+export interface StoryboardAssetResolution {
+  readonly assets: ResolvedAssetMap;
+  readonly resolutions: readonly ResolvedAssetSummary[];
+  readonly usage: AssetUsage;
+}
+
+const KEY_BY_PATH = new Map<string, string>(
+  STARTER_ASSET_KEYS.map((key) => [STARTER_ASSET_CATALOG[key].path, key]),
+);
+
+function isExternalReference(reference: string): boolean {
+  return /^(https?:|data:)/i.test(reference);
+}
+
+function sceneAssetReferences(scene: Storyboard['scenes'][number]): string[] {
+  const references = new Set<string>();
+  const resolved = resolveSceneComponent(scene);
+
+  if (resolved.recipe !== null) {
+    for (const layer of resolved.recipe.layers) {
+      if (
+        (layer.kind === 'subject' || layer.kind === 'image') &&
+        layer.content !== null
+      ) {
+        references.add(layer.content);
+      }
+    }
+  }
+
+  for (const object of scene.objects) {
+    if (
+      (object.kind === 'image' || object.kind === 'subject') &&
+      object.content !== null
+    ) {
+      references.add(object.content);
+    }
+  }
+
+  return [...references];
+}
+
+function collectReferences(storyboard: Storyboard): string[] {
+  const references = new Set<string>();
+
+  for (const scene of storyboard.scenes) {
+    for (const reference of sceneAssetReferences(scene)) {
+      references.add(reference);
+    }
+  }
+
+  return [...references];
+}
+
+function toDataUri(mimeType: string, content: string): string {
+  return `data:${mimeType};base64,${Buffer.from(content, 'utf8').toString('base64')}`;
+}
+
+export async function resolveStoryboardAssets(
+  storyboard: Storyboard,
+  publicDir: string,
+  providerMode: ProviderMode,
+): Promise<StoryboardAssetResolution> {
+  const styleId = storyboard.style.styleId;
+  const starter = await buildStarterAssets(
+    (objectKey) => readFile(path.join(publicDir, objectKey), 'utf8'),
+    styleId,
+  );
+  const provider =
+    providerMode === 'fake'
+      ? createFakeImageProvider({
+          synthesize: true,
+          palette: assetPaletteFor(styleId),
+        })
+      : null;
+  const resolver = new TieredAssetResolver({
+    repository: new InMemoryAssetRepository(starter),
+    starter,
+    provider,
+  });
+
+  const assets: Record<string, { url: string }> = {};
+  const resolutions: ResolvedAssetSummary[] = [];
+  const urlByKey = new Map<string, string>();
+  const usage: AssetUsage = {
+    provider: provider?.id ?? null,
+    providerRequests: 0,
+    cacheHits: 0,
+    costUsd: null,
+  };
+  let costMeasured = true;
+
+  for (const reference of collectReferences(storyboard)) {
+    if (isExternalReference(reference)) {
+      continue;
+    }
+
+    const assetKey = KEY_BY_PATH.get(reference) ?? reference;
+    let url = urlByKey.get(assetKey);
+
+    if (url === undefined) {
+      const resolution = await resolver.resolve({
+        assetKey,
+        styleId,
+        assetPalette: storyboard.style.assetPalette,
+        allowProvider: provider !== null,
+      });
+      const variant = resolution.asset.variants[0];
+
+      if (variant === undefined) {
+        throw new Error(`Asset "${assetKey}" resolved without a variant`);
+      }
+
+      url =
+        variant.url ??
+        toDataUri(
+          variant.mimeType,
+          await readFile(path.join(publicDir, variant.objectKey), 'utf8'),
+        );
+      urlByKey.set(assetKey, url);
+
+      usage.providerRequests += resolution.usage.providerRequests;
+      usage.cacheHits += resolution.usage.cacheHits;
+
+      if (resolution.usage.costUsd === null) {
+        costMeasured = false;
+      } else {
+        usage.costUsd = (usage.costUsd ?? 0) + resolution.usage.costUsd;
+      }
+
+      resolutions.push({
+        assetKey,
+        tier: resolution.tier,
+        cacheHit: resolution.cacheHit,
+        contentHash: resolution.asset.contentHash,
+        objectKey: variant.objectKey,
+      });
+    }
+
+    assets[assetKey] = { url };
+    // Recipe layers reference the catalog path; accept both forms.
+    assets[reference] = { url };
+  }
+
+  if (!costMeasured) {
+    usage.costUsd = null;
+  }
+
+  return { assets, resolutions, usage };
+}

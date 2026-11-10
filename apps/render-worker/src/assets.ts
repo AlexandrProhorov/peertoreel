@@ -71,3 +71,21 @@ export function assetUrl(location: AssetLocation): string {
       return location.url;
   }
 }
+
+/** A resolved asset map injected through input props (ADR-0017 D6). */
+export interface InjectedAssetMap {
+  readonly [assetKey: string]: { readonly url: string } | undefined;
+}
+
+/**
+ * Resolved URL wins; otherwise fall back to the M3.3/M3.4 local-key path. An
+ * unknown key still throws instead of rendering an empty frame.
+ */
+export function subjectAssetSource(
+  assetKey: string,
+  assets?: InjectedAssetMap,
+): string {
+  const injected = assets?.[assetKey]?.url;
+
+  return injected ?? assetUrl(resolveAssetKey(assetKey));
+}

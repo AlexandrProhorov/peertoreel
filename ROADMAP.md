@@ -133,7 +133,8 @@ production hardening. Причина — не строить очередь и a
 | M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
 | M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | DONE |
 | M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | DONE |
-| M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, Recraft Vector / FLUX.2 + BiRefNet, OKLab нормализация, `cartoon-character`, style preset | агент | TODO |
+| M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
+| M3.6b | Real asset generation: Recraft Vector / FLUX.2 + BiRefNet, raster-cutout нормализация, `cartoon-character`, третья тема | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -252,10 +253,38 @@ word timings — пропорциональная оценка; production-пу�
 нормализация стиля (`svgo` + OKLab квантование палитры в `style.assetPalette`, стикер-контур для
 растра), параметрический rig `cartoon-character` (5 эмоций по `syncToWord` + аксессуары) и
 первый style preset (`studio_flat_2d_v1`, ADR-0015). Процедурные объекты, SVG и AI-иллюстрации
-сосуществуют; реальные фото и AI-схемы с текстом в flat 2D не попадают. **Acceptance:** две темы
-M3.5 плюс третья собираются из смеси procedural/SVG/AI; персонаж и палитра консистентны между
-сценами; кэш предотвращает повторные оплаты; при отказе генерации сцена деградирует в Tier 0
-иконку или процедурный fallback.
+сосуществуют; реальные фото и AI-схемы с текстом в flat 2D не попадают.
+
+**M3.6 разделён на M3.6a / M3.6b (2026-11-11).** M3.6a закрывает инфраструктуру без платных
+вызовов, M3.6b — реальные провайдеры и полный acceptance. Причина: в окружении M3.6a нет
+`RECRAFT_API_KEY`/`FAL_KEY`, а проверять непроверенные вызовы нельзя.
+
+**Итог M3.6a.** Добавлены `packages/contracts/src/assets.ts` (metadata, `AssetRequest`/
+`AssetResolution`, порты `AssetResolver`/`ImageProvider`, typed-ошибки, `buildAssetObjectKey`),
+`packages/contracts/src/style.ts` (`STYLE_PRESETS`, `studio_flat_2d_v1`), optional
+`assetPalette` в `storyboardStyleSchema`, таблицы `assets`/`asset_variants` + миграция `0008`
+(unique `content_hash`, check `commercial_use = true`), helper `buildAssetObjectKey` в
+`packages/storage`, новый пакет `packages/assets` (SHA-256 dedup, `AssetRepository` +
+in-memory fake, `TieredAssetResolver`, `normalizeSvg` с OKLab-квантованием, alpha-проверки
+растра, `createFakeImageProvider`, preset→style) и renderer input props
+`assets?: Record<key, { url }>` (`SubjectLayer` берёт URL из props, локальный ключ — fallback).
+CLI получил `--resolve-assets [--provider=fake]`, манифест — `assets.resolutions`/`usage`;
+`examples/recipe-showcase.json` переведён на `studio_flat_2d_v1`. **Проверено:** `pnpm check`
+зелёный (contracts 153, assets 42, render-worker 89 тестов), showcase 79.5 с / fixture 137.1 с /
+custom 78.2 с, все клипы 1080×1920/30/h264/`yuv420p`/BT.709; showcase резолвит `dog-snout` и
+`scent-wave` как Tier 0 и передаёт их data-URI в props; миграция применена на локальный
+Postgres, unique content hash и check `commercial_use` проверены живыми INSERT'ами. **Не
+проверено:** реальные Recraft/fal.ai/BiRefNet вызовы (нет ключей), raster-cutout decode/trim,
+`cartoon-character`, третья тема — это M3.6b. Подробности: ADR-0017, `SESSION_LOG.md`.
+
+**M3.6b — Real asset generation.** Остаток M3.6: адаптеры `ImageProvider` для Recraft V4/V4.1
+Vector и FLUX.2 `[klein]`/`[pro]` + BiRefNet v2, реальная запись в R2/Postgres (repository
+adapter), raster-cutout нормализация (PNG decode, alpha occupancy 8–75%, trim, sticker outline),
+`cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема и полный M3.6 acceptance
+(кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при отказе генерации).
+До подключения платного провайдера нужны alias-строки key→hash (сейчас hash-хит возвращает
+запись-владельца и не делает новый ключ адресуемым) и выравнивание палитры 12 стартовых SVG
+под `studio_flat_2d_v1` (Tier 0 сознательно хранится без ре-квантизации).
 
 **M3.7 — Production hardening.** Отдельные `scene_clip` artifacts, per-scene regeneration,
 очередь `scene-render` с payload `{runId, sceneIdx}`, vision QC ассетов и готовых сцен,
@@ -270,8 +299,10 @@ off-style и нечитаемые сцены; стоимость генерац�
   локальный `subject`-слой и стартовый SVG-пак без `<text>`.
 - M3.5: две разные темы проходят путь topic → storyboard → сцены → ролик без per-topic кода и
   с предметным слоем из стартового пака.
-- M3.6: asset library/resolver/generator (Tier 0–2), OKLab-нормализация, `cartoon-character`,
-  style preset, procedural/SVG/AI coexisting.
+- M3.6a: asset library/resolver core (Tier 0→cache→provider→fallback), content hash/dedup,
+  лицензии, OKLab-нормализация, style preset, renderer input props — DONE.
+- M3.6b: реальные Recraft/FLUX.2/BiRefNet вызовы, raster-cutout, `cartoon-character`,
+  procedural/SVG/AI coexisting и полный M3.6 acceptance.
 - M3.7: `scene_clip`, per-scene regen, `scene-render` queue, vision QC, review UI, cost ledger.
 - Общий baseline M3.2 (эксперимент «−15°») сохраняется: 1080×1920/30, ≤15 мин рендера,
   детерминизм, стиль и палитра консистентны.
@@ -300,9 +331,9 @@ off-style и нечитаемые сцены; стоимость генерац�
 
 ## Следующие сессии
 
-1. **M3.6 — Asset Library + Asset Generator.** Resolver Tier 0–2, `ImageProvider` (Recraft
-   Vector / FLUX.2 + BiRefNet), OKLab-нормализация, `cartoon-character`, style preset. M3.5
-   закрыт 2026-11-10.
+1. **M3.6b — Real asset generation.** Recraft Vector / FLUX.2 + BiRefNet adapters, raster-cutout
+   normalization, `cartoon-character`, third topic, full M3.6 acceptance. M3.6a закрыт
+   2026-11-11 (resolver, hash/dedup, style preset, renderer props).
 2. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
 3. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).

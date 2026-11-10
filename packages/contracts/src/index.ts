@@ -1,4 +1,5 @@
 ﻿export * from './artifact.js';
+export * from './assets.js';
 export * from './auth.js';
 export * from './errors.js';
 export * from './health.js';
@@ -15,6 +16,7 @@ export * from './storyboard.director.js';
 export * from './storyboard.fixture.js';
 export * from './storyboard.recipes.js';
 export * from './storyboard.js';
+export * from './style.js';
 export * from './system.js';
 export * from './tiktok.js';
 export * from './timings.js';

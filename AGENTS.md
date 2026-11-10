@@ -31,6 +31,7 @@ apps/
   render-worker/ # Remotion scene renderer (M3.3 data-driven; React only here)
 packages/
   contracts/    # Zod schemas, DTOs, stage contracts, error codes — single source of truth
+  assets/       # Asset Library core: content hash, resolver, normalization, style presets
   db/           # Drizzle schema + database handle shared by API and worker
   storage/      # S3-compatible object storage (SeaweedFS locally, R2 in production)
   tiktok/       # TikTok Open API adapter: OAuth, token cipher, Content Posting API
@@ -59,7 +60,7 @@ docs/           # adr/, pipeline contracts, API notes
 | LLM | DeepSeek V4.1 Flash (default), stronger model for QC | behind `LlmProvider` port |
 | TTS | ElevenLabs | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed) |
 | Stock | **Pixabay** API | Pexels dropped (new keys paused); 100 req/60 s, cache 24 h |
-| Images / Vectors | Recraft V4/V4.1 Vector (SVG) + fal.ai (FLUX.2 `[klein] 4B` / `[pro]` + BiRefNet v2) | `FLUX.2 [klein] 4B` (Apache 2.0) and `BiRefNet v2` (MIT) are commercial-safe; `FLUX [dev]` and self-hosted `Bria RMBG 2.0` (`CC BY-NC 4.0`) are non-commercial. Behind `ImageProvider` port (ADR-0015) |
+| Images / Vectors | Recraft V4/V4.1 Vector (SVG) + fal.ai (FLUX.2 `[klein] 4B` / `[pro]` + BiRefNet v2) | `FLUX.2 [klein] 4B` (Apache 2.0) and `BiRefNet v2` (MIT) are commercial-safe; `FLUX [dev]` and self-hosted `Bria RMBG 2.0` (`CC BY-NC 4.0`) are non-commercial. Behind `ImageProvider` port (ADR-0015, ADR-0017) |
 | Video gen | MiniMax H3 (via fal.ai), optional M4.8 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |
 | Deploy | Docker Compose on one VPS | web + api + worker + postgres + redis |
 
@@ -105,9 +106,10 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 
 `packages/db/src/schema.ts` is the authoritative field list — do not mirror the DDL here.
 Implemented tables: `users`, `sessions`, `tiktok_accounts`, `runs`, `run_events`, `artifacts`,
-`publish_cards`. Planned/not yet in schema: `projects`, `templates`, `topics`, `jobs_audit`,
-`provider_usage` (run states and their fields are in §4 and ADR-0005/0006). Do not assume a
-planned table exists until it is in `schema.ts` and has a migration.
+`publish_cards`, `assets`, `asset_variants`. Planned/not yet in schema: `projects`, `templates`,
+`topics`, `jobs_audit`, `provider_usage` (run states and their fields are in §4 and
+ADR-0005/0006). Do not assume a planned table exists until it is in `schema.ts` and has a
+migration.
 
 Invariants that must hold regardless of the schema:
 
@@ -220,8 +222,10 @@ resolve conflicts.
   explicit unknown-component failure, clip-local object timing, duration-in-frames, input-prop
   validation, local asset resolution, a custom-storyboard boundary test (no fixture imports in
   the core path), and seed/order determinism. For scene recipes: recipe → component/params
-  composition, 2–3 variants, diversity rules and no per-topic code. For the asset library (when
-  it lands): content hash/dedup, variants, resolver precedence and style-preset matching.
+  composition, 2–3 variants, diversity rules and no per-topic code. For the asset library:
+  content hash/dedup, resolver precedence (Tier 0 → cache → provider → fallback), licence guard,
+  SVG/OKLab normalization, variants and style-preset matching; resolver tests use an in-memory
+  repository and a fake `ImageProvider` (no DB, network or Docker).
   Unit tests must not launch Chrome or call `renderMedia`.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.

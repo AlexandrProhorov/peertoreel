@@ -1,11 +1,13 @@
 import type { StoryboardStyle } from '@peertoreel/contracts';
 import { Img } from 'remotion';
-import { assetUrl, resolveAssetKey } from '../../assets.js';
+import {
+  subjectAssetSource,
+  type InjectedAssetMap,
+} from '../../assets.js';
 
 /**
- * Local subject asset (`image` / `subject`). The key is validated by the
- * contract; `resolveAssetKey` still rejects unsafe paths, so a bad key fails
- * loudly instead of producing an empty frame.
+ * Subject asset (`image` / `subject`). An injected resolved URL wins; otherwise
+ * the M3.4 local starter key is used. No network or filesystem access here.
  */
 export function SubjectLayer({
   assetKey,
@@ -13,14 +15,16 @@ export function SubjectLayer({
   opacity,
   style,
   widthPercent,
+  assets,
 }: {
   assetKey: string;
   progress: number;
   opacity: number;
   style: StoryboardStyle;
   widthPercent: number;
+  assets?: InjectedAssetMap;
 }) {
-  const location = resolveAssetKey(assetKey);
+  const src = subjectAssetSource(assetKey, assets);
   const scale = 0.9 + Math.min(1, Math.max(0, progress)) * 0.1;
 
   return (
@@ -42,7 +46,7 @@ export function SubjectLayer({
         }}
       />
       <Img
-        src={assetUrl(location)}
+        src={src}
         style={{
           position: 'relative',
           display: 'block',

@@ -69,6 +69,7 @@ export function SceneComposition({
   style,
   resolved,
   wordTimings,
+  assets,
 }: SceneInputProps) {
   useLocalFontsReady();
 
@@ -81,12 +82,18 @@ export function SceneComposition({
     >
       <BaseScene resolved={resolved} scene={scene} style={style} />
       {resolved.recipe === null ? (
-        <SceneObjects scene={scene} style={style} wordTimings={wordTimings} />
+        <SceneObjects
+          scene={scene}
+          style={style}
+          wordTimings={wordTimings}
+          assets={assets}
+        />
       ) : (
         <RecipeLayers
           recipe={resolved.recipe}
           scene={scene}
           style={style}
+          assets={assets}
         />
       )}
     </AbsoluteFill>

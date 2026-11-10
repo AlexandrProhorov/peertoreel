@@ -30,14 +30,16 @@ details live in `ROADMAP.md`; architectural decisions in ADR-0012 and ADR-0014.
   shared camera module. Scene components do not reimplement camera math.
 - **Assets are inputs, not network calls.** Local assets use `public/` + `staticFile` (M3.3),
   including the curated text-free SVG starter pack under `public/assets/starter/` (M3.4/M3.5,
-  ADR-0015); future assets arrive as keys/presigned URLs in input props from the asset resolver
-  (M3.6). The renderer must not call fal.ai/Recraft/S3 directly, and scene code must not fetch
-  from the network.
-- **Style is data.** Colors come from `style.palette` (today) and `style.assetPalette` when the
-  asset/style preset lands in M3.6; typography from `style.typography`. Do not hardcode topic
-  colors. Real photos and AI-generated diagrams with baked-in text are not allowed in flat 2D
-  scenes; use illustrations, normalized SVGs or procedural primitives, and render all labels/
-  callouts in Remotion (ADR-0015).
+  ADR-0015). Resolved assets arrive as `assets?: Record<string, { url: string }>` input props from
+  the Asset Resolver (`--resolve-assets`, M3.6a, ADR-0017); `SubjectLayer` prefers that URL and
+  falls back to the local key. The renderer must not call recraft/fal.ai/S3 or import
+  `@peertoreel/assets` outside the CLI/adapter boundary, and scene code must not fetch from the
+  network.
+- **Style is data.** Colors come from `style.palette`; imported subjects are normalized to
+  `style.assetPalette` (`studio_flat_2d_v1`, ADR-0017), typography from `style.typography`. Do not
+  hardcode topic colors. Real photos and AI-generated diagrams with baked-in text are not allowed
+  in flat 2D scenes; use illustrations, normalized SVGs or procedural primitives, and render all
+  labels/callouts in Remotion (ADR-0015).
 - **Determinism.** Use Remotion `random(seed)`, never `Math.random()`, `Date.now()` or wall
   clock inside scene code. Same scene + seed + assets must produce the same frames. A different
   seed must change only the elements it controls, and rendering a scene after another scene must
