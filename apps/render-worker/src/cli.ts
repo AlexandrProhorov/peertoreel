@@ -1,66 +1,162 @@
 import {
   storyboardFixture15Deg,
+  storyboardSchema,
   wordTimingsFixture15Deg,
+  type ComponentParamDiagnostic,
+  type DerivedWord,
+  type Storyboard,
 } from '@peertoreel/contracts';
-import { mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { resolveSceneComponent } from './mapping.js';
 import { renderScene, sceneOutputPath } from './render.js';
+
+type RenderKind = 'fixture' | 'custom';
 
 interface RenderedScene {
   index: number;
   id: string;
-  component: string;
+  part: string;
+  componentId: string;
+  source: string;
   durationInFrames: number;
   durationSec: number;
   sizeBytes: number;
   renderMs: number;
   outPath: string;
+  diagnostics: ComponentParamDiagnostic[];
+}
+
+interface RenderManifest {
+  kind: RenderKind;
+  input: string | null;
+  runId: string;
+  styleId: string;
+  generatedAt: string;
+  totalMs: number;
+  scenes: RenderedScene[];
+}
+
+interface RenderRunInput {
+  kind: RenderKind;
+  input: string | null;
+  storyboard: Storyboard;
+  wordTimings?: readonly DerivedWord[];
+  outDir: string;
+  sceneFilter?: number;
+  manifestName: string;
 }
 
 function usage(): void {
   console.log(`Usage:
   pnpm --filter @peertoreel/render-worker render-fixture [--scene <index>] [--out <dir>]
+  pnpm --filter @peertoreel/render-worker render-storyboard -- --input <storyboard.json> [--scene <index>] [--out <dir>]
 
-Renders the fixed -15° storyboard fixture to silent 1080x1920 mp4 clips.
+Renders silent 1080x1920/30 h264 scene clips from a peertoreel.storyboard.v1
+document. render-fixture is the shortcut for the built-in -15° fixture.
 `);
 }
 
 function optionValue(name: string): string | undefined {
   const index = process.argv.indexOf(name);
 
-  return index >= 0 ? process.argv[index + 1] : undefined;
+  if (index < 0) {
+    return undefined;
+  }
+
+  const value = process.argv[index + 1];
+
+  if (value === undefined || value.startsWith('--')) {
+    throw new Error(`Option ${name} requires a value`);
+  }
+
+  return value;
 }
 
-async function main(): Promise<void> {
-  const command = process.argv[2];
+function sceneFilterValue(): number | undefined {
+  const raw = optionValue('--scene');
 
-  if (command !== 'render-fixture') {
-    usage();
-    process.exitCode = 1;
-    return;
+  if (raw === undefined) {
+    return undefined;
   }
 
-  const sceneFilter = optionValue('--scene');
-  const outDir = path.resolve(process.cwd(), optionValue('--out') ?? 'out');
-  const scenes = storyboardFixture15Deg.scenes;
-  const selected = scenes
+  const index = Number(raw);
+
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error(`--scene must be a non-negative integer, received "${raw}"`);
+  }
+
+  return index;
+}
+
+function formatIssues(error: {
+  issues: ReadonlyArray<{ path: PropertyKey[]; message: string }>;
+}): string {
+  return error.issues
+    .map((issue) => {
+      const issuePath =
+        issue.path.length > 0 ? issue.path.map(String).join('.') : '$';
+
+      return `  - ${issuePath}: ${issue.message}`;
+    })
+    .join('\n');
+}
+
+async function readStoryboard(
+  inputPath: string,
+): Promise<{ storyboard: Storyboard; inputPath: string }> {
+  const resolvedPath = path.resolve(process.cwd(), inputPath);
+  const text = await readFile(resolvedPath, 'utf8');
+  let raw: unknown;
+
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    throw new Error(`Storyboard ${inputPath} is not valid JSON: ${reason}`);
+  }
+
+  const parsed = storyboardSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid storyboard ${inputPath}:\n${formatIssues(parsed.error)}`,
+    );
+  }
+
+  return { storyboard: parsed.data, inputPath };
+}
+
+function logDiagnostics(sceneId: string, diagnostics: ComponentParamDiagnostic[]): void {
+  for (const diagnostic of diagnostics) {
+    console.warn(
+      `  params diagnostic: ${sceneId} ${diagnostic.path} ${diagnostic.reason} received=${JSON.stringify(diagnostic.received)}`,
+    );
+  }
+}
+
+async function renderStoryboard(input: RenderRunInput): Promise<void> {
+  const selected = input.storyboard.scenes
     .map((scene, index) => ({ scene, index }))
-    .filter(({ index }) => sceneFilter === undefined || String(index) === sceneFilter);
+    .filter(
+      ({ index }) => input.sceneFilter === undefined || index === input.sceneFilter,
+    );
 
   if (selected.length === 0) {
-    throw new Error(`Scene ${sceneFilter} does not exist`);
+    throw new Error(
+      `Scene ${input.sceneFilter} does not exist in ${input.input ?? input.kind}`,
+    );
   }
 
-  await mkdir(outDir, { recursive: true });
+  await mkdir(input.outDir, { recursive: true });
 
-  if (sceneFilter === undefined) {
-    const existing = await readdir(outDir);
+  if (input.sceneFilter === undefined) {
+    const existing = await readdir(input.outDir);
 
     await Promise.all(
       existing
         .filter((name) => /^scene-\d+\.mp4$/.test(name))
-        .map((name) => unlink(path.join(outDir, name))),
+        .map((name) => unlink(path.join(input.outDir, name))),
     );
   }
 
@@ -68,7 +164,7 @@ async function main(): Promise<void> {
   const rendered: RenderedScene[] = [];
 
   for (const { scene, index } of selected) {
-    const outPath = sceneOutputPath(outDir, index);
+    const outPath = sceneOutputPath(input.outDir, index);
     const lastLogged = { value: -1 };
     const sceneStartedAt = Date.now();
 
@@ -78,8 +174,8 @@ async function main(): Promise<void> {
 
     const result = await renderScene({
       scene,
-      style: storyboardFixture15Deg.style,
-      wordTimings: wordTimingsFixture15Deg,
+      style: input.storyboard.style,
+      wordTimings: input.wordTimings,
       outPath,
       onProgress: (progress) => {
         const percent = Math.floor(progress * 10) * 10;
@@ -91,17 +187,25 @@ async function main(): Promise<void> {
       },
     });
 
+    logDiagnostics(scene.id, result.diagnostics);
+    console.log(
+      `  resolved: ${result.componentId} (${result.source}), ${result.diagnostics.length} diagnostic(s)`,
+    );
+
     const renderMs = Date.now() - sceneStartedAt;
 
     rendered.push({
       index,
       id: scene.id,
-      component: resolveSceneComponent(scene).componentId,
+      part: scene.part,
+      componentId: result.componentId,
+      source: result.source,
       durationInFrames: result.durationInFrames,
       durationSec: result.durationSec,
       sizeBytes: result.sizeBytes,
       renderMs,
       outPath,
+      diagnostics: result.diagnostics,
     });
 
     console.log(
@@ -110,25 +214,69 @@ async function main(): Promise<void> {
   }
 
   const totalMs = Date.now() - startedAt;
-  const manifestPath = path.join(outDir, 'render-fixture.json');
+  const manifest: RenderManifest = {
+    kind: input.kind,
+    input: input.input,
+    runId: input.storyboard.runId,
+    styleId: input.storyboard.style.styleId,
+    generatedAt: new Date().toISOString(),
+    totalMs,
+    scenes: rendered,
+  };
+  const manifestPath = path.join(input.outDir, input.manifestName);
 
   await writeFile(
     manifestPath,
-    `${JSON.stringify(
-      {
-        fixture: storyboardFixture15Deg.runId,
-        generatedAt: new Date().toISOString(),
-        totalMs,
-        scenes: rendered,
-      },
-      null,
-      2,
-    )}\n`,
+    `${JSON.stringify(manifest, null, 2)}\n`,
     'utf8',
   );
 
   console.log(`\nRendered ${rendered.length} scene(s) in ${totalMs} ms`);
   console.log(`Manifest: ${manifestPath}`);
+}
+
+async function main(): Promise<void> {
+  const command = process.argv[2];
+  const sceneFilter = sceneFilterValue();
+  const outDir = path.resolve(process.cwd(), optionValue('--out') ?? 'out');
+
+  if (command === 'render-fixture') {
+    await renderStoryboard({
+      kind: 'fixture',
+      input: null,
+      storyboard: storyboardFixture15Deg,
+      wordTimings: wordTimingsFixture15Deg,
+      outDir,
+      sceneFilter,
+      manifestName: 'render-fixture.json',
+    });
+
+    return;
+  }
+
+  if (command === 'render-storyboard') {
+    const input = optionValue('--input');
+
+    if (input === undefined) {
+      throw new Error('render-storyboard requires --input <storyboard.json>');
+    }
+
+    const loaded = await readStoryboard(input);
+
+    await renderStoryboard({
+      kind: 'custom',
+      input: loaded.inputPath,
+      storyboard: loaded.storyboard,
+      outDir,
+      sceneFilter,
+      manifestName: 'manifest.json',
+    });
+
+    return;
+  }
+
+  usage();
+  process.exitCode = 1;
 }
 
 main().catch((error: unknown) => {

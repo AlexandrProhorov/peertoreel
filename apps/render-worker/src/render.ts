@@ -1,4 +1,9 @@
-import type { DerivedWord, StoryboardScene, StoryboardStyle } from '@peertoreel/contracts';
+import type {
+  ComponentParamDiagnostic,
+  DerivedWord,
+  StoryboardScene,
+  StoryboardStyle,
+} from '@peertoreel/contracts';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import { existsSync } from 'node:fs';
@@ -6,10 +11,16 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  resolveSceneComponent,
+  type ImplementedComponentId,
+  type SceneComponentSource,
+} from './mapping.js';
+import {
   SCENE_COMPOSITION_ID,
   sceneInputPropsSchema,
   type SceneInputProps,
 } from './props.js';
+import { SCENE_RENDER_MEDIA_OPTIONS } from './video-target.js';
 
 export interface RenderSceneOptions {
   scene: StoryboardScene;
@@ -24,6 +35,9 @@ export interface RenderSceneResult {
   durationInFrames: number;
   durationSec: number;
   sizeBytes: number;
+  componentId: ImplementedComponentId;
+  source: SceneComponentSource;
+  diagnostics: ComponentParamDiagnostic[];
 }
 
 let bundlePromise: Promise<string> | null = null;
@@ -39,6 +53,10 @@ function entryPointPath(): string {
   return existsSync(source) ? source : built;
 }
 
+function publicDirPath(): string {
+  return fileURLToPath(new URL('../public', import.meta.url));
+}
+
 function browserExecutable(): string | undefined {
   return process.env.REMOTION_BROWSER_EXECUTABLE?.trim() || undefined;
 }
@@ -47,6 +65,7 @@ function browserExecutable(): string | undefined {
 export function getSceneBundle(): Promise<string> {
   bundlePromise ??= bundle({
     entryPoint: entryPointPath(),
+    publicDir: publicDirPath(),
     onProgress: () => undefined,
     webpackOverride: (config) => ({
       ...config,
@@ -70,9 +89,14 @@ export async function renderScene({
   outPath,
   onProgress,
 }: RenderSceneOptions): Promise<RenderSceneResult> {
+  const resolved = resolveSceneComponent(scene);
   const inputProps: SceneInputProps = sceneInputPropsSchema.parse({
     scene,
     style,
+    resolved: {
+      componentId: resolved.componentId,
+      params: resolved.params,
+    },
     wordTimings,
   });
   const serveUrl = await getSceneBundle();
@@ -89,14 +113,14 @@ export async function renderScene({
   await renderMedia({
     composition,
     serveUrl,
-    codec: 'h264',
+    codec: SCENE_RENDER_MEDIA_OPTIONS.codec,
     outputLocation: outPath,
     inputProps,
-    pixelFormat: 'yuv420p',
-    colorSpace: 'bt709',
+    pixelFormat: SCENE_RENDER_MEDIA_OPTIONS.pixelFormat,
+    colorSpace: SCENE_RENDER_MEDIA_OPTIONS.colorSpace,
     crf: 18,
     concurrency: 1,
-    muted: true,
+    muted: SCENE_RENDER_MEDIA_OPTIONS.muted,
     overwrite: true,
     browserExecutable: executable,
     logLevel: 'warn',
@@ -110,6 +134,9 @@ export async function renderScene({
     durationInFrames: composition.durationInFrames,
     durationSec: composition.durationInFrames / composition.fps,
     sizeBytes: file.size,
+    componentId: resolved.componentId,
+    source: resolved.source,
+    diagnostics: resolved.diagnostics,
   };
 }
 

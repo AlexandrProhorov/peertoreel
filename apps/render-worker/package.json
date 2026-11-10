@@ -8,6 +8,7 @@
     "dev": "tsx src/cli.ts",
     "prerender-fixture": "pnpm --filter @peertoreel/contracts build",
     "render-fixture": "tsx src/cli.ts render-fixture",
+    "render-storyboard": "tsx src/cli.ts render-storyboard",
     "ensure-browser": "tsx src/ensure-browser.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/cli.js",

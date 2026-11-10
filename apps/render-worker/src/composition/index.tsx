@@ -1,16 +1,13 @@
 import '@fontsource/montserrat/700.css';
 import '@fontsource/montserrat/900.css';
 import {
-  storyboardFixture15Deg,
-  wordTimingsFixture15Deg,
-} from '@peertoreel/contracts';
-import {
   Composition,
   registerRoot,
   type CalculateMetadataFunction,
 } from 'remotion';
 import { SceneComposition } from './SceneComposition.js';
 import {
+  DEFAULT_SCENE_INPUT_PROPS,
   SCENE_COMPOSITION_ID,
   SCENE_FPS,
   SCENE_HEIGHT,
@@ -19,12 +16,6 @@ import {
   sceneInputPropsSchema,
   type SceneInputProps,
 } from '../props.js';
-
-const defaultProps: SceneInputProps = {
-  scene: storyboardFixture15Deg.scenes[0]!,
-  style: storyboardFixture15Deg.style,
-  wordTimings: wordTimingsFixture15Deg,
-};
 
 const calculateMetadata: CalculateMetadataFunction<SceneInputProps> = ({
   props,
@@ -45,7 +36,7 @@ function RemotionRoot() {
       height={SCENE_HEIGHT}
       fps={SCENE_FPS}
       durationInFrames={1}
-      defaultProps={defaultProps}
+      defaultProps={DEFAULT_SCENE_INPUT_PROPS}
       calculateMetadata={calculateMetadata}
     />
   );

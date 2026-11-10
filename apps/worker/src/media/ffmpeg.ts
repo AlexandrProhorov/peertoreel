@@ -1,11 +1,13 @@
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { VIDEO_TARGET } from '@peertoreel/contracts';
 import {
   buildLoudnormFilter,
   parseLoudnormJson,
   type LoudnormMeasurement,
 } from './loudnorm.js';
+import { buildVideoCodecArgs } from './video-target.js';
 
 export interface RenderInput {
   clipPath: string;
@@ -22,9 +24,9 @@ export interface RenderOptions {
 }
 
 export const RENDER_TARGET = {
-  width: 1080,
-  height: 1920,
-  fps: 30,
+  width: VIDEO_TARGET.width,
+  height: VIDEO_TARGET.height,
+  fps: VIDEO_TARGET.fps,
   loudnessI: -14,
   loudnessTp: -1.5,
   loudnessLra: 11,
@@ -56,14 +58,11 @@ export function buildRenderArgs(
     '[v]',
     '-map',
     '[a]',
-    '-c:v',
-    'libx264',
+    ...buildVideoCodecArgs(),
     '-preset',
     'medium',
     '-crf',
     '21',
-    '-pix_fmt',
-    'yuv420p',
     '-c:a',
     'aac',
     '-b:a',
