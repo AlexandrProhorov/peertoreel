@@ -1,8 +1,10 @@
 import {
   STARTER_ASSET_CATALOG,
   STARTER_ASSET_KEYS,
+  type AssetResolution,
   type AssetResolutionTier,
   type AssetUsage,
+  type AssetVariant,
   type Storyboard,
 } from '@peertoreel/contracts';
 import {
@@ -11,6 +13,9 @@ import {
   assetPaletteFor,
   buildStarterAssets,
   createFakeImageProvider,
+  type AssetBlobStore,
+  type AssetLibraryService,
+  type AssetRepository,
 } from '@peertoreel/assets';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -22,6 +27,8 @@ import type { ResolvedAssetMap } from './props.js';
  *
  * Tier 0 resolves the curated starter pack; `--provider=fake` exercises the
  * provider branch without a network call. The renderer only sees URLs.
+ * With persistence the same bridge writes bytes and rows first, then passes
+ * presigned URLs into props (M3.6a.1).
  */
 
 export type ProviderMode = 'none' | 'fake';
@@ -34,10 +41,18 @@ export interface ResolvedAssetSummary {
   readonly objectKey: string;
 }
 
+/** Persistence is injected, never discovered: the CLI owns env and lifecycle. */
+export interface StoryboardAssetPersistence {
+  readonly repository: AssetRepository;
+  readonly blobStore: AssetBlobStore;
+  readonly service: AssetLibraryService;
+}
+
 export interface StoryboardAssetResolution {
   readonly assets: ResolvedAssetMap;
   readonly resolutions: readonly ResolvedAssetSummary[];
   readonly usage: AssetUsage;
+  readonly persisted: boolean;
 }
 
 const KEY_BY_PATH = new Map<string, string>(
@@ -91,10 +106,66 @@ function toDataUri(mimeType: string, content: string): string {
   return `data:${mimeType};base64,${Buffer.from(content, 'utf8').toString('base64')}`;
 }
 
+/** Starter files live under `<public>/assets/starter/` (ADR-0015 D2). */
+const STARTER_OBJECT_PREFIX = 'assets/starter/';
+
+function decodeDataUri(uri: string): Uint8Array {
+  const match = /^data:([^;,]+);base64,(.*)$/s.exec(uri);
+
+  if (match?.[2] === undefined) {
+    throw new Error('Expected a base64 data URI for provider asset bytes');
+  }
+
+  return new Uint8Array(Buffer.from(match[2], 'base64'));
+}
+
+/** Bytes are only available for Tier 0 files and provider data URIs. */
+async function resolutionBytes(
+  variant: AssetVariant,
+  publicDir: string,
+): Promise<Uint8Array | null> {
+  if (variant.url?.startsWith('data:') === true) {
+    return decodeDataUri(variant.url);
+  }
+
+  if (variant.objectKey.startsWith(STARTER_OBJECT_PREFIX)) {
+    return readFile(path.join(publicDir, variant.objectKey));
+  }
+
+  return null;
+}
+
+async function persistResolution(
+  persistence: StoryboardAssetPersistence,
+  resolution: AssetResolution,
+  publicDir: string,
+): Promise<AssetResolution> {
+  const variant = resolution.asset.variants[0];
+
+  if (variant === undefined) {
+    throw new Error(`Asset "${resolution.asset.key}" resolved without a variant`);
+  }
+
+  const bytes = await resolutionBytes(variant, publicDir);
+
+  if (bytes !== null) {
+    return persistence.service.persist(resolution, bytes, variant.mimeType);
+  }
+
+  if (!(await persistence.blobStore.exists(variant.objectKey))) {
+    throw new Error(
+      `Ассет "${resolution.asset.key}" есть в БД (${variant.objectKey}), но объекта нет в хранилище`,
+    );
+  }
+
+  return persistence.service.withUrls(resolution);
+}
+
 export async function resolveStoryboardAssets(
   storyboard: Storyboard,
   publicDir: string,
   providerMode: ProviderMode,
+  persistence: StoryboardAssetPersistence | null = null,
 ): Promise<StoryboardAssetResolution> {
   const styleId = storyboard.style.styleId;
   const starter = await buildStarterAssets(
@@ -109,7 +180,7 @@ export async function resolveStoryboardAssets(
         })
       : null;
   const resolver = new TieredAssetResolver({
-    repository: new InMemoryAssetRepository(starter),
+    repository: persistence?.repository ?? new InMemoryAssetRepository(starter),
     starter,
     provider,
   });
@@ -134,12 +205,16 @@ export async function resolveStoryboardAssets(
     let url = urlByKey.get(assetKey);
 
     if (url === undefined) {
-      const resolution = await resolver.resolve({
+      const resolved = await resolver.resolve({
         assetKey,
         styleId,
         assetPalette: storyboard.style.assetPalette,
         allowProvider: provider !== null,
       });
+      const resolution =
+        persistence === null
+          ? resolved
+          : await persistResolution(persistence, resolved, publicDir);
       const variant = resolution.asset.variants[0];
 
       if (variant === undefined) {
@@ -181,5 +256,5 @@ export async function resolveStoryboardAssets(
     usage.costUsd = null;
   }
 
-  return { assets, resolutions, usage };
+  return { assets, resolutions, usage, persisted: persistence !== null };
 }

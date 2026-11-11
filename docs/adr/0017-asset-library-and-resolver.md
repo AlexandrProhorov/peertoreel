@@ -169,6 +169,41 @@ assets are authored in this repository and map to an internal `authored` license
 `Bria RMBG 2.0`) must never be recorded as commercial; the M3.6b provider adapters must return
 the license they actually operate under.
 
+### D10 — Persistence adapter and blob store (M3.6a.1)
+
+The repository port lives in `packages/assets`; the Postgres adapter lives in
+`packages/db/src/assets-repository.ts` (`DrizzleAssetRepository`) and depends on the port through
+`import type` only, so `packages/assets` never imports Drizzle/pg.
+
+- `save` runs in one transaction: upsert `assets` by `(key, style_id)`, upsert variants by
+  `(asset_id, variant_id)`, delete variants missing from the record. Database errors (unique or
+  check violations) propagate; they are never swallowed.
+- A content-hash hit returns the record that owns those bytes (D3) and uploads nothing.
+- Bytes live behind the `AssetBlobStore` port (`packages/assets/src/blob-store.ts`:
+  `put`/`urlFor`/`get`/`exists`); `S3AssetBlobStore` in `packages/storage` maps it onto
+  `ObjectStorage` (`putObject` → `Content-Type`, `presignGet`, `getObject`, `HEAD`).
+- `AssetLibraryService.persist` normalizes a record's variant keys to
+  `buildAssetObjectKey(contentHash, extension)` before saving, so a stored row can never point at
+  a local `assets/starter/...` path. A row that is not content-addressed is an explicit error,
+  not a silently signed URL to a missing object.
+- Rows are written after bytes on the import path. The provider tier is different: the resolver
+  saves its row before the CLI can upload, so persistence repairs missing bytes (`exists` → `put`),
+  verifies the supplied bytes against `content_hash`, and refuses to sign a variant whose object is
+  absent. A crash between row and object leaves a row the next persist repairs, never a silent
+  `404` inside the renderer.
+- The resolver returns the freshly generated record (with its data URI) instead of the repository
+  echo: a stored row has no `url` column, and losing the data URI would force a second provider
+  call or upload empty bytes.
+- One byte set per record: `persist` accepts bytes for variants that share the record hash.
+  Per-variant bytes (outline variants) need an explicit API and arrive with M3.6b.
+- Renderer integration is opt-in: `render-storyboard --persist` (only with `--resolve-assets`)
+  wires Postgres + S3 from env, replaces data URIs and local files with presigned URLs (1 h TTL)
+  and records `assets.persisted` in the manifest. A missing env variable is a hard error; there is
+  no silent in-memory fallback. Without `--persist`, M3.6a behaviour is unchanged.
+- `assets:import` in `apps/worker` seeds the Tier 0 pack idempotently from
+  `apps/render-worker/public` (`--public <dir>`); running it twice uploads nothing and creates no
+  rows.
+
 ### D9 — M3.6a/M3.6b boundary
 
 **M3.6a ships:** contracts, schema/migration, `packages/assets` (hash, repository + in-memory
@@ -176,8 +211,8 @@ fake, resolver, SVG normalization, OKLab quantization, fake provider, style pres
 `assets` input props, showcase restyle, tests and docs. Real generation, `cartoon-character`,
 raster-cutout decode/trim, third topic and full M3.6 acceptance are **not** claimed.
 
-**M3.6b ships:** Recraft/FLUX.2/BiRefNet adapters behind `ImageProvider`, real R2/Postgres
-integration tests, raster normalization, character rig, third topic and the M3.6 acceptance run.
+**M3.6b ships:** Recraft/FLUX.2/BiRefNet adapters behind `ImageProvider`, a live R2 run, raster
+normalization, character rig, third topic and the M3.6 acceptance run.
 
 ## Consequences
 
@@ -188,8 +223,9 @@ integration tests, raster normalization, character rig, third topic and the M3.6
   fps and codec; `ffprobe` is the regression check.
 - Provider work cannot sneak into M3.6a: `allowProvider` defaults to `false` and the only
   provider in the repo is the fake.
-- Library persistence (DB/R2) is generated and type-checked, but an integration run is only
-  reported if infrastructure is actually available.
+- Library persistence is real: rows in Postgres, bytes behind the `AssetBlobStore` port. The
+  Postgres adapter has a Testcontainers integration test; object storage is verified against the
+  local SeaweedFS. A hosted R2 run is still unreported work.
 
 ## References
 

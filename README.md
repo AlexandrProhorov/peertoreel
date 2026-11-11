@@ -176,6 +176,31 @@ pnpm --filter @peertoreel/render-worker render-storyboard -- \
 objectKey) и `assets.usage`. Renderer получает только `assets: Record<key, { url }>`; компоненты
 не ходят в S3/сеть, а неизвестный ключ без подстановки по-прежнему падает.
 
+### Persistence: Postgres + S3 (M3.6a.1)
+
+Библиотека больше не живёт только в памяти: `DrizzleAssetRepository`
+(`packages/db/src/assets-repository.ts`) пишет `assets`/`asset_variants`, а байты лежат за
+портом `AssetBlobStore` (`packages/assets`) в `S3AssetBlobStore` (`packages/storage`) поверх
+`ObjectStorage`. Объектный ключ — `assets/<hash[0..1]>/<hash>/<hash>.<ext>`, `Content-Type`
+берётся из варианта. Повторный persist тех же байтов не делает второй `put` и не создаёт строк.
+ADR — `docs/adr/0017-asset-library-and-resolver.md` (D10).
+
+Нужны `DATABASE_URL` и `S3_*` (в `.env`); неполный env — ошибка, а не тихий in-memory режим.
+
+```bash
+# засеять Tier 0 (12 стартовых SVG), идемпотентно — можно запускать повторно
+pnpm --filter @peertoreel/worker assets:import
+pnpm --filter @peertoreel/worker assets:import -- --public apps/render-worker/public
+
+# рендер с записью в БД/S3: в props уходят presigned URL (TTL 1 ч)
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6a-1 --resolve-assets --persist
+```
+
+`assets:import` печатает добавленные/уже существующие записи и content hash; второй прогон
+пишет `добавлено 0, уже было 12`. В манифесте `--persist` появляется
+`assets.persisted: true`, а `objectKey` в `assets.resolutions` — content-addressed.
+
 ### M3.5 — эпизод из темы
 
 `apps/worker` содержит spike-скрипт, который проходит путь тема → DeepSeek → `storyboard.v1` →

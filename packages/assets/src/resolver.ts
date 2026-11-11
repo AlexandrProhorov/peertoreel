@@ -403,12 +403,16 @@ export class TieredAssetResolver implements AssetResolver {
       },
     };
     const saved = await this.repository.save(record);
+    // A repository returns stored data only (no ephemeral data URI). Keep the
+    // just-generated record when it owns these bytes so persistence can upload
+    // them without a second provider call; a byte owner under another key wins.
+    const resolvedRecord = saved.contentHash === record.contentHash ? record : saved;
 
     return this.resolved(
-      saved,
+      resolvedRecord,
       'provider',
       false,
-      [...diagnostics, diagnostic('provider_generated', saved.key)],
+      [...diagnostics, diagnostic('provider_generated', resolvedRecord.key)],
       usage,
     );
   }

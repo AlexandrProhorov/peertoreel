@@ -12,9 +12,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts",
-    "storyboard:episode": "tsx src/storyboard/episode-spike.ts"
+    "storyboard:episode": "tsx src/storyboard/episode-spike.ts",
+    "assets:import": "tsx src/assets/import.ts"
   },
   "dependencies": {
+    "@peertoreel/assets": "workspace:*",
     "@peertoreel/contracts": "workspace:*",
     "@peertoreel/db": "workspace:*",
     "@peertoreel/storage": "workspace:*",

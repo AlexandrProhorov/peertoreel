@@ -1,4 +1,6 @@
+export * from './blob-store.js';
 export * from './content-hash.js';
+export * from './library-service.js';
 export * from './normalize-raster.js';
 export * from './normalize-svg.js';
 export * from './oklab.js';

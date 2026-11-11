@@ -134,6 +134,7 @@ production hardening. Причина — не строить очередь и a
 | M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | DONE |
 | M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | DONE |
 | M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
+| M3.6a.1 | Asset Library persistence: `DrizzleAssetRepository` (`assets`/`asset_variants`), порт `AssetBlobStore` + S3-адаптер, `assets:import`, `render-storyboard --persist`, Testcontainers integration | агент | DONE |
 | M3.6b | Real asset generation: Recraft Vector / FLUX.2 + BiRefNet, raster-cutout нормализация, `cartoon-character`, третья тема | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
@@ -277,6 +278,26 @@ Postgres, unique content hash и check `commercial_use` проверены жи�
 проверено:** реальные Recraft/fal.ai/BiRefNet вызовы (нет ключей), raster-cutout decode/trim,
 `cartoon-character`, третья тема — это M3.6b. Подробности: ADR-0017, `SESSION_LOG.md`.
 
+**Итог M3.6a.1.** Добавлены `DrizzleAssetRepository` в `packages/db` (транзакционный upsert
+`assets` по `(key, style_id)` + вариантов по `(asset_id, variant_id)`, удаление устаревших
+вариантов, маппинг `AssetRecord ↔ rows` с `buildAssetId`), порт `AssetBlobStore` +
+`InMemoryAssetBlobStore`, `AssetLibraryService` (байты → строки, hash-hit без второго `put`,
+presigned URL в `variants[0].url`), `S3AssetBlobStore` и `ObjectStorage.objectExists` (HEAD),
+CLI `assets:import` и `render-storyboard --persist`. **Проверено:** `pnpm check` зелёный (680
+тестов); `assets:import` дважды — 12 записей, второй прогон `добавлено 0, уже было 12`; БД
+содержит 12 `assets`/12 `asset_variants` с content-addressed `object_key`; presigned URL отдаёт
+`image/svg+xml`, SHA-256 скачанных байтов совпадает с `content_hash`; `--persist` рендерит
+showcase 5 сцен (80.0 с) с `assets.persisted: true`, `ffprobe` без изменений
+(1080×1920/30, h264, `yuv420p`, BT.709); provider-ассет (`--provider=fake --persist`) в первом
+прогоне `tier: provider`, во втором — `tier: cache`, `cacheHit: true`, `providerRequests: 0`,
+`costUsd: null`, байты в S3 совпадают с `content_hash` (регрессия «пустой объект» закрыта
+тестом с репозиторием, отбрасывающим `url`); Postgres-адаптер проверен Testcontainers-тестом
+(round-trip, идемпотентность, hash-hit, `listByStyle`, удаление варианта, уникальность
+`content_hash`, check `commercial_use`). **Не проверено:** живой R2 (только локальный
+SeaweedFS), реальные платные провайдеры — M3.6b. Hash-хит не обновляет metadata (повторный
+import не перезапишет теги), persist принимает один набор байтов на запись; alias-строки key→hash
+остаются предусловием M3.6b.
+
 **M3.6b — Real asset generation.** Остаток M3.6: адаптеры `ImageProvider` для Recraft V4/V4.1
 Vector и FLUX.2 `[klein]`/`[pro]` + BiRefNet v2, реальная запись в R2/Postgres (repository
 adapter), raster-cutout нормализация (PNG decode, alpha occupancy 8–75%, trim, sticker outline),
@@ -285,6 +306,21 @@ adapter), raster-cutout нормализация (PNG decode, alpha occupancy 8�
 До подключения платного провайдера нужны alias-строки key→hash (сейчас hash-хит возвращает
 запись-владельца и не делает новый ключ адресуемым) и выравнивание палитры 12 стартовых SVG
 под `studio_flat_2d_v1` (Tier 0 сознательно хранится без ре-квантизации).
+
+**Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
+лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →
+V4 Styles Vector **$0.05**, V4.1 Vector **$0.08**, Vectorize **$0.01** (старые $0.055/0.088/0.011 —
+артефакт чтения); FLUX.2 `[klein] 4B` на fal — **$0.005/MP** (было $0.009). Цена пригодного
+ассета (r=1.4, оценка): cutout klein+BiRefNet ≈ **$0.010**, vectorized klein+Vectorize ≈ **$0.021**,
+native Recraft V4 Styles Vector ≈ **$0.070**; ролик (3–5 ассетов) — $0.04–0.45. Рекомендация:
+Tier 1 primary — Recraft `recraftv4_styles_vector` (`style_id` + палитра), economy fallback —
+FLUX.2 `[klein]` + Vectorize (break-even: vectorized дешевле, пока его r < 3.3× r_native);
+Tier 2 primary — FLUX.2 `[klein]` + BiRefNet v2 (MIT), Bria RMBG — только платный API
+(self-host CC BY-NC запрещён). Self-host FLUX.2 `[klein]` (Apache 2.0) окупается с ~290
+роликов/день. Важно: у Recraft V4/V4.1 нет `no_text` — «без текста» обеспечивается промптом +
+пост-проверкой. Подробности, cost model 100/1 000/10 000 роликов, scorecard альтернатив и
+метрики пилота: `docs/workspace/research/2026-11-11-fal-vs-recraft-for-slop-factory.md`.
+Статусы M3.6a/M3.6b не меняются.
 
 **M3.7 — Production hardening.** Отдельные `scene_clip` artifacts, per-scene regeneration,
 очередь `scene-render` с payload `{runId, sceneIdx}`, vision QC ассетов и готовых сцен,

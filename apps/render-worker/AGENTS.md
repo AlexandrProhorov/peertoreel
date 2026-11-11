@@ -34,7 +34,8 @@ details live in `ROADMAP.md`; architectural decisions in ADR-0012 and ADR-0014.
   the Asset Resolver (`--resolve-assets`, M3.6a, ADR-0017); `SubjectLayer` prefers that URL and
   falls back to the local key. The renderer must not call recraft/fal.ai/S3 or import
   `@peertoreel/assets` outside the CLI/adapter boundary, and scene code must not fetch from the
-  network.
+  network. `--persist` may use `@peertoreel/db`/`@peertoreel/storage`, but only in
+  `asset-persistence.ts`/`asset-resolution.ts`; components still receive URLs, never a client.
 - **Style is data.** Colors come from `style.palette`; imported subjects are normalized to
   `style.assetPalette` (`studio_flat_2d_v1`, ADR-0017), typography from `style.typography`. Do not
   hardcode topic colors. Real photos and AI-generated diagrams with baked-in text are not allowed

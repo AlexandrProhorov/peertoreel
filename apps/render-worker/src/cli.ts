@@ -15,8 +15,10 @@ import {
   type ResolvedAssetSummary,
   type StoryboardAssetResolution,
 } from './asset-resolution.js';
+import { createAssetPersistence } from './asset-persistence.js';
 import type { ResolvedAssetMap } from './props.js';
 import { renderScene, sceneOutputPath } from './render.js';
+import { config as loadEnv } from 'dotenv';
 
 type RenderKind = 'fixture' | 'custom';
 
@@ -47,6 +49,7 @@ interface RenderManifest {
   assets?: {
     resolutions: readonly ResolvedAssetSummary[];
     usage: StoryboardAssetResolution['usage'];
+    persisted: boolean;
   };
 }
 
@@ -66,13 +69,15 @@ function usage(): void {
   console.log(`Usage:
   pnpm --filter @peertoreel/render-worker render-fixture [--scene <index>] [--out <dir>]
   pnpm --filter @peertoreel/render-worker render-storyboard -- --input <storyboard.json> [--scene <index>] [--out <dir>]
-      [--resolve-assets] [--provider=fake]
+      [--resolve-assets] [--provider=fake] [--persist]
 
 Renders silent 1080x1920/30 h264 scene clips from a peertoreel.storyboard.v1
 document. render-fixture is the shortcut for the built-in -15° fixture.
 --resolve-assets resolves subject keys through the Asset Resolver and passes
 data-URI URLs into Remotion input props; --provider=fake enables the offline
-fake ImageProvider for keys missing from Tier 0.
+fake ImageProvider for keys missing from Tier 0. --persist (with
+--resolve-assets) writes rows to Postgres and bytes to S3, then passes
+presigned URLs into props; it needs DATABASE_URL and S3_* in .env.
 `);
 }
 
@@ -291,6 +296,7 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
           assets: {
             resolutions: input.assetResolution.resolutions,
             usage: input.assetResolution.usage,
+            persisted: input.assetResolution.persisted,
           },
         }
       : {}),
@@ -336,32 +342,54 @@ async function main(): Promise<void> {
 
     const loaded = await readStoryboard(input);
     const resolveAssets = process.argv.includes('--resolve-assets');
-    const assetResolution = resolveAssets
-      ? await resolveStoryboardAssets(
-          loaded.storyboard,
-          publicDirPath(),
-          providerMode,
-        )
-      : undefined;
+    const persist = process.argv.includes('--persist');
 
-    if (assetResolution !== undefined) {
-      console.log(
-        `Resolved ${assetResolution.resolutions.length} asset(s): ${assetResolution.resolutions
-          .map((entry) => `${entry.assetKey}(${entry.tier})`)
-          .join(', ')}`,
-      );
+    if (persist && !resolveAssets) {
+      throw new Error('--persist requires --resolve-assets');
     }
 
-    await renderStoryboard({
-      kind: 'custom',
-      input: loaded.inputPath,
-      storyboard: loaded.storyboard,
-      assets: assetResolution?.assets,
-      assetResolution,
-      outDir,
-      sceneFilter,
-      manifestName: 'manifest.json',
-    });
+    if (persist) {
+      loadEnv({
+        path: fileURLToPath(new URL('../../../.env', import.meta.url)),
+        quiet: true,
+      });
+    }
+
+    const persistence = persist ? createAssetPersistence(process.env) : null;
+
+    try {
+      const assetResolution = resolveAssets
+        ? await resolveStoryboardAssets(
+            loaded.storyboard,
+            publicDirPath(),
+            providerMode,
+            persistence,
+          )
+        : undefined;
+
+      if (assetResolution !== undefined) {
+        console.log(
+          `Resolved ${assetResolution.resolutions.length} asset(s)${
+            assetResolution.persisted ? ' → Postgres + S3' : ''
+          }: ${assetResolution.resolutions
+            .map((entry) => `${entry.assetKey}(${entry.tier})`)
+            .join(', ')}`,
+        );
+      }
+
+      await renderStoryboard({
+        kind: 'custom',
+        input: loaded.inputPath,
+        storyboard: loaded.storyboard,
+        assets: assetResolution?.assets,
+        assetResolution,
+        outDir,
+        sceneFilter,
+        manifestName: 'manifest.json',
+      });
+    } finally {
+      await persistence?.close();
+    }
 
     return;
   }

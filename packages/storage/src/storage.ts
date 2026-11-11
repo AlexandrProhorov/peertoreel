@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -17,6 +18,19 @@ export interface StorageConfig {
 }
 
 const SAFE_NAME = /[^a-zA-Z0-9._-]/g;
+
+/** AWS SDK shapes a missing key as `NotFound` (HEAD) or `NoSuchKey` (GET). */
+export function isNotFoundError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const name = (error as { name?: unknown }).name;
+  const status = (error as { $metadata?: { httpStatusCode?: unknown } }).$metadata
+    ?.httpStatusCode;
+
+  return name === 'NotFound' || name === 'NoSuchKey' || status === 404;
+}
 
 /** `runs/<runId>/<stage>/<name>` — one prefix per run, easy to wipe or audit. */
 export function buildArtifactKey(
@@ -92,6 +106,27 @@ export class ObjectStorage {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }),
     );
+  }
+
+  /**
+   * Cheap existence probe for content-addressed keys (`HEAD`, no body).
+   * Only a missing object is a `false`; auth/network errors propagate so a
+   * transient failure cannot be mistaken for "not uploaded yet".
+   */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.config.bucket, Key: key }),
+      );
+
+      return true;
+    } catch (error: unknown) {
+      if (isNotFoundError(error)) {
+        return false;
+      }
+
+      throw error;
+    }
   }
 
   /**
