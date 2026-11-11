@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  STAGE_MODES,
   STAGE_REQUIRED_STATE,
   type EnqueueStageResponse,
   type StageJobSnapshot,
@@ -20,6 +21,12 @@ export class StagesService {
 
     if (!run) {
       throw new NotFoundException(`Run ${runId} не найден`);
+    }
+
+    if (STAGE_MODES[stage] !== run.mode) {
+      throw new ConflictException(
+        `Стадия ${stage} доступна только в режиме ${STAGE_MODES[stage]}, а run в режиме ${run.mode}`,
+      );
     }
 
     const required = STAGE_REQUIRED_STATE[stage];

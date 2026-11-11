@@ -8,7 +8,7 @@ import {
   runSchema,
   stageJobSnapshotSchema,
   type Artifact,
-  type CreateRunRequest,
+  type CreateRunRequestInput,
   type EnqueueStageResponse,
   type QcReport,
   type Run,
@@ -41,7 +41,7 @@ export class RunsApiService extends BaseApiService {
   }
 
   create(topic: string): Observable<Run> {
-    const body: CreateRunRequest = { topic };
+    const body: CreateRunRequestInput = { topic };
 
     return this.post('/runs', body, runSchema);
   }

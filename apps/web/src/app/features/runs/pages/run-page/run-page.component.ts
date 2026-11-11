@@ -64,6 +64,9 @@ const STAGE_OWNED_TRANSITIONS = new Set<string>([
   'VISUALS_READY:RENDERING',
   'RENDERING:REVIEW',
   'RENDERING:VISUALS_READY',
+  // Episode mode: the plan/render jobs own these edges.
+  'DRAFT:SCRIPT_READY',
+  'SCRIPT_READY:RENDERING',
   // Defensive: older contracts allowed this dead-end edge from REVIEW.
   'REVIEW:RENDERING',
 ]);
@@ -226,6 +229,10 @@ export class RunPageComponent implements OnInit {
         return 'Сборка черновика';
       case 'qc':
         return 'Проверка качества';
+      case 'episode_plan':
+        return 'Генерация эпизода';
+      case 'episode_render':
+        return 'Рендер эпизода';
     }
   }
 
@@ -241,6 +248,10 @@ export class RunPageComponent implements OnInit {
         return 'FFmpeg соберёт вертикальный черновик из визуалов, озвучки и караоке-субтитров.';
       case 'qc':
         return 'Проверит длительность, громкость, синхронизацию, стоп-слова и темп речи перед одобрением.';
+      case 'episode_plan':
+        return 'DeepSeek соберёт раскадровку, Google TTS озвучит сцены, Pixabay подберёт картинки для subject-слотов.';
+      case 'episode_render':
+        return 'Remotion отрендерит сцены, FFmpeg соберёт вертикальный черновик с озвучкой и субтитрами.';
     }
   }
 

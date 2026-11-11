@@ -37,6 +37,7 @@ function toRun(record: RunRecord): Run {
   return {
     id: record.id,
     topic: record.topic,
+    mode: record.mode,
     state: record.state,
     currentStage: record.currentStage,
     failedStage: record.failedStage,
@@ -70,7 +71,8 @@ export class RunsService {
     const record = await this.repository.createWithEvent({
       createdBy: userId,
       topic: request.topic.trim(),
-      stage: stageForState('DRAFT') ?? 'topic_discovery',
+      mode: request.mode,
+      stage: stageForState('DRAFT', request.mode) ?? 'topic_discovery',
     });
 
     return toRun(record);
@@ -158,7 +160,7 @@ export class RunsService {
       );
     }
 
-    if (!canTransition(run.state, to, run.resumeState)) {
+    if (!canTransition(run.state, to, run.resumeState, run.mode)) {
       throw new ConflictException(
         `Переход ${run.state} → ${to} невозможен для этого run`,
       );
@@ -167,8 +169,8 @@ export class RunsService {
     const now = new Date();
     const isFailure = to === 'FAILED';
     const stage = isFailure
-      ? (stageForState(run.state) ?? run.currentStage)
-      : stageForState(to);
+      ? (stageForState(run.state, run.mode) ?? run.currentStage)
+      : stageForState(to, run.mode);
 
     const patch: RunPatch = {
       state: to,

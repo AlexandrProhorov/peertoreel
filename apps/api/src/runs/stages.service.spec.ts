@@ -11,6 +11,7 @@ function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
     id: runId,
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'Почему небо синее',
+    mode: 'pipeline',
     state: 'VOICE_READY',
     currentStage: 'voiceover',
     failedStage: null,
@@ -55,6 +56,46 @@ describe('StagesService', () => {
     const { service, queue } = setup(makeRun({ state: 'SCRIPT_READY' }));
 
     await expect(service.start(runId, 'visuals')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('enqueues the episode plan from DRAFT', async () => {
+    const { service, queue } = setup(
+      makeRun({
+        mode: 'episode',
+        state: 'DRAFT',
+        currentStage: 'topic_discovery',
+      }),
+    );
+
+    await service.start(runId, 'episode_plan');
+
+    expect(queue.enqueue).toHaveBeenCalledWith('episode_plan', runId);
+  });
+
+  it('rejects a stage that belongs to the other run mode', async () => {
+    const pipelineRun = setup(makeRun({ state: 'DRAFT' }));
+    const episodeRun = setup(makeRun({ mode: 'episode', state: 'RESEARCHING' }));
+
+    await expect(
+      pipelineRun.service.start(runId, 'episode_plan'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      episodeRun.service.start(runId, 'script'),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(pipelineRun.queue.enqueue).not.toHaveBeenCalled();
+    expect(episodeRun.queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('rejects the episode render before the plan gate', async () => {
+    const { service, queue } = setup(
+      makeRun({ mode: 'episode', state: 'DRAFT' }),
+    );
+
+    await expect(service.start(runId, 'episode_render')).rejects.toBeInstanceOf(
       ConflictException,
     );
     expect(queue.enqueue).not.toHaveBeenCalled();

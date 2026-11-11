@@ -9,6 +9,7 @@ import { RunsListStoreService } from './runs-list-store.service';
 const run: Run = {
   id: '11111111-1111-4111-8111-111111111111',
   topic: 'Почему небо синее',
+  mode: 'pipeline',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   failedStage: null,

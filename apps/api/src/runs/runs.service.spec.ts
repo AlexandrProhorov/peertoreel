@@ -16,6 +16,7 @@ function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
     id: runId,
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'Почему небо синее',
+    mode: 'pipeline',
     state: 'DRAFT',
     currentStage: 'topic_discovery',
     failedStage: null,
@@ -60,15 +61,75 @@ describe('RunsService', () => {
 
     const run = await service.create('22222222-2222-4222-8222-222222222222', {
       topic: '  Почему небо синее  ',
+      mode: 'pipeline',
     });
 
     expect(repository.createWithEvent).toHaveBeenCalledWith({
       createdBy: '22222222-2222-4222-8222-222222222222',
       topic: 'Почему небо синее',
+      mode: 'pipeline',
       stage: 'topic_discovery',
     });
     expect(run.state).toBe('DRAFT');
+    expect(run.mode).toBe('pipeline');
     expect(run.createdAt).toBe('2026-11-03T12:00:00.000Z');
+  });
+
+  it('creates an episode run in DRAFT', async () => {
+    const { service, repository } = setup(
+      makeRun({ mode: 'episode', currentStage: 'topic_discovery' }),
+    );
+
+    const run = await service.create('22222222-2222-4222-8222-222222222222', {
+      topic: 'Почему у собак мокрый нос',
+      mode: 'episode',
+    });
+
+    expect(repository.createWithEvent).toHaveBeenCalledWith({
+      createdBy: '22222222-2222-4222-8222-222222222222',
+      topic: 'Почему у собак мокрый нос',
+      mode: 'episode',
+      stage: 'topic_discovery',
+    });
+    expect(run.mode).toBe('episode');
+  });
+
+  it('lets an episode run skip research to the script gate', async () => {
+    const episode = makeRun({ mode: 'episode', state: 'DRAFT' });
+    const planned = makeRun({
+      mode: 'episode',
+      state: 'SCRIPT_READY',
+      currentStage: 'episode_plan',
+    });
+    const { service, repository } = setup(episode, planned);
+
+    const run = await service.transition(runId, { to: 'SCRIPT_READY' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        state: 'SCRIPT_READY',
+        currentStage: 'episode_plan',
+      }),
+      expect.objectContaining({
+        fromState: 'DRAFT',
+        toState: 'SCRIPT_READY',
+        stage: 'episode_plan',
+      }),
+      {},
+    );
+    expect(run.state).toBe('SCRIPT_READY');
+  });
+
+  it('keeps episode runs out of pipeline-only edges', async () => {
+    const { service, repository } = setup(
+      makeRun({ mode: 'episode', state: 'SCRIPT_READY' }),
+    );
+
+    await expect(
+      service.transition(runId, { to: 'VOICE_READY' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.applyTransition).not.toHaveBeenCalled();
   });
 
   it('rejects a transition the state machine forbids', async () => {
@@ -116,6 +177,31 @@ describe('RunsService', () => {
         stage: 'research',
         reason: 'Pixabay 429',
       }),
+      {},
+    );
+  });
+
+  it('tags an episode failure with the episode stage', async () => {
+    const planned = makeRun({
+      mode: 'episode',
+      state: 'SCRIPT_READY',
+      currentStage: 'episode_plan',
+    });
+    const { service, repository } = setup(planned);
+
+    await service.transition(runId, {
+      to: 'FAILED',
+      reason: 'Google TTS 429',
+    });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        state: 'FAILED',
+        failedStage: 'episode_plan',
+        resumeState: 'SCRIPT_READY',
+      }),
+      expect.objectContaining({ stage: 'episode_plan' }),
       {},
     );
   });
