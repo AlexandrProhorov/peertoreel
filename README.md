@@ -221,6 +221,22 @@ pnpm --filter @peertoreel/worker storyboard:episode -- \
 TTS provider, длительности, ffprobe). `--tts google` — бесплатный fallback только для спайка;
 production-стадия voiceover остаётся на ElevenLabs, провайдер фиксируется в манифесте.
 
+### Episode-режим в очередях (M3.5.1b)
+
+У run'а есть `mode: 'pipeline' | 'episode'`. Episode-run идёт двумя стадиями:
+
+- `episode_plan` (`DRAFT → SCRIPT_READY`): DeepSeek-драфт, Google TTS, `storyboard_json`,
+  Pixabay-картинки только в subject-слоты, `voiceover_mp3`, `word_timings`, `subtitles_ass`,
+  `episode_manifest`. Дальше run стоит на гейте сценария.
+- `episode_render` (`SCRIPT_READY → REVIEW`): Remotion через subprocess
+  `render-storyboard --assets`, concat визуалов, FFmpeg loudnorm + ASS, `draft_mp4`.
+
+Нужны `DEEPSEEK_API_KEY` и `PIXABAY_API_KEY`; ElevenLabs в episode-режиме не вызывается.
+Повторный запуск переиспользует готовые артефакты и не повторяет LLM/TTS/Pixabay-вызовы.
+`render-storyboard --assets <map.json>` — ручной путь проверить инъекцию картинок без БД:
+инжектированные URL побеждают Tier 0, остальное резолвится как раньше (в манифесте
+`assets.injected`). UI-превью раскадровки и чекбокс режима — следующий слайс.
+
 ## Локальный S3
 
 Для локальной разработки используется SeaweedFS с S3-совместимым API на `http://localhost:8333`. Production использует Cloudflare R2;

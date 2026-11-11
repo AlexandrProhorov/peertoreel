@@ -39,12 +39,16 @@ export interface GoogleTtsResult {
 }
 
 export class GoogleTtsError extends Error {
+  /** Lets the worker convert a 4xx into an UnrecoverableError. */
+  readonly retryable: boolean;
+
   constructor(
     message: string,
     readonly status: number,
   ) {
     super(message);
     this.name = 'GoogleTtsError';
+    this.retryable = status === 0 || status === 429 || status >= 500;
   }
 }
 

@@ -16,7 +16,7 @@ import {
   type StoryboardAssetResolution,
 } from './asset-resolution.js';
 import { createAssetPersistence } from './asset-persistence.js';
-import type { ResolvedAssetMap } from './props.js';
+import { resolvedAssetMapSchema, type ResolvedAssetMap } from './props.js';
 import { renderScene, sceneOutputPath } from './render.js';
 import { config as loadEnv } from 'dotenv';
 
@@ -50,6 +50,7 @@ interface RenderManifest {
     resolutions: readonly ResolvedAssetSummary[];
     usage: StoryboardAssetResolution['usage'];
     persisted: boolean;
+    injected: number;
   };
 }
 
@@ -69,15 +70,17 @@ function usage(): void {
   console.log(`Usage:
   pnpm --filter @peertoreel/render-worker render-fixture [--scene <index>] [--out <dir>]
   pnpm --filter @peertoreel/render-worker render-storyboard -- --input <storyboard.json> [--scene <index>] [--out <dir>]
-      [--resolve-assets] [--provider=fake] [--persist]
+      [--resolve-assets] [--assets <map.json>] [--provider=fake] [--persist]
 
 Renders silent 1080x1920/30 h264 scene clips from a peertoreel.storyboard.v1
 document. render-fixture is the shortcut for the built-in -15° fixture.
 --resolve-assets resolves subject keys through the Asset Resolver and passes
 data-URI URLs into Remotion input props; --provider=fake enables the offline
-fake ImageProvider for keys missing from Tier 0. --persist (with
---resolve-assets) writes rows to Postgres and bytes to S3, then passes
-presigned URLs into props; it needs DATABASE_URL and S3_* in .env.
+fake ImageProvider for keys missing from Tier 0. --assets <map.json> injects
+already-resolved URLs (episode mode: Pixabay images); injected keys win and
+the rest still resolves through Tier 0. --persist (with --resolve-assets)
+writes rows to Postgres and bytes to S3, then passes presigned URLs into
+props; it needs DATABASE_URL and S3_* in .env.
 `);
 }
 
@@ -182,6 +185,34 @@ async function readStoryboard(
   }
 
   return { storyboard: parsed.data, inputPath };
+}
+
+/**
+ * Injected assets come from the worker (episode mode). They are validated at
+ * this boundary so a malformed map fails before Remotion starts.
+ */
+async function readInjectedAssets(mapPath: string): Promise<ResolvedAssetMap> {
+  const resolvedPath = path.resolve(process.cwd(), mapPath);
+  const text = await readFile(resolvedPath, 'utf8');
+  let raw: unknown;
+
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    throw new Error(`Assets map ${mapPath} is not valid JSON: ${reason}`);
+  }
+
+  const parsed = resolvedAssetMapSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid assets map ${mapPath}:\n${formatIssues(parsed.error)}`,
+    );
+  }
+
+  return parsed.data;
 }
 
 function logDiagnostics(
@@ -297,6 +328,7 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
             resolutions: input.assetResolution.resolutions,
             usage: input.assetResolution.usage,
             persisted: input.assetResolution.persisted,
+            injected: input.assetResolution.injected,
           },
         }
       : {}),
@@ -341,7 +373,11 @@ async function main(): Promise<void> {
     }
 
     const loaded = await readStoryboard(input);
-    const resolveAssets = process.argv.includes('--resolve-assets');
+    const assetsPath = optionValue('--assets');
+    const injected =
+      assetsPath === undefined ? null : await readInjectedAssets(assetsPath);
+    const resolveAssets =
+      process.argv.includes('--resolve-assets') || injected !== null;
     const persist = process.argv.includes('--persist');
 
     if (persist && !resolveAssets) {
@@ -364,6 +400,7 @@ async function main(): Promise<void> {
             publicDirPath(),
             providerMode,
             persistence,
+            injected,
           )
         : undefined;
 
@@ -371,6 +408,10 @@ async function main(): Promise<void> {
         console.log(
           `Resolved ${assetResolution.resolutions.length} asset(s)${
             assetResolution.persisted ? ' → Postgres + S3' : ''
+          }${
+            assetResolution.injected > 0
+              ? `, injected ${assetResolution.injected}`
+              : ''
           }: ${assetResolution.resolutions
             .map((entry) => `${entry.assetKey}(${entry.tier})`)
             .join(', ')}`,
