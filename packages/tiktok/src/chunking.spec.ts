@@ -30,12 +30,37 @@ describe('planChunks', () => {
     });
   });
 
-  it('keeps a 14 MB file in one chunk', () => {
-    const plan = planChunks(14 * MB);
+  it('uploads a 10–20 MB file as one whole chunk', () => {
+    const size = 14 * MB;
+
+    expect(planChunks(size)).toEqual({
+      chunkSize: size,
+      totalChunkCount: 1,
+      chunks: [{ offset: 0, length: size }],
+    });
+  });
+
+  it('declares the whole video size for a single chunk (chunk-size regression)', () => {
+    // 13 320 534 bytes used to be planned as chunk_size 10 000 000 / count 1;
+    // TikTok answered `The chunk size is invalid` on video/init.
+    const size = 13_320_534;
+    const plan = planChunks(size);
+
+    expect(plan.totalChunkCount).toBe(1);
+    expect(plan.chunkSize).toBe(size);
+    expect(plan.chunks).toEqual([{ offset: 0, length: size }]);
+  });
+
+  it('starts multi-chunk uploads above 20 MB', () => {
+    const plan = planChunks(20 * MB + 1);
 
     expect(plan.chunkSize).toBe(TIKTOK_DEFAULT_CHUNK_BYTES);
-    expect(plan.totalChunkCount).toBe(1);
-    expect(plan.chunks[0]).toEqual({ offset: 0, length: 14 * MB });
+    expect(plan.totalChunkCount).toBe(2);
+    expect(plan.chunks[0]).toEqual({
+      offset: 0,
+      length: TIKTOK_DEFAULT_CHUNK_BYTES,
+    });
+    expect(plan.chunks.at(-1)?.offset).toBe(TIKTOK_DEFAULT_CHUNK_BYTES);
   });
 
   it('covers every byte exactly once', () => {

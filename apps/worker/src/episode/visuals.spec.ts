@@ -25,22 +25,25 @@ const subjects: EpisodeSubject[] = [
     sceneId: 'hook',
     sceneIdx: 0,
     reference: 'assets/starter/dog-snout.svg',
-    query: 'animal dog nose',
-    lang: undefined,
+    queries: [
+      { query: 'animal dog nose', lang: undefined },
+      { query: 'Собака крупным планом', lang: 'ru' },
+    ],
   },
   {
     sceneId: 'fact',
     sceneIdx: 1,
     reference: 'assets/starter/dog-snout.svg',
-    query: 'animal dog nose',
-    lang: undefined,
+    queries: [
+      { query: 'animal dog nose', lang: undefined },
+      { query: 'Собака крупным планом', lang: 'ru' },
+    ],
   },
   {
     sceneId: 'cta',
     sceneIdx: 2,
     reference: 'assets/starter/unknown.svg',
-    query: 'unknown thing',
-    lang: 'ru',
+    queries: [{ query: 'unknown thing', lang: 'ru' }],
   },
 ];
 
@@ -158,6 +161,55 @@ describe('fetchEpisodeVisuals', () => {
 
     expect(result.artifact.images).toHaveLength(0);
     expect(result.artifact.skipped).toBe(3);
+    // Failed download → the description query is still attempted.
+    expect(result.artifact.providerRequests).toBe(4);
+  });
+
+  it('does not make the description query when the tags find a picture', async () => {
+    const stock = provider();
+    const subject = subjects[0] as EpisodeSubject;
+
+    await fetchEpisodeVisuals([subject], stock, fakeLogger());
+
+    expect(stock.search).toHaveBeenCalledTimes(1);
+    expect(stock.search).toHaveBeenCalledWith(
+      expect.objectContaining({ query: 'animal dog nose' }),
+    );
+  });
+
+  it('falls through to the description query when the tags return nothing', async () => {
+    const description = 'Собака крупным планом';
+    const stock = provider({
+      search: async (request) =>
+        request.query === description
+          ? { assets: [asset], cached: false }
+          : { assets: [], cached: false },
+    });
+    const subject = subjects[0] as EpisodeSubject;
+
+    const result = await fetchEpisodeVisuals([subject], stock, fakeLogger());
+
+    expect(stock.search).toHaveBeenCalledTimes(2);
+    expect(stock.search).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ query: description, lang: 'ru' }),
+    );
+    expect(result.artifact.images).toHaveLength(1);
+    expect(result.artifact.images[0]?.query).toBe(description);
+    // Two searches + one download, all real provider calls.
     expect(result.artifact.providerRequests).toBe(3);
+  });
+
+  it('keeps Tier 0 when both queries are empty and never makes a third call', async () => {
+    const stock = provider({
+      search: async () => ({ assets: [], cached: false }),
+    });
+    const subject = subjects[0] as EpisodeSubject;
+
+    const result = await fetchEpisodeVisuals([subject], stock, fakeLogger());
+
+    expect(stock.search).toHaveBeenCalledTimes(2);
+    expect(result.artifact.images).toHaveLength(0);
+    expect(result.artifact.skipped).toBe(1);
   });
 });

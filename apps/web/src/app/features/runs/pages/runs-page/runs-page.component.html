@@ -26,6 +26,16 @@
           }
         </mat-form-field>
 
+        <div class="runs__mode">
+          <mat-checkbox formControlName="episode">
+            Дешёвый эпизод (Google TTS + Pixabay)
+          </mat-checkbox>
+          <p class="runs__mode-hint">
+            DeepSeek + Google TTS + Pixabay, без ElevenLabs и платных провайдеров.
+            Две стадии: план эпизода → гейт сценария → рендер.
+          </p>
+        </div>
+
         <button
           mat-flat-button
           type="submit"
@@ -55,6 +65,9 @@
           <a class="runs__item" [routerLink]="['/runs', run.id]">
             <span class="runs__topic">{{ run.topic }}</span>
             <span class="runs__meta">
+              @if (run.mode === 'episode') {
+                <span class="runs__badge">Эпизод</span>
+              }
               <span
                 class="runs__badge"
                 [class.runs__badge--error]="stateTone(run.state) === 'error'"

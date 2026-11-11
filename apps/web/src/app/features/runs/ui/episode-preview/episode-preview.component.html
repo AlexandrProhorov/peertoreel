@@ -1,0 +1,73 @@
+<mat-card class="episode" appearance="outlined">
+  <mat-card-content>
+    <div class="episode__head">
+      <div>
+        <h2>
+          Раскадровка@if (manifest(); as summary) {
+            «{{ summary.title }}»
+          }
+        </h2>
+        @if (store.storyboard(); as preview) {
+          <p class="episode__hint">
+            {{ preview.storyboard.scenes.length }} сцен ·
+            {{ preview.visuals.images.length }} картинок Pixabay ·
+            Tier 0: {{ preview.visuals.skipped }}
+          </p>
+        }
+      </div>
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="store.loading()"
+        (click)="store.reload()"
+      >
+        Обновить превью
+      </button>
+    </div>
+
+    @if (store.loading() && !store.storyboard()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Загрузка раскадровки" />
+    }
+
+    @if (store.error(); as error) {
+      <p class="episode__error" role="alert">
+        {{ error }} Превью не блокирует запуск рендера.
+      </p>
+    }
+
+    @if (store.storyboard()) {
+      <ol class="episode__scenes">
+        @for (scene of scenes(); track scene.id; let index = $index) {
+          <li class="episode__scene">
+            <div class="episode__thumb">
+              @if (imagesForScene(scene.id)[0]; as image) {
+                <img [src]="image.dataUri" [alt]="scene.description" loading="lazy" />
+              } @else {
+                <span class="episode__badge">Tier 0</span>
+              }
+            </div>
+
+            <div class="episode__body">
+              <p class="episode__meta">
+                <span>{{ index + 1 }}</span>
+                <span>{{ partLabel(scene.part) }}</span>
+                <span>{{ scene.durationSec | number: '1.1-1' }} с</span>
+              </p>
+              <p class="episode__text">{{ scene.voiceover.text }}</p>
+
+              @if (recipeLabel(scene); as recipe) {
+                <p class="episode__recipe">{{ recipe.recipe }} · {{ recipe.variant }}</p>
+              }
+
+              @if (imagesForScene(scene.id)[0]; as image) {
+                <p class="episode__hint">
+                  Pixabay · {{ image.author }} · запрос «{{ image.query }}»
+                </p>
+              }
+            </div>
+          </li>
+        }
+      </ol>
+    }
+  </mat-card-content>
+</mat-card>

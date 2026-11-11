@@ -39,6 +39,21 @@ export function planChunks(size: number): ChunkPlan {
 
   const chunkSize = Math.min(TIKTOK_DEFAULT_CHUNK_BYTES, size);
   const totalChunkCount = Math.max(1, Math.floor(size / chunkSize));
+
+  /**
+   * TikTok rejects `chunk_size != video_size` when `total_chunk_count` is 1,
+   * even though the media guide allows the final chunk to absorb the remainder.
+   * Files in the 10–20 MB range used to hit exactly that: one chunk of 10 MB
+   * plus the remainder, declared as one chunk. A single chunk must be whole.
+   */
+  if (totalChunkCount === 1) {
+    return {
+      chunkSize: size,
+      totalChunkCount: 1,
+      chunks: [{ offset: 0, length: size }],
+    };
+  }
+
   const chunks: ChunkRange[] = [];
 
   for (let index = 0; index < totalChunkCount - 1; index += 1) {

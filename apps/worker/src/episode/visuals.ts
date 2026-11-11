@@ -31,97 +31,108 @@ async function imageForSubject(
   requests: number;
   cacheHits: number;
 }> {
-  let result: Awaited<ReturnType<StockProvider['search']>>;
+  let requests = 0;
+  let cacheHits = 0;
 
-  try {
-    result = await provider.search({
-      query: subject.query,
-      kind: 'image',
-      page: 1,
-      perPage: 3,
-      ...(subject.lang === undefined ? {} : { lang: subject.lang }),
-    });
-  } catch (error: unknown) {
-    if (error instanceof StockError && !error.retryable) {
-      logger.warn(
-        { reference: subject.reference, reason: error.message },
-        'episode image search failed; keeping the starter asset',
-      );
+  for (const attempt of subject.queries) {
+    let result: Awaited<ReturnType<StockProvider['search']>>;
 
-      return { visual: null, requests: 0, cacheHits: 0 };
+    try {
+      result = await provider.search({
+        query: attempt.query,
+        kind: 'image',
+        page: 1,
+        perPage: 3,
+        ...(attempt.lang === undefined ? {} : { lang: attempt.lang }),
+      });
+    } catch (error: unknown) {
+      if (error instanceof StockError && !error.retryable) {
+        logger.warn(
+          { reference: subject.reference, reason: error.message },
+          'episode image search failed; keeping the starter asset',
+        );
+
+        return { visual: null, requests, cacheHits };
+      }
+
+      throw error;
     }
 
-    throw error;
-  }
+    requests += result.cached ? 0 : 1;
+    cacheHits += result.cached ? 1 : 0;
 
-  const asset = result.assets[0];
-  const requests = result.cached ? 0 : 1;
-  const cacheHits = result.cached ? 1 : 0;
+    const asset = result.assets[0];
 
-  if (asset === undefined) {
-    return { visual: null, requests, cacheHits };
-  }
-
-  let downloaded: Awaited<ReturnType<StockProvider['download']>>;
-
-  try {
-    downloaded = await provider.download(asset, {
-      maxBytes: EPISODE_IMAGE_MAX_BYTES,
-      timeoutMs: STOCK_LIMITS.downloadTimeoutMs,
-    });
-  } catch (error: unknown) {
-    if (error instanceof StockError && !error.retryable) {
-      logger.warn(
-        { reference: subject.reference, reason: error.message },
-        'episode image download failed; keeping the starter asset',
-      );
-
-      return { visual: null, requests: requests + 1, cacheHits };
+    if (asset === undefined) {
+      continue;
     }
 
-    throw error;
+    let downloaded: Awaited<ReturnType<StockProvider['download']>>;
+
+    // A download is a provider call even when the search itself came from cache.
+    requests += 1;
+
+    try {
+      downloaded = await provider.download(asset, {
+        maxBytes: EPISODE_IMAGE_MAX_BYTES,
+        timeoutMs: STOCK_LIMITS.downloadTimeoutMs,
+      });
+    } catch (error: unknown) {
+      if (error instanceof StockError && !error.retryable) {
+        logger.warn(
+          { reference: subject.reference, reason: error.message },
+          'episode image download failed; trying the next query',
+        );
+
+        continue;
+      }
+
+      throw error;
+    }
+
+    const contentType =
+      downloaded.contentType.split(';')[0]?.trim().toLowerCase() ??
+      downloaded.contentType;
+
+    if (!contentType.startsWith('image/')) {
+      continue;
+    }
+
+    const dataUri = dataUriFor(contentType, downloaded.body);
+
+    // Remotion input props cap a URL at 2 MB; keep the starter instead of failing.
+    if (dataUri.length > 2_000_000) {
+      logger.warn(
+        { reference: subject.reference, bytes: downloaded.body.byteLength },
+        'episode image is too large for input props; trying the next query',
+      );
+
+      continue;
+    }
+
+    return {
+      requests,
+      cacheHits,
+      visual: {
+        reference: subject.reference,
+        provider: 'pixabay',
+        providerAssetId: asset.providerAssetId,
+        pageUrl: asset.pageUrl,
+        author: asset.author,
+        license: EPISODE_STOCK_LICENSE,
+        downloadUrl: asset.downloadUrl,
+        tags: [...asset.tags],
+        query: attempt.query,
+        cached: result.cached,
+        width: asset.width,
+        height: asset.height,
+        bytes: downloaded.body.byteLength,
+        dataUri,
+      },
+    };
   }
 
-  const contentType =
-    downloaded.contentType.split(';')[0]?.trim().toLowerCase() ??
-    downloaded.contentType;
-
-  if (!contentType.startsWith('image/')) {
-    return { visual: null, requests: requests + 1, cacheHits };
-  }
-
-  const dataUri = dataUriFor(contentType, downloaded.body);
-
-  // Remotion input props cap a URL at 2 MB; keep the starter instead of failing.
-  if (dataUri.length > 2_000_000) {
-    logger.warn(
-      { reference: subject.reference, bytes: downloaded.body.byteLength },
-      'episode image is too large for input props; keeping the starter asset',
-    );
-
-    return { visual: null, requests: requests + 1, cacheHits };
-  }
-
-  return {
-    requests: requests + 1,
-    cacheHits,
-    visual: {
-      reference: subject.reference,
-      provider: 'pixabay',
-      providerAssetId: asset.providerAssetId,
-      pageUrl: asset.pageUrl,
-      author: asset.author,
-      license: EPISODE_STOCK_LICENSE,
-      downloadUrl: asset.downloadUrl,
-      tags: [...asset.tags],
-      query: subject.query,
-      cached: result.cached,
-      width: asset.width,
-      height: asset.height,
-      bytes: downloaded.body.byteLength,
-      dataUri,
-    },
-  };
+  return { visual: null, requests, cacheHits };
 }
 
 /**

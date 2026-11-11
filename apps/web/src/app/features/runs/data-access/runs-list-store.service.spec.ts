@@ -74,16 +74,16 @@ describe('RunsListStoreService', () => {
     expect(store.loading()).toBe(false);
   });
 
-  it('creates a run with a trimmed topic', async () => {
-    const create = vi.fn().mockReturnValue(of(run));
+  it('creates an episode run with a trimmed topic', async () => {
+    const create = vi.fn().mockReturnValue(of({ ...run, mode: 'episode' }));
     const store = setup({ create });
     const onCreated = vi.fn();
 
-    store.create('  Почему небо синее  ', onCreated);
+    store.create('  Почему небо синее  ', 'episode', onCreated);
 
-    await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith(run));
+    await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith({ ...run, mode: 'episode' }));
 
-    expect(create).toHaveBeenCalledWith('Почему небо синее');
+    expect(create).toHaveBeenCalledWith('Почему небо синее', 'episode');
     expect(store.pending()).toBe(false);
   });
 
@@ -92,7 +92,7 @@ describe('RunsListStoreService', () => {
     const store = setup({ create });
     const onCreated = vi.fn();
 
-    store.create('   ', onCreated);
+    store.create('   ', 'pipeline', onCreated);
     await flush();
 
     expect(create).not.toHaveBeenCalled();
@@ -105,8 +105,8 @@ describe('RunsListStoreService', () => {
     const store = setup({ create });
     const onCreated = vi.fn();
 
-    store.create('Тема', onCreated);
-    store.create('Другая тема', onCreated);
+    store.create('Тема', 'pipeline', onCreated);
+    store.create('Другая тема', 'pipeline', onCreated);
 
     expect(create).toHaveBeenCalledOnce();
 

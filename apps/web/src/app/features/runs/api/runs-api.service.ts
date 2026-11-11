@@ -6,6 +6,7 @@ import {
   runDetailSchema,
   runListResponseSchema,
   runSchema,
+  runStoryboardResponseSchema,
   stageJobSnapshotSchema,
   type Artifact,
   type CreateRunRequestInput,
@@ -13,6 +14,8 @@ import {
   type QcReport,
   type Run,
   type RunDetail,
+  type RunMode,
+  type RunStoryboardResponse,
   type StageJobSnapshot,
   type StageQueueName,
   type TransitionRunRequest,
@@ -40,8 +43,12 @@ export class RunsApiService extends BaseApiService {
     return this.get(`/runs/${id}/qc`, qcReportSchema);
   }
 
-  create(topic: string): Observable<Run> {
-    const body: CreateRunRequestInput = { topic };
+  storyboard(id: string): Observable<RunStoryboardResponse> {
+    return this.get(`/runs/${id}/storyboard`, runStoryboardResponseSchema);
+  }
+
+  create(topic: string, mode: RunMode): Observable<Run> {
+    const body: CreateRunRequestInput = { topic, mode };
 
     return this.post('/runs', body, runSchema);
   }

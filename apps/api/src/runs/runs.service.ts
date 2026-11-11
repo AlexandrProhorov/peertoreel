@@ -7,15 +7,20 @@ import {
 import {
   canTransition,
   derivePublishDefaults,
+  episodeManifestSchema,
+  episodeVisualsArtifactSchema,
   qcReportSchema,
+  runStoryboardResponseSchema,
   scriptSchema,
   stageForState,
+  storyboardSchema,
   type Artifact,
   type CreateRunRequest,
   type QcReport,
   type Run,
   type RunDetail,
   type RunEvent,
+  type RunStoryboardResponse,
   type TransitionRunRequest,
 } from '@peertoreel/contracts';
 import { StorageService } from '../storage/storage.service.js';
@@ -122,6 +127,55 @@ export class RunsService {
     return qcReportSchema.parse(JSON.parse(body));
   }
 
+  /**
+   * Storyboard preview for an episode run: the UI never reads S3 directly.
+   * Available while the run sits on the script gate and after the render, so a
+   * reviewer can compare the plan with the draft.
+   */
+  async storyboard(id: string): Promise<RunStoryboardResponse> {
+    await this.findRun(id);
+
+    const [storyboard, visuals, manifest] = await Promise.all([
+      this.readJsonArtifact(id, 'storyboard_json', (value) =>
+        storyboardSchema.parse(value),
+      ),
+      this.readJsonArtifact(id, 'episode_visuals_json', (value) =>
+        episodeVisualsArtifactSchema.parse(value),
+      ),
+      this.readJsonArtifact(id, 'episode_manifest', (value) =>
+        episodeManifestSchema.parse(value),
+      ),
+    ]);
+
+    if (!storyboard || !visuals || !manifest) {
+      throw new NotFoundException(`У run ${id} ещё нет плана эпизода`);
+    }
+
+    return runStoryboardResponseSchema.parse({
+      storyboard,
+      visuals,
+      manifest,
+    });
+  }
+
+  private async readJsonArtifact<T>(
+    runId: string,
+    type: string,
+    parse: (value: unknown) => T,
+  ): Promise<T | null> {
+    const record = await this.artifacts.findByType(runId, type);
+
+    if (!record) {
+      return null;
+    }
+
+    const body = Buffer.from(
+      await this.storage.getObject(record.objectKey),
+    ).toString('utf8');
+
+    return parse(JSON.parse(body));
+  }
+
   private async toArtifact(
     record: ArtifactRecord,
     downloadName?: string,
@@ -203,28 +257,40 @@ export class RunsService {
   }
 
   /**
-   * Defaults for the card created by REVIEW → SCHEDULED. Reading the script
-   * from S3 is best-effort: a missing or malformed artifact must not block the
-   * transition, so the topic is the fallback title. The draft timestamp lets
-   * the repository reset a stale export when the video was re-rendered.
+   * Defaults for the card created by REVIEW → SCHEDULED. Reading the title from
+   * S3 is best-effort: a missing or malformed artifact must not block the
+   * transition, so the topic is the fallback title. Episode runs have no
+   * `script_json`; their human title lives in the episode manifest instead.
+   * The draft timestamp lets the repository reset a stale export when the video
+   * was re-rendered.
    */
   private async publishCardOptions(run: RunRecord): Promise<{
     defaultCard: DefaultPublishCard;
     resetExportBefore?: Date;
   }> {
-    let scriptTitle: string | null = null;
+    let title: string | null = null;
 
     try {
-      const record = await this.artifacts.findByType(run.id, 'script_json');
+      if (run.mode === 'episode') {
+        const manifest = await this.readJsonArtifact(
+          run.id,
+          'episode_manifest',
+          (value) => episodeManifestSchema.parse(value),
+        );
 
-      if (record) {
-        const body = Buffer.from(
-          await this.storage.getObject(record.objectKey),
-        ).toString('utf8');
-        scriptTitle = scriptSchema.parse(JSON.parse(body)).title;
+        title = manifest?.title ?? null;
+      } else {
+        const record = await this.artifacts.findByType(run.id, 'script_json');
+
+        if (record) {
+          const body = Buffer.from(
+            await this.storage.getObject(record.objectKey),
+          ).toString('utf8');
+          title = scriptSchema.parse(JSON.parse(body)).title;
+        }
       }
     } catch {
-      scriptTitle = null;
+      title = null;
     }
 
     const draft = await this.artifacts
@@ -232,7 +298,7 @@ export class RunsService {
       .catch(() => null);
 
     return {
-      defaultCard: derivePublishDefaults({ topic: run.topic, scriptTitle }),
+      defaultCard: derivePublishDefaults({ topic: run.topic, scriptTitle: title }),
       ...(draft ? { resetExportBefore: draft.createdAt } : {}),
     };
   }

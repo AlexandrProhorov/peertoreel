@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   episodeManifestSchema,
   episodeVisualsArtifactSchema,
+  runStoryboardResponseSchema,
 } from './episode.js';
+import { storyboardFixture15Deg } from './storyboard.fixture.js';
 
 const visual = {
   sceneId: 'hook',
@@ -105,5 +107,36 @@ describe('episode contracts', () => {
         },
       }).success,
     ).toBe(true);
+  });
+
+  it('requires all three parts of the storyboard preview', () => {
+    const visuals = {
+      images: [visual],
+      providerRequests: 2,
+      cacheHits: 0,
+      skipped: 0,
+    };
+
+    expect(
+      runStoryboardResponseSchema.safeParse({
+        storyboard: storyboardFixture15Deg,
+        visuals,
+        manifest,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      runStoryboardResponseSchema.safeParse({
+        storyboard: storyboardFixture15Deg,
+        manifest,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      runStoryboardResponseSchema.safeParse({
+        storyboard: storyboardFixture15Deg,
+        visuals,
+      }).success,
+    ).toBe(false);
   });
 });

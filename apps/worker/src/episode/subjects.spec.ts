@@ -6,7 +6,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { buildStoryboardFromDraft } from '../storyboard/build.js';
 import { M3_5_STYLE } from '../storyboard/style.js';
-import { collectEpisodeSubjects, queryForReference } from './subjects.js';
+import { collectEpisodeSubjects, queriesForReference } from './subjects.js';
 
 const runId = '11111111-1111-4111-8111-111111111111';
 
@@ -73,7 +73,7 @@ const storyboard = buildStoryboardFromDraft({
 });
 
 describe('episode subjects', () => {
-  it('collects only recipe subject slots with starter tag queries', () => {
+  it('collects only recipe subject slots with starter tag and description queries', () => {
     const subjects = collectEpisodeSubjects(storyboard);
 
     expect(subjects).toHaveLength(2);
@@ -81,11 +81,14 @@ describe('episode subjects', () => {
       sceneId: 'wet-nose-hook',
       sceneIdx: 0,
       reference: STARTER_ASSET_CATALOG['dog-snout'].path,
-      lang: undefined,
     });
-    expect(subjects[0]?.query).toBe(
-      STARTER_ASSET_CATALOG['dog-snout'].tags.slice(0, 3).join(' '),
-    );
+    expect(subjects[0]?.queries).toEqual([
+      {
+        query: STARTER_ASSET_CATALOG['dog-snout'].tags.slice(0, 3).join(' '),
+        lang: undefined,
+      },
+      { query: 'Собака крупным планом, нос блестит', lang: 'ru' },
+    ]);
     expect(subjects[1]).toMatchObject({
       sceneId: 'wet-nose-fact',
       reference: STARTER_ASSET_CATALOG['water-drop'].path,
@@ -93,9 +96,16 @@ describe('episode subjects', () => {
   });
 
   it('falls back to the scene description in Russian for unknown keys', () => {
-    expect(queryForReference('assets/custom/planet.svg', ' Планета в разрезе ')).toEqual({
-      query: 'Планета в разрезе',
-      lang: 'ru',
-    });
+    expect(queriesForReference('assets/custom/planet.svg', ' Планета в разрезе ')).toEqual([
+      { query: 'Планета в разрезе', lang: 'ru' },
+    ]);
+  });
+
+  it('keeps a starter key first and drops an exact duplicate description query', () => {
+    const tags = STARTER_ASSET_CATALOG['dog-snout'].tags.slice(0, 3).join(' ');
+
+    expect(queriesForReference(STARTER_ASSET_CATALOG['dog-snout'].path, tags)).toEqual([
+      { query: tags, lang: undefined },
+    ]);
   });
 });

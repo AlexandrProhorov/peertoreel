@@ -15,6 +15,7 @@ import {
   isAudio,
   sortArtifacts,
 } from '../../data-access/artifact-labels';
+import { canApproveReview } from '../../data-access/review-gate';
 import {
   runStageLabel,
   runStateLabel,
@@ -26,7 +27,9 @@ import {
   qcStatusLabel,
   qcVerdictLabel,
 } from '../../data-access/qc-labels';
+import { EpisodeStore } from '../../data-access/episode-store.service';
 import { RunDetailStoreService } from '../../data-access/run-detail-store.service';
+import { EpisodePreviewComponent } from '../../ui/episode-preview/episode-preview.component';
 import { PublishCardComponent } from '../../ui/publish-card/publish-card.component';
 
 interface RegenerationAction {
@@ -104,6 +107,7 @@ const PRIMARY_TRANSITIONS = new Set<string>([
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    EpisodePreviewComponent,
     PublishCardComponent,
   ],
   templateUrl: './run-page.component.html',
@@ -113,6 +117,7 @@ export class RunPageComponent implements OnInit {
   readonly id = input.required<string>();
 
   protected readonly store = inject(RunDetailStoreService);
+  protected readonly episodeStore = inject(EpisodeStore);
   private readonly router = inject(Router);
   protected readonly stateLabel = runStateLabel;
   protected readonly stageLabel = runStageLabel;
@@ -125,6 +130,15 @@ export class RunPageComponent implements OnInit {
   protected readonly formatBytes = formatBytes;
   protected readonly isAudio = isAudio;
   protected readonly artifacts = computed(() => sortArtifacts(this.store.artifacts()));
+  /** Episode preview is meaningful on the script gate and after the render. */
+  protected readonly episodePreview = computed(() => {
+    const run = this.store.selected();
+
+    return (
+      run?.mode === 'episode' &&
+      (run.state === 'SCRIPT_READY' || run.state === 'REVIEW')
+    );
+  });
   /** The draft gets its own block above the history; the rest stay in artifacts. */
   protected readonly draft = computed(
     () => this.artifacts().find((artifact) => artifact.type === 'draft_mp4') ?? null,
@@ -136,7 +150,11 @@ export class RunPageComponent implements OnInit {
     ),
   );
   protected readonly regenerationActions = REGENERATION_ACTIONS;
-  protected readonly canRegenerate = computed(() => this.store.selected()?.state === 'REVIEW');
+  protected readonly canRegenerate = computed(
+    () =>
+      this.store.selected()?.state === 'REVIEW' &&
+      this.store.selected()?.mode === 'pipeline',
+  );
   /** Human decisions and "back" edges; stage-owned transitions are hidden. */
   protected readonly regularActions = computed<RunState[]>(() => {
     const run = this.store.selected();
@@ -155,12 +173,14 @@ export class RunPageComponent implements OnInit {
       }
 
       if (run.state === 'REVIEW' && to === 'SCHEDULED') {
-        const qc = this.store.qcReport();
-
-        return !!qc && qc.verdict !== 'fail';
+        return canApproveReview(run, this.store.qcReport());
       }
 
-      return !(run.state === 'REVIEW' && REVIEW_REGENERATION_TARGETS.has(to));
+      return !(
+        run.mode === 'pipeline' &&
+        run.state === 'REVIEW' &&
+        REVIEW_REGENERATION_TARGETS.has(to)
+      );
     });
   });
   protected readonly reason = new FormControl('', { nonNullable: true });
@@ -194,6 +214,23 @@ export class RunPageComponent implements OnInit {
     effect(() => this.store.setRelativeId(this.id()), {
       injector: this.injector,
     });
+
+    // Preview belongs to the episode gate only: loading it in DRAFT/RENDERING
+    // would show stale scenes for a run that has no plan yet.
+    effect(
+      () => {
+        const previewId = this.episodePreview()
+          ? (this.store.selected()?.id ?? null)
+          : null;
+
+        if (previewId) {
+          this.episodeStore.load(previewId);
+        } else {
+          this.episodeStore.setRelativeId(null);
+        }
+      },
+      { injector: this.injector },
+    );
   }
 
   protected goToRuns(): void {
@@ -230,9 +267,21 @@ export class RunPageComponent implements OnInit {
       case 'qc':
         return 'Проверка качества';
       case 'episode_plan':
-        return 'Генерация эпизода';
+        return 'Эпизод';
       case 'episode_render':
         return 'Рендер эпизода';
+    }
+  }
+
+  /** Episode stages have explicit user-facing action names. */
+  protected stageActionLabel(stage: StageQueueName): string {
+    switch (stage) {
+      case 'episode_plan':
+        return 'Сгенерировать эпизод';
+      case 'episode_render':
+        return 'Отрендерить эпизод';
+      default:
+        return 'Запустить';
     }
   }
 
@@ -249,7 +298,7 @@ export class RunPageComponent implements OnInit {
       case 'qc':
         return 'Проверит длительность, громкость, синхронизацию, стоп-слова и темп речи перед одобрением.';
       case 'episode_plan':
-        return 'DeepSeek соберёт раскадровку, Google TTS озвучит сцены, Pixabay подберёт картинки для subject-слотов.';
+        return 'DeepSeek соберёт раскадровку, Google TTS озвучит сцены, Pixabay подберёт картинки для subject-слотов. Дальше — гейт сценария.';
       case 'episode_render':
         return 'Remotion отрендерит сцены, FFmpeg соберёт вертикальный черновик с озвучкой и субтитрами.';
     }

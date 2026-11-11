@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { storyboardSchema } from './storyboard.js';
 
 /**
  * M3.5.1 episode mode: the prototype path DeepSeek → Google TTS → Pixabay →
@@ -118,3 +119,15 @@ export const episodeManifestSchema = z.object({
   render: episodeRenderUsageSchema.optional(),
 });
 export type EpisodeManifest = z.infer<typeof episodeManifestSchema>;
+
+/**
+ * One API payload for the storyboard preview: the UI never downloads or parses
+ * S3 objects itself. `visuals` and `manifest` are mandatory because a preview
+ * without them would silently hide missing images or fake the usage numbers.
+ */
+export const runStoryboardResponseSchema = z.object({
+  storyboard: storyboardSchema,
+  visuals: episodeVisualsArtifactSchema,
+  manifest: episodeManifestSchema,
+});
+export type RunStoryboardResponse = z.infer<typeof runStoryboardResponseSchema>;

@@ -17,6 +17,9 @@
         <p class="run__eyebrow">Run</p>
         <h1>{{ run.topic }}</h1>
         <p class="run__meta">
+          @if (run.mode === 'episode') {
+            <span class="run__badge">Эпизод</span>
+          }
           <span
             class="run__badge"
             [class.run__badge--error]="stateTone(run.state) === 'error'"
@@ -59,7 +62,7 @@
               [disabled]="store.stageRunning()"
               (click)="runStage(stage)"
             >
-              {{ store.stageRunning() ? 'Выполняется…' : 'Запустить' }}
+              {{ store.stageRunning() ? 'Выполняется…' : stageActionLabel(stage) }}
             </button>
           </div>
 
@@ -81,6 +84,13 @@
     <mat-card class="run__actions" appearance="outlined">
       <mat-card-content>
         <h2>Действия</h2>
+
+        @if (run.mode === 'episode' && run.state === 'REVIEW') {
+          <p class="run__hint run__episode-qc">
+            <span class="run__badge run__badge--muted">QC не запускался</span>
+            Episode-режим не выполняет проверку качества: одобрение доступно без отчёта QC.
+          </p>
+        }
 
         @if (primaryActions().length > 0) {
           <div class="run__primary-actions">
@@ -184,6 +194,10 @@
         }
       </mat-card-content>
     </mat-card>
+
+    @if (episodePreview()) {
+      <app-episode-preview />
+    }
 
     @if (draft(); as draftArtifact) {
       <mat-card class="run__draft" appearance="outlined">

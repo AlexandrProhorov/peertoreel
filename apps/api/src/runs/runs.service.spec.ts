@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { storyboardFixture15Deg } from '@peertoreel/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { ArtifactsRepository } from './artifacts.repository.js';
 import type { StorageService } from '../storage/storage.service.js';
@@ -311,6 +312,177 @@ describe('RunsService', () => {
 
     await expect(service.qcReport(runId)).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('returns the storyboard, visuals and manifest of an episode run', async () => {
+    const { service, artifacts, storage } = setup(
+      makeRun({ mode: 'episode', state: 'SCRIPT_READY' }),
+    );
+    const visuals = {
+      images: [],
+      providerRequests: 0,
+      cacheHits: 0,
+      skipped: 2,
+    };
+    const manifest = {
+      kind: 'm3.5.1-episode',
+      topic: 'Почему у собак мокрый нос',
+      title: 'Мокрый нос',
+      generatedAt: '2026-11-11T12:00:00.000Z',
+      totalMs: 1000,
+      llm: {
+        provider: 'deepseek',
+        model: 'deepseek-flash',
+        attempts: 1,
+        promptTokens: 100,
+        completionTokens: 200,
+        ms: 500,
+        costUsd: null,
+      },
+      tts: {
+        provider: 'google-translate-spike',
+        model: 'google-translate:ru',
+        characters: 40,
+        words: 8,
+        audioDurationSec: 3,
+        bytes: 1000,
+        ms: 200,
+        costUsd: 0,
+      },
+      stock: {
+        provider: 'pixabay',
+        queries: 2,
+        providerRequests: 2,
+        cacheHits: 0,
+        images: 0,
+        skipped: 2,
+        costUsd: 0,
+      },
+    };
+    const bodies: Record<string, unknown> = {
+      storyboard_json: storyboardFixture15Deg,
+      episode_visuals_json: visuals,
+      episode_manifest: manifest,
+    };
+
+    vi.mocked(artifacts.findByType).mockImplementation((_id, type) =>
+      Promise.resolve(
+        type in bodies
+          ? {
+              id: '44444444-4444-4444-8444-444444444444',
+              stage: 'episode_plan' as const,
+              type,
+              objectKey: `runs/${runId}/episode/${type}.json`,
+              contentType: 'application/json',
+              sizeBytes: 100,
+              createdAt: new Date('2026-11-11T12:00:00.000Z'),
+            }
+          : null,
+      ),
+    );
+    vi.mocked(storage.getObject).mockImplementation(async (objectKey) =>
+      Buffer.from(JSON.stringify(bodies[objectKey.split('/').at(-1)?.replace('.json', '') ?? ''])),
+    );
+
+    const result = await service.storyboard(runId);
+
+    expect(result.storyboard.runId).toBe(storyboardFixture15Deg.runId);
+    expect(result.visuals.skipped).toBe(2);
+    expect(result.manifest.title).toBe('Мокрый нос');
+  });
+
+  it('returns 404 when the episode plan is missing', async () => {
+    const { service } = setup(makeRun({ mode: 'episode' }));
+
+    await expect(service.storyboard(runId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('takes the publish card title from the episode manifest', async () => {
+    const review = makeRun({
+      mode: 'episode',
+      state: 'REVIEW',
+      currentStage: 'episode_render',
+      topic: 'топ 5 пород собак',
+    });
+    const scheduled = makeRun({
+      mode: 'episode',
+      state: 'SCHEDULED',
+      currentStage: 'publish',
+    });
+    const { service, artifacts, storage, repository } = setup(
+      review,
+      scheduled,
+    );
+
+    vi.mocked(artifacts.findByType).mockImplementation((_id, type) =>
+      Promise.resolve(
+        type === 'episode_manifest'
+          ? {
+              id: '55555555-5555-4555-8555-555555555555',
+              stage: 'episode_plan' as const,
+              type,
+              objectKey: `runs/${runId}/episode/manifest.json`,
+              contentType: 'application/json',
+              sizeBytes: 100,
+              createdAt: new Date('2026-11-11T12:00:00.000Z'),
+            }
+          : null,
+      ),
+    );
+    vi.mocked(storage.getObject).mockResolvedValue(
+      Buffer.from(
+        JSON.stringify({
+          kind: 'm3.5.1-episode',
+          topic: 'топ 5 пород собак',
+          title: 'Пять пород для квартиры',
+          generatedAt: '2026-11-11T12:00:00.000Z',
+          totalMs: 1000,
+          llm: {
+            provider: 'deepseek',
+            model: 'deepseek-flash',
+            attempts: 1,
+            promptTokens: 100,
+            completionTokens: 200,
+            ms: 500,
+            costUsd: null,
+          },
+          tts: {
+            provider: 'google-translate-spike',
+            model: 'google-translate:ru',
+            characters: 40,
+            words: 8,
+            audioDurationSec: 3,
+            bytes: 1000,
+            ms: 200,
+            costUsd: 0,
+          },
+          stock: {
+            provider: 'pixabay',
+            queries: 0,
+            providerRequests: 0,
+            cacheHits: 0,
+            images: 0,
+            skipped: 0,
+            costUsd: 0,
+          },
+        }),
+      ),
+    );
+
+    await service.transition(runId, { to: 'SCHEDULED' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({ state: 'SCHEDULED' }),
+      expect.objectContaining({ fromState: 'REVIEW', toState: 'SCHEDULED' }),
+      expect.objectContaining({
+        defaultCard: expect.objectContaining({
+          title: 'Пять пород для квартиры',
+        }),
+      }),
     );
   });
 

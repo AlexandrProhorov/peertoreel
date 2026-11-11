@@ -3,6 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -19,6 +20,7 @@ import { RunsListStoreService } from '../../data-access/runs-list-store.service'
     RouterLink,
     MatButtonModule,
     MatCardModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -38,6 +40,7 @@ export class RunsPageComponent implements OnInit {
 
   protected readonly form = this.fb.group({
     topic: ['', [Validators.required, Validators.maxLength(300)]],
+    episode: [false],
   });
 
   ngOnInit(): void {
@@ -50,7 +53,9 @@ export class RunsPageComponent implements OnInit {
       return;
     }
 
-    this.store.create(this.form.getRawValue().topic, (run) => {
+    const { topic, episode } = this.form.getRawValue();
+
+    this.store.create(topic, episode ? 'episode' : 'pipeline', (run) => {
       this.form.reset();
       void this.router.navigate(['/runs', run.id]);
     });
