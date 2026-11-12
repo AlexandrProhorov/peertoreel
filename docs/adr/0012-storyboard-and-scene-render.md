@@ -264,6 +264,26 @@ M3.6a is the asset-library half of M3.6; the paid generators stay in M3.6b (ADR-
 - Measured: showcase 79.5 s (5 scenes), fixture 137.1 s (6), custom 78.2 s (4); every clip
   1080×1920/30, h264, `yuv420p`, BT.709.
 
+## M3.5.1 episode mode
+
+Episode mode is a second run path (`runs.mode = 'episode'`) with two stages, not a new
+renderer: `episode_plan` (`DRAFT → SCRIPT_READY`) produces the storyboard and its artifacts,
+`episode_render` (`SCRIPT_READY → REVIEW`) renders scenes through the existing render-worker
+CLI and FFmpeg assembly. The factory storyboard contract is unchanged.
+
+- `episode_plan` uses DeepSeek for the director draft, Google Translate TTS for the cheap
+  prototype voiceover and Pixabay only for subject slots: starter tags first, then
+  `scene.description` with `lang: 'ru'`; at most two queries per slot. Images stay data URIs in
+  `episode_visuals_json`, outside the Asset Library.
+- `GET /runs/:id/storyboard` returns `{ storyboard, visuals, manifest }` so the Angular UI does
+  not download or parse S3 objects. The preview is available on `SCRIPT_READY` and `REVIEW`.
+- Episode runs skip the QC stage. `REVIEW → SCHEDULED` is allowed without `qc_report` and the UI
+  says «QC не запускался». This is an explicit prototype exception for `mode === 'episode'`;
+  pipeline runs still require a passing report. `REVIEW → SCRIPT_READY` stays the way back to
+  the script gate, and the same plan is reused for a re-render.
+- The episode manifest title, not `script_json` (which an episode run never produces), seeds
+  the publish-card title.
+
 ## Contract details
 
 - Schema version: `peertoreel.storyboard.v1`. No compatibility with the pre-rename

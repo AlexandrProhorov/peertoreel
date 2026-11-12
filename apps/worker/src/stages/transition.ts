@@ -2,6 +2,7 @@ import { runEvents, runs, type Database } from '@peertoreel/db';
 import {
   canTransition,
   stageForState,
+  type RunMode,
   type RunStage,
   type RunState,
 } from '@peertoreel/contracts';
@@ -17,6 +18,8 @@ export class StageTransitionError extends Error {
 export interface RunSnapshot {
   id: string;
   createdBy: string;
+  topic: string;
+  mode: RunMode;
   state: RunState;
   currentStage: RunStage | null;
   resumeState: RunState | null;
@@ -32,6 +35,8 @@ export async function loadRun(
     .select({
       id: runs.id,
       createdBy: runs.createdBy,
+      topic: runs.topic,
+      mode: runs.mode,
       state: runs.state,
       currentStage: runs.currentStage,
       resumeState: runs.resumeState,
@@ -63,6 +68,7 @@ export async function transitionRun(
     const [run] = await tx
       .select({
         id: runs.id,
+        mode: runs.mode,
         state: runs.state,
         resumeState: runs.resumeState,
       })
@@ -78,17 +84,19 @@ export async function transitionRun(
       return run.state;
     }
 
-    if (!canTransition(run.state, to, run.resumeState)) {
+    if (!canTransition(run.state, to, run.resumeState, run.mode)) {
       throw new StageTransitionError(
         `Переход ${run.state} → ${to} невозможен для run ${runId}`,
       );
     }
 
+    const stage = stageForState(to, run.mode);
+
     await tx
       .update(runs)
       .set({
         state: to,
-        currentStage: stageForState(to),
+        currentStage: stage,
         failedStage: null,
         failureReason: null,
         resumeState: null,
@@ -100,7 +108,7 @@ export async function transitionRun(
       runId,
       fromState: run.state,
       toState: to,
-      stage: stageForState(to),
+      stage,
       reason,
     });
 

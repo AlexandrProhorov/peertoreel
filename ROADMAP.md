@@ -133,6 +133,7 @@ production hardening. Причина — не строить очередь и a
 | M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
 | M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | DONE |
 | M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | DONE |
+| M3.5.1 | Episode в UI (прототип): режим run'а, две стадии `episode_plan`/`episode_render`, превью раскадровки, Pixabay-картинки, гейт сценария и ревью без QC | агент | DONE |
 | M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
 | M3.6a.1 | Asset Library persistence: `DrizzleAssetRepository` (`assets`/`asset_variants`), порт `AssetBlobStore` + S3-адаптер, `assets:import`, `render-storyboard --persist`, Testcontainers integration | агент | DONE |
 | M3.6b | Real asset generation: Recraft Vector / FLUX.2 + BiRefNet, raster-cutout нормализация, `cartoon-character`, третья тема | агент | TODO |
@@ -245,6 +246,17 @@ DeepSeek → ElevenLabs (или spike-fallback) → `buildStoryboardFromDraft` �
 ElevenLabs (осталось 290 кредитов) спайк озвучен `--tts google`: точные длительности сцен,
 word timings — пропорциональная оценка; production-путь voiceover остаётся ElevenLabs,
 провайдер записан в manifest.
+
+**Итог M3.5.1 (прототип, 2026-11-11).** Episode — второй режим run'а, а не замена
+production-пайплайна. Добавлены `runs.mode` (`pipeline`/`episode`), стадии `episode_plan`
+(`DRAFT → SCRIPT_READY`) и `episode_render` (`SCRIPT_READY → REVIEW`), `GET /runs/:id/storyboard`,
+чекбокс режима на странице прогонов и превью раскадровки на гейте сценария. `episode_plan`
+использует DeepSeek, Google TTS и Pixabay; `episode_render` — Remotion + FFmpeg. Pixabay
+закрывает только subject-слоты: сначала теги стартового ключа, затем описание сцены
+(`lang: ru`), не больше двух запросов на слот. Episode-ревью не запускает QC: «Одобрить»
+доступно без `qc_report`, в UI явно показано «QC не запускался»; pipeline-гейт не ослаблен.
+DeepSeek-генерация ассетов (вместо Pixabay) остаётся открытым вопросом и в этот слайс не
+входит.
 
 **M3.6 — Asset Library + Asset Generator.** После spike становится видно, каких объектов не
 хватает в стартовом пакете. Добавляются: общая библиотека ассетов, metadata и content hash,

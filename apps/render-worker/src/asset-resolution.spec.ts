@@ -97,6 +97,81 @@ describe('storyboard asset resolution', () => {
     expect(withFake.persisted).toBe(false);
   });
 
+  it('lets an injected map override a starter reference', async () => {
+    const base = await resolveStoryboardAssets(
+      showcaseStoryboard(),
+      PUBLIC_DIR,
+      'none',
+    );
+    const first = base.resolutions[0];
+
+    if (first === undefined) {
+      throw new Error('expected a resolved subject');
+    }
+
+    const injectedUrl = 'data:image/jpeg;base64,AAAA';
+    const resolution = await resolveStoryboardAssets(
+      showcaseStoryboard(),
+      PUBLIC_DIR,
+      'none',
+      null,
+      { [first.assetKey]: { url: injectedUrl } },
+    );
+
+    expect(resolution.injected).toBe(1);
+    expect(resolution.assets[first.assetKey]?.url).toBe(injectedUrl);
+    // Everything else still resolves through Tier 0.
+    expect(resolution.resolutions.length).toBe(base.resolutions.length - 1);
+  });
+
+  it('still fails on a reference that is neither injected nor resolvable', async () => {
+    const showcase = showcaseStoryboard();
+    const scene = showcase.scenes[0];
+
+    if (scene === undefined) {
+      throw new Error('expected a scene');
+    }
+
+    const programmatic = storyboardSchema.parse({
+      ...showcase,
+      scenes: showcase.scenes.map((candidate, index) =>
+        index === 0
+          ? {
+              ...candidate,
+              environment: { setting: 'test', layers: [] },
+              objects: [
+                {
+                  id: 'missing-subject',
+                  kind: 'subject',
+                  content: 'missing-key',
+                  animation: 'fade-in',
+                  syncToWord: null,
+                  startSec: null,
+                  endSec: null,
+                },
+              ],
+              implementation: {
+                type: 'programmatic',
+                componentId: 'kinetic-typography',
+                params: { text: 'Тест' },
+              },
+              fallback: {
+                type: 'programmatic',
+                componentId: 'kinetic-typography',
+                params: { text: 'Тест' },
+              },
+            }
+          : candidate,
+      ),
+    });
+
+    await expect(
+      resolveStoryboardAssets(programmatic, PUBLIC_DIR, 'none', null, {
+        'another-key': { url: 'data:image/jpeg;base64,AAAA' },
+      }),
+    ).rejects.toThrow();
+  });
+
   it('persists each resolved asset once and reuses it on a second pass', async () => {
     const repository = new CountingRepository();
     const blobStore = new InMemoryAssetBlobStore();

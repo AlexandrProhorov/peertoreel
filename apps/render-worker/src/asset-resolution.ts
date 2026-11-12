@@ -53,6 +53,8 @@ export interface StoryboardAssetResolution {
   readonly resolutions: readonly ResolvedAssetSummary[];
   readonly usage: AssetUsage;
   readonly persisted: boolean;
+  /** References whose URL came from the injected map, not from the resolver. */
+  readonly injected: number;
 }
 
 const KEY_BY_PATH = new Map<string, string>(
@@ -161,11 +163,17 @@ async function persistResolution(
   return persistence.service.withUrls(resolution);
 }
 
+/**
+ * Merges an injected `ResolvedAssetMap` with the normal resolution. Injected
+ * URLs win; every other reference is resolved as before. This is how episode
+ * mode hands Pixabay images to the renderer without touching the Asset Library.
+ */
 export async function resolveStoryboardAssets(
   storyboard: Storyboard,
   publicDir: string,
   providerMode: ProviderMode,
   persistence: StoryboardAssetPersistence | null = null,
+  injected: ResolvedAssetMap | null = null,
 ): Promise<StoryboardAssetResolution> {
   const styleId = storyboard.style.styleId;
   const starter = await buildStarterAssets(
@@ -188,6 +196,7 @@ export async function resolveStoryboardAssets(
   const assets: Record<string, { url: string }> = {};
   const resolutions: ResolvedAssetSummary[] = [];
   const urlByKey = new Map<string, string>();
+  const injectedKeys = new Set<string>();
   const usage: AssetUsage = {
     provider: provider?.id ?? null,
     providerRequests: 0,
@@ -202,7 +211,14 @@ export async function resolveStoryboardAssets(
     }
 
     const assetKey = KEY_BY_PATH.get(reference) ?? reference;
-    let url = urlByKey.get(assetKey);
+    const injectedUrl =
+      injected?.[reference]?.url ??
+      injected?.[assetKey]?.url;
+    let url = injectedUrl ?? urlByKey.get(assetKey);
+
+    if (injectedUrl !== undefined && !injectedKeys.has(assetKey)) {
+      injectedKeys.add(assetKey);
+    }
 
     if (url === undefined) {
       const resolved = await resolver.resolve({
@@ -256,5 +272,11 @@ export async function resolveStoryboardAssets(
     usage.costUsd = null;
   }
 
-  return { assets, resolutions, usage, persisted: persistence !== null };
+  return {
+    assets,
+    resolutions,
+    usage,
+    persisted: persistence !== null,
+    injected: injectedKeys.size,
+  };
 }

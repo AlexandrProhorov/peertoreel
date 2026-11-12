@@ -1,6 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type { Run } from '@peertoreel/contracts';
+import type { Run, RunMode } from '@peertoreel/contracts';
 import { Subject, switchMap, tap } from 'rxjs';
 import { BaseStore } from '../../../core/state/base-store';
 import { RunsApiService } from '../api/runs-api.service';
@@ -35,14 +35,14 @@ export class RunsListStoreService extends BaseStore {
   }
 
   /** Starts run creation; the page navigates in the optional callback. */
-  create(topic: string, onCreated?: (run: Run) => void): void {
+  create(topic: string, mode: RunMode, onCreated?: (run: Run) => void): void {
     const trimmed = topic.trim();
 
     if (trimmed.length === 0) {
       return;
     }
 
-    this.run('create', () => this.api.create(trimmed), (run) => {
+    this.run('create', () => this.api.create(trimmed, mode), (run) => {
       if (run) {
         onCreated?.(run);
       }

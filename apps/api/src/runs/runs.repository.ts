@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { MANUAL_PUBLISH_REASON, type RunStage, type RunState } from '@peertoreel/contracts';
+import {
+  MANUAL_PUBLISH_REASON,
+  type RunMode,
+  type RunStage,
+  type RunState,
+} from '@peertoreel/contracts';
 import { and, desc, eq, isNotNull, lt, ne } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
 import { publishCards, runEvents, runs } from '@peertoreel/db';
@@ -12,6 +17,7 @@ export interface RunRecord {
   id: string;
   createdBy: string;
   topic: string;
+  mode: RunMode;
   state: RunState;
   currentStage: RunStage | null;
   failedStage: RunStage | null;
@@ -60,6 +66,7 @@ export const runColumns = {
   id: runs.id,
   createdBy: runs.createdBy,
   topic: runs.topic,
+  mode: runs.mode,
   state: runs.state,
   currentStage: runs.currentStage,
   failedStage: runs.failedStage,
@@ -76,6 +83,7 @@ export class RunsRepository {
   async createWithEvent(input: {
     createdBy: string;
     topic: string;
+    mode: RunMode;
     stage: RunStage;
   }): Promise<RunRecord> {
     return this.database.db.transaction(async (tx) => {
@@ -84,6 +92,7 @@ export class RunsRepository {
         .values({
           createdBy: input.createdBy,
           topic: input.topic,
+          mode: input.mode,
           state: 'DRAFT',
           currentStage: input.stage,
         })

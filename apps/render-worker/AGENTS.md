@@ -32,7 +32,9 @@ details live in `ROADMAP.md`; architectural decisions in ADR-0012 and ADR-0014.
   including the curated text-free SVG starter pack under `public/assets/starter/` (M3.4/M3.5,
   ADR-0015). Resolved assets arrive as `assets?: Record<string, { url: string }>` input props from
   the Asset Resolver (`--resolve-assets`, M3.6a, ADR-0017); `SubjectLayer` prefers that URL and
-  falls back to the local key. The renderer must not call recraft/fal.ai/S3 or import
+  falls back to the local key. `--assets <map.json>` injects worker-supplied URLs (episode mode:
+  Pixabay data URIs); injected keys win over Tier 0 and components still see URLs only. The
+  renderer must not call recraft/fal.ai/S3 or import
   `@peertoreel/assets` outside the CLI/adapter boundary, and scene code must not fetch from the
   network. `--persist` may use `@peertoreel/db`/`@peertoreel/storage`, but only in
   `asset-persistence.ts`/`asset-resolution.ts`; components still receive URLs, never a client.

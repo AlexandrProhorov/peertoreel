@@ -221,6 +221,32 @@ pnpm --filter @peertoreel/worker storyboard:episode -- \
 TTS provider, длительности, ffprobe). `--tts google` — бесплатный fallback только для спайка;
 production-стадия voiceover остаётся на ElevenLabs, провайдер фиксируется в манифесте.
 
+### Episode-режим в очередях и UI (M3.5.1)
+
+У run'а есть `mode: 'pipeline' | 'episode'`. Episode-run идёт двумя стадиями:
+
+- `episode_plan` (`DRAFT → SCRIPT_READY`): DeepSeek-драфт, Google TTS, `storyboard_json`,
+  Pixabay-картинки только в subject-слоты, `voiceover_mp3`, `word_timings`, `subtitles_ass`,
+  `episode_manifest`. Дальше run стоит на гейте сценария.
+- `episode_render` (`SCRIPT_READY → REVIEW`): Remotion через subprocess
+  `render-storyboard --assets`, concat визуалов, FFmpeg loudnorm + ASS, `draft_mp4`.
+
+UI-сценарий: на странице прогонов включите «Дешёвый эпизод (Google TTS + Pixabay)» и создайте
+run. В `DRAFT` нажмите «Сгенерировать эпизод», после `SCRIPT_READY` откроется превью
+раскадровки: текст каждой сцены, часть (хук/основная часть/призыв), рецепт и вариант, миниатюра
+Pixabay или бейдж «Tier 0». Ошибка загрузки превью не блокирует «Отрендерить эпизод». На
+`REVIEW` доступны «Одобрить» и «Вернуться к сценарию»; QC не запускался — это осознанное
+исключение прототипа, pipeline-прогон по-прежнему требует пройденный QC.
+
+Картинки берутся из Pixabay: сначала по тегам стартового ключа, если там пусто — по описанию
+сцены с `lang: ru`; на слот не больше двух запросов. Если не нашлось ничего пригодного, сцена
+остаётся на Tier 0. Нужны `DEEPSEEK_API_KEY` и `PIXABAY_API_KEY`; ElevenLabs в episode-режиме
+не вызывается. Повторный запуск переиспользует готовые артефакты и не повторяет
+LLM/TTS/Pixabay-вызовы. `render-storyboard --assets <map.json>` — ручной путь проверить
+инъекцию картинок без БД: инжектированные URL побеждают Tier 0, остальное резолвится как
+раньше (в манифесте `assets.injected`). DeepSeek-генерация ассетов вместо Pixabay — открытый
+вопрос, в этот слайс не входит.
+
 ## Локальный S3
 
 Для локальной разработки используется SeaweedFS с S3-совместимым API на `http://localhost:8333`. Production использует Cloudflare R2;
