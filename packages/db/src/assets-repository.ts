@@ -1,6 +1,8 @@
 import {
+  assetAliasSchema,
   assetRecordSchema,
   buildAssetId,
+  type AssetAlias,
   type AssetLicense,
   type AssetRecord,
   type AssetVariant,
@@ -8,7 +10,7 @@ import {
 import type { AssetRepository } from '@peertoreel/assets';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import type { Database } from './client.js';
-import { assetVariants, assets } from './schema.js';
+import { assetAliases, assetVariants, assets } from './schema.js';
 
 /**
  * Postgres adapter for the Asset Library repository port (ADR-0017 D2/D10).
@@ -179,6 +181,44 @@ export class DrizzleAssetRepository implements AssetRepository {
     }
 
     return toAssetRecord(row, await this.variantsOf(row.id));
+  }
+
+  /**
+   * Alias lookup (ADR-0017 D3/D11): `(key, style_id)` → owner record by hash.
+   * Missing alias or missing bytes both return `null`; an alias must never
+   * resurrect a deleted record.
+   */
+  async findByAlias(key: string, styleId: string): Promise<AssetRecord | null> {
+    const [alias] = await this.db
+      .select()
+      .from(assetAliases)
+      .where(
+        and(eq(assetAliases.key, key), eq(assetAliases.styleId, styleId)),
+      )
+      .limit(1);
+
+    if (alias === undefined) {
+      return null;
+    }
+
+    return this.findByContentHash(alias.contentHash);
+  }
+
+  /** Upsert one alias; the same `(key, style_id)` may only point at one hash. */
+  async saveAlias(alias: AssetAlias): Promise<void> {
+    const parsed = assetAliasSchema.parse(alias);
+
+    await this.db
+      .insert(assetAliases)
+      .values({
+        key: parsed.key,
+        styleId: parsed.styleId,
+        contentHash: parsed.contentHash,
+      })
+      .onConflictDoUpdate({
+        target: [assetAliases.key, assetAliases.styleId],
+        set: { contentHash: parsed.contentHash },
+      });
   }
 
   async listByStyle(styleId: string): Promise<readonly AssetRecord[]> {

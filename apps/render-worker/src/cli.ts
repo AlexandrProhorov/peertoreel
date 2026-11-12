@@ -401,6 +401,9 @@ async function main(): Promise<void> {
             providerMode,
             persistence,
             injected,
+            persistence === null
+              ? null
+              : { writer: persistence.usageWriter, source: 'cli' },
           )
         : undefined;
 

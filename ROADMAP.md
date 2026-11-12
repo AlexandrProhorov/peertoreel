@@ -136,6 +136,7 @@ production hardening. Причина — не строить очередь и a
 | M3.5.1 | Episode в UI (прототип): режим run'а, две стадии `episode_plan`/`episode_render`, превью раскадровки, Pixabay-картинки, гейт сценария и ревью без QC | агент | DONE |
 | M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
 | M3.6a.1 | Asset Library persistence: `DrizzleAssetRepository` (`assets`/`asset_variants`), порт `AssetBlobStore` + S3-адаптер, `assets:import`, `render-storyboard --persist`, Testcontainers integration | агент | DONE |
+| M3.6b.1 | Provider readiness: alias `key → hash`, metadata-refresh, ledger `provider_usage`, Tier 0 в палитре, скелеты Recraft/FLUX.2 без платных вызовов | агент | DONE |
 | M3.6b | Real asset generation: Recraft Vector / FLUX.2 + BiRefNet, raster-cutout нормализация, `cartoon-character`, третья тема | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
@@ -309,6 +310,33 @@ showcase 5 сцен (80.0 с) с `assets.persisted: true`, `ffprobe` без из
 SeaweedFS), реальные платные провайдеры — M3.6b. Hash-хит не обновляет metadata (повторный
 import не перезапишет теги), persist принимает один набор байтов на запись; alias-строки key→hash
 остаются предусловием M3.6b.
+
+**Итог M3.6b.1.** Добавлены `asset_aliases` (`(key, style_id) → content_hash`, unique по
+паре, без FK: удалённые байты → `null`) и append-only `provider_usage` (`cost_usd` nullable,
+`run_id` FK `set null`); миграция `0010_powerful_wong.sql`. `AssetRepository` расширен
+`findByAlias`/`saveAlias` (in-memory + Drizzle); резолвер в cache-tier идёт
+`findByKey → findByAlias → tag-match`, поэтому второй ключ при hash-хите даёт `tier: cache`,
+`cacheHit: true`, `providerRequests: 0` и провайдер не вызывается. `AssetLibraryService.persist`
+пишет alias при чужом ключе и обновляет `tags`/`license`/`metadata` только когда меняется
+`(key, styleId)` и каталог реально отличается (идентичный повторный импорт не пишет ничего).
+Леджер пишется декоратором `recordingImageProvider` через порт `ProviderUsageWriter`;
+Drizzle-писатель — `DrizzleProviderUsageWriter`; в CLI он включён в `--persist`, `cost_usd: 0`
+для fake, `null` для неизмеренной стоимости. Новый `packages/providers` — скелеты `recraft`
+(`recraftv4_styles_vector`, native SVG, `controls.colors` из `assetPalette`) и `flux`
+(FLUX.2 `[klein] 4B`, raster): `enabled` из `RECRAFT_API_KEY`/`FAL_KEY`, без ключа
+`ProviderUnavailableError` и ни одного запроса, чистые мапперы и записанные фикстуры, классификация
+retryable/terminal, лицензии по политике (`recraft-terms`, `apache-2.0`, `flux [dev]`
+non-commercial). 12 стартовых SVG перекрашены в `studio_flat_2d_v1.assetPalette` и хранятся
+нормализованными: исключение ADR-0017 D5 снято, хэши изменились, 12 прежних объектов остались
+сиротами в S3 (ключи — в записи сессии). **Проверено:** `pnpm check` зелёный (767 тестов);
+`assets:import` дважды — первый прогон `добавлено 12`, второй `добавлено 0, уже было 12`, в БД
+12 `assets`/12 `asset_variants`, `object_key` обновились; живой прогон alias/metadata-refresh на
+Postgres+S3 (alias: `cache`, `providerRequests: 0`, 1 строка alias, запись-владелец не мутирована;
+правка `tags` обновила запись без новых строк); один вызов fake-провайдера → одна строка
+`provider_usage` с `cost_usd = 0`; `render-storyboard --resolve-assets --persist` (showcase, 5 сцен,
+79.5 с) с `assets.persisted: true`, `ffprobe` 1080×1920/30, h264, `yuv420p`, BT.709.
+**Не проверено:** реальные Recraft/fal.ai вызовы (нет ключей, это M3.6b.2), живой R2, визуальный
+review перекрашенных иконок.
 
 **M3.6b — Real asset generation.** Остаток M3.6: адаптеры `ImageProvider` для Recraft V4/V4.1
 Vector и FLUX.2 `[klein]`/`[pro]` + BiRefNet v2, реальная запись в R2/Postgres (repository

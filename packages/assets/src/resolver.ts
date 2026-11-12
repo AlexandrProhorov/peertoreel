@@ -250,7 +250,18 @@ export class TieredAssetResolver implements AssetResolver {
         request.styleId,
       );
 
-      return record?.kind === request.kind ? record : null;
+      if (record !== null) {
+        return record.kind === request.kind ? record : null;
+      }
+
+      // Alias step (ADR-0017 D3/D11): the bytes already exist under another
+      // key, so this key must resolve from the cache instead of the provider.
+      const alias = await this.repository.findByAlias(
+        request.assetKey,
+        request.styleId,
+      );
+
+      return alias?.kind === request.kind ? alias : null;
     }
 
     if (request.tags.length === 0) {
@@ -322,6 +333,7 @@ export class TieredAssetResolver implements AssetResolver {
     const key =
       request.assetKey ??
       `generated/${sha256Hex(request.tags.join('|') || 'untagged').slice(0, 12)}`;
+    const palette = request.assetPalette ?? assetPaletteFor(request.styleId);
     const result = await provider.generate({
       key,
       prompt:
@@ -330,6 +342,7 @@ export class TieredAssetResolver implements AssetResolver {
       kind: request.kind,
       styleId: request.styleId,
       tags: request.tags,
+      palette,
     });
 
     usage.providerRequests = 1;
@@ -344,7 +357,7 @@ export class TieredAssetResolver implements AssetResolver {
 
     try {
       normalized = normalizeSvg(result.asset.data, {
-        palette: request.assetPalette ?? assetPaletteFor(request.styleId),
+        palette,
       });
     } catch (error) {
       if (error instanceof InvalidSvgError) {

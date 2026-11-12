@@ -68,11 +68,11 @@ returns the existing record/variant instead of a second row; the object key is
 blob cannot acquire two keys. Variants of one logical asset share `key` but differ by
 `variant.id`; byte-identical variants collapse to one stored object.
 
-A content-hash hit with a *different* logical key returns the record that owns those bytes. It
-does not yet create an addressable alias for the new key; alias rows (or a key→hash table) are
-required in M3.6b **before** a paid provider is wired, otherwise the same bytes requested under a
-second key would re-enter the provider step. The in-memory fake has the same limitation and the
-session log records it.
+A content-hash hit with a *different* logical key returns the record that owns those bytes **and**
+writes an alias row `(key, style_id) → content_hash` in `asset_aliases` (D11). The alias is written
+on persist (`assets:import`, `--persist`) and read by the resolver's cache tier, so the second key
+resolves as a cache hit instead of re-entering the provider tier. `assets.content_hash` stays
+globally unique: an alias never creates a second row and never duplicates bytes.
 
 ### D4 — Resolver order is fixed and deterministic
 
@@ -127,8 +127,10 @@ output in our pipeline is hex), and it is not a general SVG engine.
 backgrounds and text; `style.assetPalette` drives imported/vector subjects. A storyboard may
 declare its own `style.assetPalette`; the CLI passes it into `AssetRequest.assetPalette` and the
 resolver prefers it over the preset. The curated Tier 0 starter pack is authored in this repo and
-is stored as-is (hash of raw bytes, no re-quantization) — the one documented exception to
-"normalize before storage"; aligning its palette to `studio_flat_2d_v1` is M3.6b work.
+stored **already normalized** (M3.6b.1): the 12 files are `normalizeSvg` output quantized to
+`studio_flat_2d_v1.assetPalette`, so import needs no re-quantization. The former "stored as-is"
+exception is closed; hashes changed and the pre-normalization objects remain in object storage as
+orphans (listed in the session record, `--prune` is separate work).
 
 Raster normalization (`alpha occupancy 8%..75%`, trim, sticker outline) needs PNG decoding and
 `sharp`; M3.6a only ships the pure `alphaBounds`/`alphaOccupancy` helpers over decoded RGBA and
@@ -213,6 +215,35 @@ raster-cutout decode/trim, third topic and full M3.6 acceptance are **not** clai
 
 **M3.6b ships:** Recraft/FLUX.2/BiRefNet adapters behind `ImageProvider`, a live R2 run, raster
 normalization, character rig, third topic and the M3.6 acceptance run.
+
+### D11 — Alias table and provider ledger (M3.6b.1)
+
+**Aliases.** `asset_aliases (key, style_id, content_hash, created_at)` with unique
+`(key, style_id)` and an index on `content_hash`; no FK to `assets`. Written whenever a hash hit
+comes from another logical key, by `AssetLibraryService.persist` (and therefore `assets:import` and
+`render-storyboard --persist`). The resolver's cache tier order is
+`findByKey → findByAlias → tag match`; an alias whose bytes were deleted resolves to `null`
+instead of resurrecting a record. A repeated alias write is an upsert and changes nothing.
+Metadata refresh is the mirror case: when the same `(key, style_id)` owns the bytes and the
+catalog changed `tags`/`license`/`metadata`, `persist` updates those fields in place; bytes,
+`content_hash` and `object_key` never change, and an unchanged record writes nothing.
+
+**Ledger.** `provider_usage` is append-only: `provider`, `operation`, `model`, `run_id` (FK to
+`runs`, `on delete set null`), `source`, `units`, `cost_usd` (numeric, nullable), `recorded_at`,
+`meta`. One row per real provider call, written at call time by
+`recordingImageProvider` (decorator over `ImageProvider`) through the `ProviderUsageWriter` port;
+the Drizzle writer lives in `packages/db`. `cost_usd` is what the provider reported and stays
+`null` when it reported nothing — never `0`, never an estimate (`0` is a real measurement from the
+fake provider). `units` is written only when the provider returned a count (Recraft credits).
+Dashboards, budgets and per-run cost views are M3.7.
+
+**Adapters.** `packages/providers` holds `recraft` (`recraftv4_styles_vector`, native SVG) and
+`flux` (FLUX.2 `[klein] 4B` raster) behind the `ImageProvider` port. `enabled` is derived from
+`RECRAFT_API_KEY`/`FAL_KEY`; without a key `enabled` is `false` and `generate` throws
+`ProviderUnavailableError` before any request. Requests are built by pure functions, responses are
+parsed by pure mappers over recorded fixtures, and HTTP is an injected port. Licences come from
+policy (`recraft-terms`, `apache-2.0`; `flux [dev]` is non-commercial), and cost is `null` unless
+the provider's own response carries it. No app depends on this package yet.
 
 ## Consequences
 

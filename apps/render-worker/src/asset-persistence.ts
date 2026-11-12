@@ -1,5 +1,9 @@
 import { AssetLibraryService } from '@peertoreel/assets';
-import { DrizzleAssetRepository, createDatabase } from '@peertoreel/db';
+import {
+  DrizzleAssetRepository,
+  DrizzleProviderUsageWriter,
+  createDatabase,
+} from '@peertoreel/db';
 import {
   ObjectStorage,
   S3AssetBlobStore,
@@ -18,6 +22,8 @@ export interface AssetPersistence {
   readonly repository: DrizzleAssetRepository;
   readonly blobStore: S3AssetBlobStore;
   readonly service: AssetLibraryService;
+  /** Append-only provider ledger (ADR-0017 D11); one row per real call. */
+  readonly usageWriter: DrizzleProviderUsageWriter;
   close(): Promise<void>;
 }
 
@@ -48,6 +54,7 @@ export function createAssetPersistence(
     repository,
     blobStore,
     service,
+    usageWriter: new DrizzleProviderUsageWriter(db),
     async close() {
       await pool.end();
     },

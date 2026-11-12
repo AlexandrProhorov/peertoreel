@@ -1,8 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
-  <path d="M128 30 26 104l18 24 84-56 84 56 18-24L128 30Z" fill="#ffd166"/>
-  <rect x="52" y="118" width="152" height="108" rx="14" fill="#8ecae6"/>
-  <rect x="112" y="158" width="34" height="68" rx="8" fill="#0b1220" opacity="0.55"/>
-  <rect x="70" y="140" width="28" height="28" rx="6" fill="#ffffff" opacity="0.65"/>
-  <rect x="158" y="140" width="28" height="28" rx="6" fill="#ffffff" opacity="0.65"/>
-  <path d="M44 226h168" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.25"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="-20.48 -20.48 296.96 296.96"><path fill="#FBBF24" d="M128 30 26 104l18 24 84-56 84 56 18-24z"/><rect width="152" height="108" x="52" y="118" fill="#7DD3FC" rx="14"/><rect width="34" height="68" x="112" y="158" fill="#0B1220" opacity=".55" rx="8"/><rect width="28" height="28" x="70" y="140" fill="#F4F1EA" opacity=".65" rx="6"/><rect width="28" height="28" x="158" y="140" fill="#F4F1EA" opacity=".65" rx="6"/><path stroke="#F4F1EA" stroke-linecap="round" stroke-width="8" d="M44 226h168" opacity=".25"/></svg>

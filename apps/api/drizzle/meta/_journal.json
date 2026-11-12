@@ -71,6 +71,13 @@
       "when": 1794409652489,
       "tag": "0009_conscious_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794490194298,
+      "tag": "0010_powerful_wong",
+      "breakpoints": true
     }
   ]
 }

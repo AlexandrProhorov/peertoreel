@@ -144,6 +144,59 @@ describe('AssetLibraryService.persist', () => {
     expect(aliased.asset.key).toBe('ball');
   });
 
+  it('writes an alias for another key without mutating the owner', async () => {
+    const { repository, service } = createService();
+
+    await service.persist(
+      resolutionFor(record({ id: 'starter/ball', key: 'ball' })),
+      BYTES,
+      'image/svg+xml',
+    );
+    await service.persist(
+      resolutionFor(
+        record({
+          id: 'library/orb',
+          key: 'orb',
+          source: 'library',
+          tags: ['orb'],
+          metadata: { origin: 'alias-test' },
+        }),
+      ),
+      BYTES,
+      'image/svg+xml',
+    );
+
+    const alias = await repository.findByAlias('orb', STYLE_ID);
+    const owner = await repository.findByKey('ball', STYLE_ID);
+
+    expect(alias?.key).toBe('ball');
+    expect(owner?.tags).toEqual(['ball', 'circle']);
+    expect(owner?.metadata).toEqual({});
+    expect(await repository.findByKey('orb', STYLE_ID)).toBeNull();
+    expect(await repository.listByStyle(STYLE_ID)).toHaveLength(1);
+  });
+
+  it('refreshes metadata when the same key and style own the bytes', async () => {
+    const { repository, blobStore, service } = createService();
+
+    await service.persist(resolutionFor(record()), BYTES, 'image/svg+xml');
+    const refreshed = await service.persist(
+      resolutionFor(
+        record({ tags: ['ball', 'sphere'], metadata: { note: 'catalog edit' } }),
+      ),
+      BYTES,
+      'image/svg+xml',
+    );
+
+    expect(refreshed.asset.tags).toEqual(['ball', 'sphere']);
+    expect(refreshed.asset.metadata).toEqual({ note: 'catalog edit' });
+    expect((await repository.findByKey('ball', STYLE_ID))?.metadata).toEqual({
+      note: 'catalog edit',
+    });
+    expect(blobStore.putCount).toBe(1);
+    expect(await repository.listByStyle(STYLE_ID)).toHaveLength(1);
+  });
+
   it('uploads missing bytes for a record the resolver already saved', async () => {
     const { repository, blobStore, service } = createService();
     const base = record();

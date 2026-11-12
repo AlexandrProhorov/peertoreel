@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DrizzleAssetRepository } from './assets-repository.js';
 import { createDatabase, type DatabaseHandle } from './client.js';
-import { assetVariants, assets } from './schema.js';
+import { DrizzleProviderUsageWriter } from './provider-usage-writer.js';
+import { assetAliases, assetVariants, assets, providerUsage } from './schema.js';
 
 /**
  * Integration coverage for the Drizzle adapter: real Postgres, real unique
@@ -87,6 +88,8 @@ describe.skipIf(!docker)('DrizzleAssetRepository (Postgres)', () => {
 
   beforeEach(async () => {
     // Every case owns a clean library; assertions never depend on test order.
+    await handle.db.delete(assetAliases);
+    await handle.db.delete(providerUsage);
     await handle.db.delete(assets);
   });
 
@@ -225,5 +228,69 @@ describe.skipIf(!docker)('DrizzleAssetRepository (Postgres)', () => {
         }),
       ),
     ).rejects.toThrow(/commercial_use/);
+  });
+
+  it('stores one alias per (key, style) and resolves it to the owner', async () => {
+    const owner = recordOf({ key: 'ball', contentHash: 'e'.repeat(64) });
+
+    await repository.save(owner);
+    await repository.saveAlias({
+      key: 'orb',
+      styleId: STYLE_ID,
+      contentHash: owner.contentHash,
+    });
+    await repository.saveAlias({
+      key: 'orb',
+      styleId: STYLE_ID,
+      contentHash: owner.contentHash,
+    });
+
+    expect(await repository.findByAlias('orb', STYLE_ID)).toEqual(owner);
+    expect(await repository.findByKey('orb', STYLE_ID)).toBeNull();
+    expect(await handle.db.select().from(assetAliases)).toHaveLength(1);
+    expect(await counts()).toEqual({ assets: 1, variants: 1 });
+  });
+
+  it('resolves an alias to null when the bytes are gone', async () => {
+    await repository.saveAlias({
+      key: 'ghost',
+      styleId: STYLE_ID,
+      contentHash: '9'.repeat(64),
+    });
+
+    expect(await repository.findByAlias('ghost', STYLE_ID)).toBeNull();
+  });
+
+  it('appends ledger rows and keeps an unmeasured cost null', async () => {
+    const writer = new DrizzleProviderUsageWriter(handle.db);
+
+    await writer.record({
+      provider: 'fake',
+      operation: 'image.generate',
+      model: 'fake-flat-v1',
+      runId: null,
+      source: 'cli',
+      units: null,
+      costUsd: 0,
+      meta: { assetKey: 'subject/robot' },
+    });
+    await writer.record({
+      provider: 'recraft',
+      operation: 'image.generate',
+      model: 'recraftv4_styles_vector',
+      runId: null,
+      source: 'cli',
+      units: 50,
+      costUsd: null,
+      meta: { assetKey: 'subject/robot' },
+    });
+
+    const rows = await handle.db.select().from(providerUsage);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.costUsd).toBe('0.000000');
+    expect(rows[0]?.units).toBeNull();
+    expect(rows[1]?.costUsd).toBeNull();
+    expect(rows[1]?.units).toBe(50);
   });
 });

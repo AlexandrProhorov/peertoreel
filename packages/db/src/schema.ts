@@ -5,6 +5,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -347,6 +348,62 @@ export const assetVariants = pgTable(
   ],
 );
 
+/**
+ * Logical-key alias for bytes that already exist (ADR-0017 D3/D11).
+ *
+ * `assets.content_hash` is globally unique, so one blob owns exactly one row.
+ * When the same bytes are requested under a second `(key, style_id)` the alias
+ * row makes the second key addressable without duplicating bytes or reaching
+ * the provider tier. No FK to `assets`: an alias whose bytes were deleted must
+ * resolve to `null` instead of blocking the delete or returning a ghost record.
+ */
+export const assetAliases = pgTable(
+  'asset_aliases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: text('key').notNull(),
+    styleId: text('style_id').notNull(),
+    contentHash: text('content_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('asset_aliases_key_style_unique').on(table.key, table.styleId),
+    index('asset_aliases_content_hash_idx').on(table.contentHash),
+  ],
+);
+
+/**
+ * Append-only provider spend ledger (ADR-0017 D11, root hard rule 7). Written at
+ * call time; `cost_usd` is `null` when the provider did not measure it and is
+ * never an estimate. Dashboards and budgets are M3.7.
+ */
+export const providerUsage = pgTable(
+  'provider_usage',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: text('provider').notNull(),
+    operation: text('operation').notNull(),
+    model: text('model'),
+    runId: uuid('run_id').references(() => runs.id, { onDelete: 'set null' }),
+    source: text('source').notNull(),
+    units: integer('units'),
+    costUsd: numeric('cost_usd', { precision: 14, scale: 6 }),
+    recordedAt: timestamp('recorded_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    meta: jsonb('meta')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+  },
+  (table) => [
+    index('provider_usage_recorded_at_idx').on(table.recordedAt),
+    index('provider_usage_run_id_idx').on(table.runId),
+  ],
+);
+
 export const schema = {
   appMeta,
   users,
@@ -358,4 +415,6 @@ export const schema = {
   publishCards,
   assets,
   assetVariants,
+  assetAliases,
+  providerUsage,
 };

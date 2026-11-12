@@ -1,12 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
-  <circle cx="128" cy="128" r="96" fill="#8ecae6"/>
-  <circle cx="128" cy="128" r="76" fill="#0b1220" opacity="0.3"/>
-  <path d="M128 68v62l44 26" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="128" cy="128" r="10" fill="#ffd166"/>
-  <g fill="#ffffff">
-    <circle cx="128" cy="58" r="6"/>
-    <circle cx="198" cy="128" r="6"/>
-    <circle cx="128" cy="198" r="6"/>
-    <circle cx="58" cy="128" r="6"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="-20.48 -20.48 296.96 296.96"><circle cx="128" cy="128" r="96" fill="#7DD3FC"/><circle cx="128" cy="128" r="76" fill="#0B1220" opacity=".3"/><path stroke="#F4F1EA" stroke-linecap="round" stroke-linejoin="round" stroke-width="14" d="M128 68v62l44 26"/><circle cx="128" cy="128" r="10" fill="#FBBF24"/><g fill="#F4F1EA"><circle cx="128" cy="58" r="6"/><circle cx="198" cy="128" r="6"/><circle cx="128" cy="198" r="6"/><circle cx="58" cy="128" r="6"/></g></svg>

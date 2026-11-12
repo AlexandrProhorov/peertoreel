@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-12 | M3.6b.1: provider readiness — alias, ledger, адаптеры | [2026-11-12-02](docs/sessions/2026-11/2026-11-12-02-m3-6b-1-provider-readiness-alias-ledger-adapters.md) |
 | 2026-11-12 | fix: `The chunk size is invalid` на TikTok `video/init` | [2026-11-12-01](docs/sessions/2026-11/2026-11-12-01-fix-the-chunk-size-is-invalid-na-tiktok-video-init.md) |
 | 2026-11-11 | M3.5.1c: episode в UI — превью, режим при создании и ревью | [2026-11-11-01](docs/sessions/2026-11/2026-11-11-01-m3-5-1c-episode-v-ui-prevyu-rezhim-pri-sozdanii-i-revyu.md) |
 | 2026-11-11 | M3.5.1b: episode-режим в воркере и `--assets` в рендерере | [2026-11-11-02](docs/sessions/2026-11/2026-11-11-02-m3-5-1b-episode-rezhim-v-vorkere-i-assets-v-renderere.md) |

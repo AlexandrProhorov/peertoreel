@@ -1,6 +1,8 @@
 import {
+  DEFAULT_STYLE_PRESET_ID,
   STARTER_ASSET_CATALOG,
   STARTER_ASSET_KEYS,
+  STYLE_PRESETS,
 } from '@peertoreel/contracts';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -48,6 +50,28 @@ describe('starter SVG pack', () => {
       expect(source).not.toMatch(/<tspan[\s>]/);
       expect(source).not.toMatch(/<image[\s>]/);
       expect(source).not.toMatch(/href\s*=\s*["']https?:/);
+    }
+  });
+
+  it('uses only studio_flat_2d_v1 assetPalette colors', () => {
+    const palette = STYLE_PRESETS[DEFAULT_STYLE_PRESET_ID].assetPalette.map(
+      (color) => color.toLowerCase(),
+    );
+
+    for (const key of STARTER_ASSET_KEYS) {
+      const source = readFileSync(
+        path.join(PUBLIC_DIR, STARTER_ASSET_CATALOG[key].path),
+        'utf8',
+      );
+      const colors = [...source.matchAll(/(?:fill|stroke)="(#[0-9a-fA-F]{6})"/g)]
+        .map((match) => match[1]?.toLowerCase())
+        .filter((color): color is string => color !== undefined);
+
+      expect(colors.length, `${key} has no painted colors`).toBeGreaterThan(0);
+
+      for (const color of colors) {
+        expect(palette, `${key} uses off-palette ${color}`).toContain(color);
+      }
     }
   });
 });

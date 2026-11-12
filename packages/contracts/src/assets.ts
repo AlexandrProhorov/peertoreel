@@ -96,6 +96,19 @@ export const assetRecordSchema = z.object({
 });
 export type AssetRecord = z.infer<typeof assetRecordSchema>;
 
+/**
+ * Logical-key alias for bytes that already exist under another key (ADR-0017
+ * D3/D11). `assets.content_hash` is globally unique, so a second logical key
+ * cannot get its own row; the alias table makes it addressable without
+ * duplicating bytes or re-entering the provider tier.
+ */
+export const assetAliasSchema = z.object({
+  key: assetNameSchema,
+  styleId: z.string().min(1).max(80),
+  contentHash: sha256Schema,
+});
+export type AssetAlias = z.infer<typeof assetAliasSchema>;
+
 // ---------------------------------------------------------------------------
 // Requests and resolutions
 // ---------------------------------------------------------------------------
@@ -206,6 +219,11 @@ export interface ImageProviderRequest {
   readonly kind: AssetKind;
   readonly styleId: string;
   readonly tags: readonly string[];
+  /**
+   * Palette the caller wants the subject normalized to; adapters may forward it
+   * as provider controls (Recraft `controls.colors`). Optional and additive.
+   */
+  readonly palette?: readonly string[];
 }
 
 export interface ImageProviderAsset {
@@ -226,7 +244,28 @@ export interface ImageProviderResult {
   readonly source?: AssetSource;
   /** Real measured cost, or null when the provider does not report it. */
   readonly costUsd: number | null;
+  /** Billable units the provider reported (credits/MP); null when unreported. */
+  readonly units?: number | null;
 }
+
+/**
+ * One append-only provider-spend row (ADR-0017 D11, root hard rule 7).
+ * `costUsd: null` means "not measured" and must never become `0`.
+ */
+export const providerUsageEntrySchema = z.object({
+  provider: z.string().min(1).max(120),
+  /** Logical call name (`image.generate`, `image.vectorize`, …). */
+  operation: z.string().min(1).max(120),
+  model: z.string().min(1).max(200).nullable(),
+  /** Run that paid for the call; null for CLI/import work. */
+  runId: z.string().uuid().nullable(),
+  /** Where the call happened: `assets`, `cli`, … */
+  source: z.string().min(1).max(60),
+  units: z.number().int().min(0).nullable(),
+  costUsd: z.number().min(0).nullable(),
+  meta: jsonObjectSchema,
+});
+export type ProviderUsageEntry = z.infer<typeof providerUsageEntrySchema>;
 
 export interface ImageProvider {
   readonly id: string;

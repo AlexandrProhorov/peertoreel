@@ -201,6 +201,37 @@ pnpm --filter @peertoreel/render-worker render-storyboard -- \
 пишет `добавлено 0, уже было 12`. В манифесте `--persist` появляется
 `assets.persisted: true`, а `objectKey` в `assets.resolutions` — content-addressed.
 
+### Provider readiness: alias, ledger, адаптеры (M3.6b.1)
+
+Библиотека готова к платному провайдеру, но денег не тратит. ADR —
+`docs/adr/0017-asset-library-and-resolver.md` (D3/D5/D11).
+
+- **Alias `key → hash`.** `assets.content_hash` глобально уникален, поэтому второй логический
+  ключ не получает свою строку: `asset_aliases (key, style_id, content_hash)` делает его
+  адресуемым. Резолвер идёт `findByKey → findByAlias → tag-match`, значит запрос под новым
+  ключом — это `tier: cache`, `cacheHit: true`, `providerRequests: 0`, без вызова провайдера.
+  Alias пишется в `persist` (то есть в `assets:import` и `--persist`); alias на удалённые байты
+  резолвится в `null`.
+- **Metadata-refresh.** Повторный импорт того же `(key, style_id)` обновляет
+  `tags`/`license`/`metadata`, если каталог изменился; байты и `object_key` не меняются, а
+  идентичный повторный прогон не пишет ничего. Чужой ключ владельца не мутирует.
+- **Ledger `provider_usage`.** Append-only строка на каждый реальный вызов провайдера:
+  `provider`, `operation`, `model`, `run_id`, `source`, `units`, `cost_usd`, `recorded_at`,
+  `meta`. `cost_usd` — только измеренная стоимость: `0` у fake-провайдера, `null`, если провайдер
+  её не сообщил; оценок нет (root hard rule 7). Пишется декоратором `recordingImageProvider`
+  в момент `generate`; в CLI включается вместе с `--persist`.
+- **Tier 0 в палитре.** 12 стартовых SVG перекрашены в `studio_flat_2d_v1.assetPalette`,
+  нормализованы `normalizeSvg` и хранятся нормализованными (исключение ADR-0017 D5 снято).
+- **`packages/providers`.** Скелеты `recraft` (native SVG, `recraftv4_styles_vector`,
+  `controls.colors` из палитры) и `flux` (FLUX.2 `[klein] 4B`, raster) за портом `ImageProvider`:
+  `enabled` только при наличии `RECRAFT_API_KEY`/`FAL_KEY`, без ключа — типизированная ошибка и
+  ни одного сетевого запроса; HTTP инжектится, мапперы чистые, тесты на записанных фикстурах,
+  ошибки классифицируются retryable/terminal. Приложения пакет пока не используют.
+
+Для M3.6b.2 (реальные вызовы) нужны: `RECRAFT_API_KEY` и `FAL_KEY` в `.env`, сетевой доступ к
+`api.recraft.ai` / `fal.run` с этой машины, согласованный бюджет и лимит на сессию, решение по
+PNG decode (`sharp` или `pngjs`) для raster-cutout и пост-проверка «в ассете нет текста».
+
 ### M3.5 — эпизод из темы
 
 `apps/worker` содержит spike-скрипт, который проходит путь тема → DeepSeek → `storyboard.v1` →

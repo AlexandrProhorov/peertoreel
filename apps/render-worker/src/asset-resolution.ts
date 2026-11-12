@@ -13,9 +13,11 @@ import {
   assetPaletteFor,
   buildStarterAssets,
   createFakeImageProvider,
+  recordingImageProvider,
   type AssetBlobStore,
   type AssetLibraryService,
   type AssetRepository,
+  type ProviderUsageContext,
 } from '@peertoreel/assets';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -174,19 +176,24 @@ export async function resolveStoryboardAssets(
   providerMode: ProviderMode,
   persistence: StoryboardAssetPersistence | null = null,
   injected: ResolvedAssetMap | null = null,
+  providerUsage: ProviderUsageContext | null = null,
 ): Promise<StoryboardAssetResolution> {
   const styleId = storyboard.style.styleId;
   const starter = await buildStarterAssets(
     (objectKey) => readFile(path.join(publicDir, objectKey), 'utf8'),
     styleId,
   );
-  const provider =
+  const baseProvider =
     providerMode === 'fake'
       ? createFakeImageProvider({
           synthesize: true,
           palette: assetPaletteFor(styleId),
         })
       : null;
+  const provider =
+    baseProvider !== null && providerUsage !== null
+      ? recordingImageProvider(baseProvider, providerUsage)
+      : baseProvider;
   const resolver = new TieredAssetResolver({
     repository: persistence?.repository ?? new InMemoryAssetRepository(starter),
     starter,

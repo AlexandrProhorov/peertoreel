@@ -6,6 +6,7 @@ import {
   type AssetResolution,
   type AssetResolver,
   type AssetVariant,
+  type JsonValue,
 } from '@peertoreel/contracts';
 import type { AssetBlobStore } from './blob-store.js';
 import { sha256Hex } from './content-hash.js';
@@ -30,6 +31,43 @@ const EXTENSION_BY_MIME: Readonly<Record<AssetMimeType, string>> = {
 
 export function extensionForAssetMimeType(mimeType: AssetMimeType): string {
   return EXTENSION_BY_MIME[mimeType];
+}
+
+/** Key-order-independent serialization: a jsonb round-trip must look identical. */
+function stableJson(value: JsonValue): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(',')}]`;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value).sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    );
+
+    return `{${entries
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`)
+      .join(',')}}`;
+  }
+
+  return JSON.stringify(value) ?? 'null';
+}
+
+function tagsKey(tags: readonly string[]): string {
+  return [...tags]
+    .map((tag) => tag.toLowerCase())
+    .sort()
+    .join('\u0000');
+}
+
+/** A catalog edit is a real change; an identical re-import must write nothing. */
+function metadataChanged(existing: AssetRecord, record: AssetRecord): boolean {
+  return (
+    tagsKey(existing.tags) !== tagsKey(record.tags) ||
+    existing.license.name !== record.license.name ||
+    existing.license.commercialUse !== record.license.commercialUse ||
+    (existing.license.attribution ?? '') !== (record.license.attribution ?? '') ||
+    stableJson(existing.metadata) !== stableJson(record.metadata)
+  );
 }
 
 export interface AssetLibraryServiceOptions {
@@ -108,9 +146,7 @@ export class AssetLibraryService {
     const existing = await this.repository.findByContentHash(contentHash);
 
     if (existing !== null) {
-      await this.ensureBytes(existing, bytes, mimeType);
-
-      return this.withUrls({ ...resolution, asset: existing });
+      return this.storeExisting(existing, record, resolution, bytes, mimeType);
     }
 
     const objectKey = buildAssetObjectKey(
@@ -198,16 +234,57 @@ export class AssetLibraryService {
     );
 
     if (existing !== null) {
-      await this.ensureBytes(
+      return this.storeExisting(
         existing,
+        resolution.asset,
+        resolution,
         await readBytes(primary),
         primary.mimeType,
       );
-
-      return this.withUrls({ ...resolution, asset: existing });
     }
 
     return this.persist(resolution, await readBytes(primary), primary.mimeType);
+  }
+
+  /**
+   * Hash hit (ADR-0017 D3/D11).
+   *
+   * The same `(key, styleId)` owns these bytes: refresh `tags`/`license`/
+   * `metadata` in place (bytes and object key never change). Another key asked
+   * for the same bytes: write an alias and leave the owner untouched, so the
+   * second key resolves from the cache instead of re-entering the provider.
+   */
+  private async storeExisting(
+    existing: AssetRecord,
+    record: AssetRecord,
+    resolution: AssetResolution,
+    bytes: Uint8Array,
+    mimeType: AssetMimeType,
+  ): Promise<AssetResolution> {
+    await this.ensureBytes(existing, bytes, mimeType);
+
+    if (existing.key === record.key && existing.styleId === record.styleId) {
+      if (!metadataChanged(existing, record)) {
+        return this.withUrls({ ...resolution, asset: existing });
+      }
+
+      const refreshed = await this.repository.save({
+        ...existing,
+        tags: [...record.tags],
+        license: { ...record.license },
+        metadata: { ...record.metadata },
+      });
+
+      return this.withUrls({ ...resolution, asset: refreshed });
+    }
+
+    await this.repository.saveAlias({
+      key: record.key,
+      styleId: record.styleId,
+      contentHash: existing.contentHash,
+    });
+
+    return this.withUrls({ ...resolution, asset: existing });
   }
 
   /** A resolver that already saved the row may not have uploaded the bytes. */

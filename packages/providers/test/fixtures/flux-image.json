@@ -1,0 +1,12 @@
+{
+  "images": [
+    {
+      "url": "https://example.invalid/flux/asset.png",
+      "width": 1024,
+      "height": 1024,
+      "content_type": "image/png"
+    }
+  ],
+  "seed": 42,
+  "has_nsfw_concepts": [false]
+}

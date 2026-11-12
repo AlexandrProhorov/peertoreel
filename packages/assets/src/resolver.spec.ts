@@ -180,6 +180,54 @@ describe('tiered asset resolver', () => {
     expect(provider.calls).toHaveLength(1);
   });
 
+  it('resolves an alias as a cache hit without calling the provider', async () => {
+    const provider = createFakeImageProvider({ assets: PROVIDER_FIXTURES });
+    const { repository, resolver } = await createResolver({ provider });
+    const svg =
+      '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#F59E0B"/></svg>';
+    const contentHash = sha256Hex(svg);
+    const owner: AssetRecord = {
+      id: 'library/ball',
+      key: 'ball',
+      source: 'library',
+      kind: 'svg',
+      styleId: STYLE_ID,
+      contentHash,
+      tags: ['ball'],
+      license: { name: 'authored', commercialUse: true },
+      variants: [
+        {
+          id: 'default',
+          objectKey: `assets/${contentHash.slice(0, 2)}/${contentHash}/${contentHash}.svg`,
+          mimeType: 'image/svg+xml',
+          width: 10,
+          height: 10,
+          contentHash,
+        },
+      ],
+      metadata: {},
+    };
+
+    await repository.save(owner);
+    await repository.saveAlias({
+      key: 'orb',
+      styleId: STYLE_ID,
+      contentHash,
+    });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'orb',
+      styleId: STYLE_ID,
+      allowProvider: true,
+    });
+
+    expect(resolution.tier).toBe('cache');
+    expect(resolution.cacheHit).toBe(true);
+    expect(resolution.usage.providerRequests).toBe(0);
+    expect(resolution.asset.key).toBe('ball');
+    expect(provider.calls).toHaveLength(0);
+  });
+
   it('matches cached assets by tags deterministically', async () => {
     const provider = createFakeImageProvider({ assets: PROVIDER_FIXTURES });
     const { resolver } = await createResolver({ provider });

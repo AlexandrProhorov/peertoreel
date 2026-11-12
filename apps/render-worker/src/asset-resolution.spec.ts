@@ -4,7 +4,7 @@ import {
   InMemoryAssetRepository,
   type AssetRepository,
 } from '@peertoreel/assets';
-import { storyboardSchema, type AssetRecord } from '@peertoreel/contracts';
+import { storyboardSchema, type AssetRecord, type ProviderUsageEntry } from '@peertoreel/contracts';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -32,6 +32,14 @@ class CountingRepository implements AssetRepository {
 
   findByContentHash(contentHash: string) {
     return this.inner.findByContentHash(contentHash);
+  }
+
+  findByAlias(key: string, styleId: string) {
+    return this.inner.findByAlias(key, styleId);
+  }
+
+  saveAlias(alias: Parameters<AssetRepository['saveAlias']>[0]) {
+    return this.inner.saveAlias(alias);
   }
 
   listByStyle(styleId: string) {
@@ -95,6 +103,71 @@ describe('storyboard asset resolution', () => {
       true,
     );
     expect(withFake.persisted).toBe(false);
+  });
+
+  it('records one ledger row for a fake provider call', async () => {
+    const showcase = showcaseStoryboard();
+    const entries: ProviderUsageEntry[] = [];
+    const storyboard = storyboardSchema.parse({
+      ...showcase,
+      scenes: showcase.scenes.map((candidate, index) =>
+        index === 0
+          ? {
+              ...candidate,
+              environment: { setting: 'test', layers: [] },
+              objects: [
+                {
+                  id: 'generated-subject',
+                  kind: 'subject',
+                  content: 'subject/robot',
+                  animation: 'fade-in',
+                  syncToWord: null,
+                  startSec: null,
+                  endSec: null,
+                },
+              ],
+              implementation: {
+                type: 'programmatic',
+                componentId: 'kinetic-typography',
+                params: { text: 'Тест' },
+              },
+              fallback: {
+                type: 'programmatic',
+                componentId: 'kinetic-typography',
+                params: { text: 'Тест' },
+              },
+            }
+          : candidate,
+      ),
+    });
+
+    const resolution = await resolveStoryboardAssets(
+      storyboard,
+      PUBLIC_DIR,
+      'fake',
+      null,
+      null,
+      {
+        writer: {
+          async record(entry: ProviderUsageEntry): Promise<void> {
+            entries.push(entry);
+          },
+        },
+        source: 'cli',
+      },
+    );
+
+    expect(resolution.resolutions.some((entry) => entry.tier === 'provider')).toBe(
+      true,
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      provider: 'fake',
+      operation: 'image.generate',
+      costUsd: 0,
+      source: 'cli',
+      runId: null,
+    });
   });
 
   it('lets an injected map override a starter reference', async () => {

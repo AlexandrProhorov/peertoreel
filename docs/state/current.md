@@ -1,55 +1,52 @@
 # Состояние проекта
 
 Обновлено: 2026-11-12 · Milestone: M3 (Animated Factory)
-База: `main`, Phase 0 закоммичен (SHA — `git log --oneline -2`).
-Phase 1 подготовлен, изменения в рабочем дереве (не закоммичены).
-Активная работа: `feat/m3-5-1` @ `07791d4`, PR #5 (open, base `main`).
+База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
+Активная работа: `feat/m3-animated-factory` @ `31c32f2` (мёрж PR #5 `feat/m3-5-1`).
+План: `docs/workspace/plans/2026-11-11-m3-6b-1-provider-readiness-session.md` (локальный, не в git).
+Рабочее дерево: M3.6b.1 изменён, не закоммичен.
 
 ## Проверки
 
-- `main` + Phase 1: `pnpm check` — зелёный, 485 тестов (2026-11-12).
-- `feat/m3-5-1` @ `07791d4`: по записи в логе ветки — зелёный (M3.5.1c:
-  743 теста; fix TikTok chunk: зелёный, число не указано); не перепроверялся.
+- `feat/m3-animated-factory` + M3.6b.1: `pnpm check` — зелёный, 767 тестов (2026-11-12).
+- Postgres/Redis/SeaweedFS подняты; миграция `0010_powerful_wong` применена локально.
+- `assets:import` дважды: `добавлено 12`, затем `добавлено 0, уже было 12` (12 записей).
+- Showcase `render-storyboard --resolve-assets --persist`: `assets.persisted: true`,
+  `ffprobe` 1080×1920/30, h264, `yuv420p`, BT.709.
 
 ## Где идёт работа
 
-- `main` — база и инфраструктура workflow; функциональных изменений нет.
-- `feat/m3-5-1` — активная функциональность: M3.4, M3.5, M3.6a/6a.1,
-  M3.5.1a/b/c. В `main` этих пакетов нет, включая `packages/assets`.
-- Следующий срез — M3.6b.1 (provider readiness). План:
-  `docs/workspace/plans/2026-11-11-m3-6b-1-provider-readiness-session.md`
-  (локальный, не в git).
+- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6a.1, episode-слой (PR #5),
+  M3.6b.1 (в рабочем дереве).
+- `feat/m3-5-1` — влит в `feat/m3-animated-factory` через PR #5; дальше не используется.
+- Следующий срез — M3.6b.2 (реальные вызовы Recraft/fal.ai); плана пока нет.
 
 ## Готово
 
-- Phase 0 (`1ed6912`): state card, `/start` `/end` `/context`,
-  `pnpm context:check`.
-- Phase 1 (не закоммичен): `SESSION_LOG.md` — индекс, 54 записи в `docs/sessions/`,
-  шаблоны `docs/templates/session-{plan,record}.md`, `pnpm sessions:split`.
-- На `feat/m3-5-1`: M3.5.1c (episode UI, `/runs/:id/storyboard`, review без QC),
-  M3.6a/6a.1 (asset library + persistence), M3.5.1a/b (episode-стадии).
+- M3.6b.1: alias `key → hash` (`asset_aliases`), metadata-refresh, ledger `provider_usage`,
+  Tier 0 в палитре `studio_flat_2d_v1` и хранится нормализованным, `packages/providers`
+  (скелеты Recraft/FLUX.2 без сети).
+- До этого: M3.3 renderer, M3.4 recipes, M3.5/M3.5.1 episode, M3.6a/6a.1 asset library.
 
 ## В процессе
 
-- PR #5 открыт; `main` и `feat/m3-5-1` расходятся.
-- Phase 1 не закоммичен; после коммита влить `main` в `feat/m3-5-1`.
-- Функциональный код приложения не менялся.
+- M3.6b.1 не закоммичен: 0010-миграция, правки пакетов, 12 SVG, docs, `pnpm-lock.yaml`.
+- Root `AGENTS.md` §2 не обновлён под новый `packages/providers` (намеренно не правился
+  в середине сессии, чтобы не инвалидировать prompt cache).
 
 ## Следующий шаг
 
-1. Закоммитить Phase 1 на `main`, влить `main` в `feat/m3-5-1`, запушить ветку —
-   PR #5 получит Phase 0 и 1.
-2. Перед M3.6b.1 убедиться, что ветка содержит M3.6a.1.
-3. M3.6b.1: alias `key → hash`, metadata-refresh, `provider_usage`,
-   каркасы Recraft/FLUX.2 без платных вызовов.
+1. Закоммитить M3.6b.1 на `feat/m3-animated-factory`.
+2. Обновить root `AGENTS.md` §2/§3 строкой про `packages/providers`.
+3. M3.6b.2: реальные вызовы (нужны ключи и бюджет) — см. приложение к плану M3.6b.1.
 
 ## Открытые решения и блокеры
 
-- `RECRAFT_API_KEY` и `FAL_KEY` отсутствуют; платные вызовы запрещены до
-  M3.6b.2, в M3.6b.1 — только fake/offline.
-- Генерация ассетов через DeepSeek отложена; пока Pixabay, Tier 0, ручные ассеты.
-- Integration-тесты требуют Postgres/Redis/SeaweedFS: `pnpm infra:up`.
-- Открыт вопрос бюджета на Recraft/FLUX.2 для M3.6b.2.
+- `RECRAFT_API_KEY`/`FAL_KEY` отсутствуют; платные вызовы запрещены до M3.6b.2.
+- Бюджет и лимит на сессию для Recraft/FLUX.2 не согласованы.
+- Сетевой доступ к `api.recraft.ai`/`fal.run` с этой машины не проверялся.
+- 12 прежних объектов стартовых SVG остались сиротами в S3 (ключи — в записи
+  `docs/sessions/2026-11/2026-11-12-02-...`); `--prune` не сделано.
 
 ## Не загружать на старте
 
@@ -61,6 +58,6 @@ Phase 1 подготовлен, изменения в рабочем дерев�
 ## Актуальность
 
 - Исторические факты (решения, миграции) не перепроверять без причины.
-- Изменяемые факты: ветка, HEAD, Git status, проверки. Если HEAD отличается —
-  карточка потенциально устарела.
+- Изменяемые факты: ветка, HEAD, Git status, проверки. Если HEAD отличается — карточка
+  потенциально устарела.
 - `Not verified` означает, что проверка не запускалась; это не «зелёный».
