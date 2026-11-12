@@ -2,14 +2,15 @@
 
 Обновлено: 2026-11-12 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
-Активная работа: `feat/m3-animated-factory` @ `610e338` (M3.6b.1 закоммичен).
+Активная работа: `feat/m3-animated-factory` @ `98279f7` (docs pivot M3.6b на DeepSeek; код M3.6b.2 не начат).
 План: `docs/workspace/plans/2026-11-12-m3-6b-2-deepseek-svg-session.md` (локальный, не в git).
-Рабочее дерево: чистое (кроме этого плана вне git).
+Рабочее дерево: неприменённые doc-правки этой сессии (SESSION_LOG, state card, запись сессии); код не менялся.
 Направление: реальная генерация SVG через DeepSeek API; Recraft/FLUX parked.
 
 ## Проверки
 
-- `feat/m3-animated-factory` + M3.6b.1: `pnpm check` — зелёный, 767 тестов (2026-11-12).
+- M3.6b.1: `pnpm check` — 767 тестов (2026-11-12, вне этой сессии).
+- В этой сессии проверки не запускались — `Not verified`.
 - Postgres/Redis/SeaweedFS подняты; миграция `0010_powerful_wong` применена локально.
 - `assets:import` дважды: `добавлено 12`, затем `добавлено 0, уже было 12` (12 записей).
 - Showcase `render-storyboard --resolve-assets --persist`: `assets.persisted: true`,
@@ -18,9 +19,10 @@
 ## Где идёт работа
 
 - `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6a.1, episode-слой (PR #5),
-  M3.6b.1 (в рабочем дереве).
+  M3.6b.1 (закоммичен).
 - `feat/m3-5-1` — влит в `feat/m3-animated-factory` через PR #5; дальше не используется.
-- Следующий срез — M3.6b.2 (реальные вызовы Recraft/fal.ai); плана пока нет.
+- Следующий срез — M3.6b.2: DeepSeek SVG за `ImageProvider`; план есть, требует обновления
+  (промпт, thinking, кандидаты, тарифы).
 
 ## Готово
 
@@ -31,7 +33,7 @@
 
 ## В процессе
 
-- Ничего не в работе: M3.6b.1 закоммичен (`0877aba`), дерево чистое.
+- Ничего не в работе: HEAD `98279f7`, дерево чистое.
 
 ## Следующий шаг
 
@@ -43,8 +45,9 @@
 
 ## Открытые решения и блокеры
 
-- Recraft/FLUX parked: ключи `RECRAFT_API_KEY`/`FAL_KEY` не нужны, пока пилот DeepSeek
-  не провалит визуальный гейт.
+- DeepSeek утверждён генератором; Recraft/FLUX parked. Ключи `RECRAFT_API_KEY`/`FAL_KEY` не нужны.
+- К M3.6b.2: тени (запрет или flat hard shadow), кандидатов 3 или 5, тариф (off-peak в env или по UTC).
+- Модель данных M3.6b.2: дизайн-кит (library) отдельно от run artifacts; предметы без семантического кэша; сценарный вызов отдаёт `description`/`fallbackIcon`/`role`.
 - Для M3.6b.2 нужны: тариф LLM в env (`LLM_INPUT_USD_PER_MTOK`/`LLM_OUTPUT_USD_PER_MTOK`),
   лимит расходов на сессию и визуальная оценка пилота (человеком).
 - 12 прежних объектов стартовых SVG остались сиротами в S3 (ключи — в записи
