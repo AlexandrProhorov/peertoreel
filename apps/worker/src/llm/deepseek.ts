@@ -1,22 +1,10 @@
+import type { LlmJsonResponse } from '@peertoreel/contracts';
 import type { ZodType } from 'zod';
-import { z } from 'zod';
-
-const chatResponseSchema = z.object({
-  choices: z
-    .array(
-      z.object({
-        message: z.object({ content: z.string().nullable() }),
-        finish_reason: z.string().optional(),
-      }),
-    )
-    .min(1),
-  usage: z
-    .object({
-      prompt_tokens: z.number().nonnegative(),
-      completion_tokens: z.number().nonnegative(),
-    })
-    .optional(),
-});
+import {
+  ProviderHttpError,
+  createDeepSeekJsonClient,
+  createFetchHttpClient,
+} from '@peertoreel/providers';
 
 export interface LlmUsage {
   promptTokens: number;
@@ -61,79 +49,73 @@ const MAX_ATTEMPTS = 3;
  * The model is asked for `json_object`, the payload is validated against the
  * Zod schema, and a parse/validation failure is retried — LLMs occasionally
  * return prose or a truncated object even with a response format.
+ *
+ * Transport lives in `@peertoreel/providers` (`createDeepSeekJsonClient`), so
+ * the same one-attempt client feeds the SVG adapter without duplicating the
+ * request shape. This function keeps its own retry loop: stage retries are
+ * about valid JSON, while the SVG adapter retries with a corrective prompt.
  */
 export async function generateJson<T>(
   schema: ZodType<T>,
   request: GenerateJsonRequest,
   fetchImpl: typeof fetch = fetch,
 ): Promise<GenerateJsonResult<T>> {
-  const baseUrl = request.baseUrl ?? 'https://api.deepseek.com';
-  const model = request.model ?? 'deepseek-flash';
+  const maxTokens = request.maxTokens ?? 2000;
+  const temperature = request.temperature ?? 0.7;
+  const client = createDeepSeekJsonClient({
+    apiKey: request.apiKey,
+    baseUrl: request.baseUrl,
+    model: request.model,
+    http: createFetchHttpClient(fetchImpl),
+    maxTokens,
+    temperature,
+  });
   let lastError: unknown = new Error('LLM returned no parsable JSON');
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${request.apiKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: request.system },
-          {
-            role: 'user',
-            content:
-              attempt === 1
-                ? request.user
-                : `${request.user}\n\nПредыдущий ответ был невалидным. Верни ТОЛЬКО JSON-объект по схеме, без пояснений и markdown.`,
-          },
-        ],
-        response_format: { type: 'json_object' },
-        thinking: { type: 'disabled' },
-        temperature: request.temperature ?? 0.7,
-        max_tokens: request.maxTokens ?? 2000,
-        stream: false,
-      }),
-    });
+    let response: LlmJsonResponse;
 
-    if (!response.ok) {
-      const detail = (await response.text()).slice(0, 300);
-      const error = new LlmError(
-        `LLM responded with ${response.status}: ${detail}`,
-        response.status,
-        isRetryableStatus(response.status),
-      );
-
-      // A rejected key or exhausted balance will not fix itself on retry.
-      if (!error.retryable) {
+    try {
+      response = await client.complete({
+        system: request.system,
+        user:
+          attempt === 1
+            ? request.user
+            : `${request.user}\n\nПредыдущий ответ был невалидным. Верни ТОЛЬКО JSON-объект по схеме, без пояснений и markdown.`,
+        maxTokens,
+        temperature,
+        thinking: 'disabled',
+      });
+    } catch (error: unknown) {
+      if (!(error instanceof ProviderHttpError)) {
         throw error;
       }
 
-      lastError = error;
+      lastError = new LlmError(
+        error.message,
+        error.status,
+        error.kind === 'retryable',
+      );
+
+      // A rejected key or exhausted balance will not fix itself on retry.
+      if (error.kind !== 'retryable') {
+        throw lastError;
+      }
+
       continue;
     }
 
-    let payload: z.infer<typeof chatResponseSchema>;
-
     try {
-      payload = chatResponseSchema.parse(await response.json());
-    } catch (error: unknown) {
-      lastError = error;
-      continue;
-    }
+      const data = schema.parse(JSON.parse(response.content));
 
-    const content = payload.choices[0]?.message.content ?? '';
-    const usage = {
-      promptTokens: payload.usage?.prompt_tokens ?? 0,
-      completionTokens: payload.usage?.completion_tokens ?? 0,
-    };
-
-    try {
-      const data = schema.parse(JSON.parse(content));
-
-      return { data, usage, attempts: attempt };
+      return {
+        data,
+        usage: {
+          promptTokens: response.usage.promptTokens,
+          completionTokens: response.usage.completionTokens,
+        },
+        attempts: attempt,
+      };
     } catch (error: unknown) {
       lastError = error;
     }

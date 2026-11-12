@@ -141,6 +141,9 @@ importers:
       '@peertoreel/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@peertoreel/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@peertoreel/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -269,6 +272,9 @@ importers:
       '@peertoreel/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@peertoreel/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@peertoreel/storage':
         specifier: workspace:*
         version: link:../../packages/storage

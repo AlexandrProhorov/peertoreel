@@ -19,6 +19,7 @@
     "@peertoreel/assets": "workspace:*",
     "@peertoreel/contracts": "workspace:*",
     "@peertoreel/db": "workspace:*",
+    "@peertoreel/providers": "workspace:*",
     "@peertoreel/storage": "workspace:*",
     "@peertoreel/tiktok": "workspace:*",
     "bullmq": "^6.5.2",

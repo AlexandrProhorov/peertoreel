@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Image-provider adapters (Recraft, FLUX.2) behind the ImageProvider port",
+  "description": "Image-provider adapters (DeepSeek SVG, Recraft, FLUX.2) behind the ImageProvider port",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

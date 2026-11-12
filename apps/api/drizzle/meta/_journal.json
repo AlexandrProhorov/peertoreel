@@ -78,6 +78,20 @@
       "when": 1794490194298,
       "tag": "0010_powerful_wong",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794499075814,
+      "tag": "0011_boring_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794505384118,
+      "tag": "0012_mysterious_magdalene",
+      "breakpoints": true
     }
   ]
 }

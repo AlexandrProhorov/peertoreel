@@ -14,8 +14,10 @@ import {
   type ProviderMode,
   type ResolvedAssetSummary,
   type StoryboardAssetResolution,
+  type StoryboardProviderConfig,
 } from './asset-resolution.js';
 import { createAssetPersistence } from './asset-persistence.js';
+import { parseDeepSeekSvgEnv } from './provider-config.js';
 import { resolvedAssetMapSchema, type ResolvedAssetMap } from './props.js';
 import { renderScene, sceneOutputPath } from './render.js';
 import { config as loadEnv } from 'dotenv';
@@ -70,13 +72,15 @@ function usage(): void {
   console.log(`Usage:
   pnpm --filter @peertoreel/render-worker render-fixture [--scene <index>] [--out <dir>]
   pnpm --filter @peertoreel/render-worker render-storyboard -- --input <storyboard.json> [--scene <index>] [--out <dir>]
-      [--resolve-assets] [--assets <map.json>] [--provider=fake] [--persist]
+      [--resolve-assets] [--assets <map.json>] [--provider=fake|deepseek-svg] [--persist]
 
 Renders silent 1080x1920/30 h264 scene clips from a peertoreel.storyboard.v1
 document. render-fixture is the shortcut for the built-in -15° fixture.
 --resolve-assets resolves subject keys through the Asset Resolver and passes
 data-URI URLs into Remotion input props; --provider=fake enables the offline
-fake ImageProvider for keys missing from Tier 0. --assets <map.json> injects
+fake ImageProvider for keys missing from Tier 0; --provider=deepseek-svg calls
+the DeepSeek SVG generator (needs DEEPSEEK_API_KEY plus LLM_*USD_PER_MTOK in
+.env). --assets <map.json> injects
 already-resolved URLs (episode mode: Pixabay images); injected keys win and
 the rest still resolves through Tier 0. --persist (with --resolve-assets)
 writes rows to Postgres and bytes to S3, then passes presigned URLs into
@@ -141,7 +145,13 @@ function providerModeValue(): ProviderMode {
     return 'fake';
   }
 
-  throw new Error(`--provider must be "fake" or "none", received "${raw}"`);
+  if (raw === 'deepseek-svg') {
+    return 'deepseek-svg';
+  }
+
+  throw new Error(
+    `--provider must be "fake", "deepseek-svg" or "none", received "${raw}"`,
+  );
 }
 
 function publicDirPath(): string {
@@ -384,7 +394,13 @@ async function main(): Promise<void> {
       throw new Error('--persist requires --resolve-assets');
     }
 
-    if (persist) {
+    if (providerMode === 'deepseek-svg' && !persist) {
+      throw new Error(
+        '--provider=deepseek-svg requires --persist so the spend is recorded in provider_usage',
+      );
+    }
+
+    if (persist || providerMode === 'deepseek-svg') {
       loadEnv({
         path: fileURLToPath(new URL('../../../.env', import.meta.url)),
         quiet: true,
@@ -392,6 +408,10 @@ async function main(): Promise<void> {
     }
 
     const persistence = persist ? createAssetPersistence(process.env) : null;
+    const providerConfig: StoryboardProviderConfig | null =
+      providerMode === 'deepseek-svg'
+        ? { deepseek: parseDeepSeekSvgEnv(process.env) }
+        : null;
 
     try {
       const assetResolution = resolveAssets
@@ -404,6 +424,7 @@ async function main(): Promise<void> {
             persistence === null
               ? null
               : { writer: persistence.usageWriter, source: 'cli' },
+            providerConfig,
           )
         : undefined;
 

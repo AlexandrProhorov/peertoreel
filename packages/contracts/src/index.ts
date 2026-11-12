@@ -5,6 +5,7 @@ export * from './episode.js';
 export * from './errors.js';
 export * from './health.js';
 export * from './json.js';
+export * from './llm.js';
 export * from './publish.js';
 export * from './qc.js';
 export * from './queues.js';

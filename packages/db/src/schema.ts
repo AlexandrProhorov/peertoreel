@@ -278,6 +278,7 @@ export const publishCards = pgTable(
 export const assetSourceValues = [
   'starter',
   'library',
+  'llm',
   'recraft',
   'flux',
   'upload',
@@ -296,7 +297,7 @@ export const assets = pgTable(
     key: text('key').notNull(),
     source: assetSourceEnum('source').notNull(),
     kind: assetKindEnum('kind').notNull(),
-    styleId: text('style_id').notNull().default('studio_flat_2d_v1'),
+    styleId: text('style_id').notNull().default('studio_flat_2d_v2'),
     /** SHA-256 of the normalized bytes; identity for deduplication. */
     contentHash: text('content_hash').notNull(),
     tags: jsonb('tags').$type<string[]>().notNull().default([]),

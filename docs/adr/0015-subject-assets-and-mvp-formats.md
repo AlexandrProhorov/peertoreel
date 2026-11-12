@@ -112,6 +112,13 @@ refinement so M3.5 tests real subject-based videos without premature cloud infra
 - **M3.6 (Asset Library + Asset Generator):** replaces the static starter list with the full
   `AssetResolver`, DB/R2 metadata and content-hash cache, `ImageProvider` (Recraft Vector /
   FLUX.2 + BiRefNet) and automated `studio_flat_2d_v1` palette normalization.
+- **Amendment (2026-11-12, M3.6b.2):** the first real provider is DeepSeek SVG behind
+  `ImageProvider` (`source: 'llm'`), not Recraft/FLUX.2. Tier 1 recraft/flux adapters stay as
+  parked skeletons; the raster Tier 2 path is unchanged. Details and pilot measurements:
+  ADR-0017 D12.
+- **Amendment (2026-11-12, M3.6b.3):** palette normalization now targets
+  `studio_flat_2d_v2` (muted 16-slot palette) by default; `studio_flat_2d_v1` remains for
+  existing records. Tier 0 was recolored, not re-authored. Details: ADR-0017 D13.
 
 ## Consequences
 

@@ -226,11 +226,59 @@ pnpm --filter @peertoreel/render-worker render-storyboard -- \
   `controls.colors` из палитры) и `flux` (FLUX.2 `[klein] 4B`, raster) за портом `ImageProvider`:
   `enabled` только при наличии `RECRAFT_API_KEY`/`FAL_KEY`, без ключа — типизированная ошибка и
   ни одного сетевого запроса; HTTP инжектится, мапперы чистые, тесты на записанных фикстурах,
-  ошибки классифицируются retryable/terminal. Приложения пакет пока не используют.
+  ошибки классифицируются retryable/terminal. Recraft/FLUX.2 **parked**; реальный провайдер —
+  DeepSeek SVG (ниже).
 
-Для M3.6b.2 (реальные вызовы) нужны: `RECRAFT_API_KEY` и `FAL_KEY` в `.env`, сетевой доступ к
-`api.recraft.ai` / `fal.run` с этой машины, согласованный бюджет и лимит на сессию, решение по
-PNG decode (`sharp` или `pngjs`) для raster-cutout и пост-проверка «в ассете нет текста».
+### DeepSeek SVG: реальная генерация (M3.6b.2)
+
+`DeepSeekSvgProvider` стоит за тем же портом `ImageProvider`: промпт (геометрический, 400×400,
+палитра, ≤5 цветов), `thinking: enabled`, allowlist без `text`/`filter`/`mask`/внешних `href`,
+один corrective retry и запись в `provider_usage` на **каждый** attempt (токены × тариф).
+
+```bash
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6b-2 \
+  --resolve-assets --provider=deepseek-svg --persist
+```
+
+В `.env` нужны `DEEPSEEK_API_KEY`, `LLM_INPUT_USD_PER_MTOK`, `LLM_OUTPUT_USD_PER_MTOK`
+(тариф DeepSeek на дату копирования; без них провайдер падает, а не пишет `0`), опционально
+`LLM_MODEL` и `ASSET_LLM_MAX_USD_PER_CALL` (по умолчанию `0.02`). `--persist` обязателен:
+без него расход некуда записать. Ассет получает `source: 'llm'`; повторный прогон —
+`tier: cache`, `providerRequests: 0`.
+
+Пилот (10 объектов × 3 прогона × 3 кандидата): **87/90 структурно пригодных**, `normalizeSvg`
+87/90, `maxColorDistance = 0`, факт **$0.208**, средняя латентность 18 с. Органика (`pirate`)
+провалила 3/9 — `thinking` выедает бюджет вывода. Визуальная оценка 1–5 — за человеком;
+87 SVG, `pilot.md` и `gallery.html` лежат в `apps/render-worker/out/m3-6b-2/pilot/`.
+Запуск пилота: `pnpm --filter @peertoreel/render-worker pilot:deepseek-svg`.
+
+### Мягкий стиль и дешёвые вызовы (M3.6b.3)
+
+Пресет `studio_flat_2d_v2` — дефолт: приглушённая палитра на 16 слотов (ink/surface/paper/
+amber/sky/coral/sage/danger) вместо неоновой v1; `studio_flat_2d_v1` остаётся для старых
+записей. Промпт требует скруглений (`rx ≥ 8%` меньшей стороны), запрещает `rx` у фонового
+`<rect>`, обводку мелких деталей и шум; детализация 8–15 примитивов разрешена.
+
+`thinking` выключен, `max_tokens` — 1600. Пилот 10×3: **30/30 годных**, `maxColorDistance = 0`,
+**$0.0146** за 30 вызовов (≈$0.00049 за кандидата, 4.7× дешевле), completion 259–1327 токенов,
+средняя латентность 3.3 с.
+
+**Обновление M3.6b.4.** Thinking снова включён по умолчанию: без него модель путает координаты.
+`max_tokens` = 16000, потому что рассуждение считается в тот же бюджет (при 6000 content
+получался пустым). Промпт требует числовой PLAN на каждый элемент, габарит объекта, правила
+силуэта (голова/плод — `ellipse`, не `rect`; колесо — концентрические круги; окна разделяются
+промежутком). A/B на bus/palm/pirate: 9/9, $0.071 за 9 вызовов (≈$0.003–0.008 за кандидата,
+16–115 с), без thinking — 9/9, $0.0056, но «каша» по композиции.
+
+Перекраска Tier 0 после смены палитры — авторский шаг:
+
+```bash
+pnpm --filter @peertoreel/render-worker recolor:starter
+pnpm --filter @peertoreel/worker assets:import
+```
+
+Галерея нового пилота: `apps/render-worker/out/m3-6b-3/pilot/gallery.html`.
 
 ### M3.5 — эпизод из темы
 

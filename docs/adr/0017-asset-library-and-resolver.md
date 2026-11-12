@@ -252,6 +252,73 @@ same `ImageProvider` port; the recraft/flux skeletons stay in the repo, unused, 
 M3.6b.2 decides whether a Recraft adapter is needed for organic subjects. No paid Recraft/fal
 calls have been made.
 
+### D12 — DeepSeek SVG provider (M3.6b.2)
+
+**Adapter.** `DeepSeekSvgProvider` lives in `packages/providers/src/deepseek-svg.ts`; vendor code
+never enters `packages/assets`. `packages/providers/src/deepseek-client.ts` is the one-attempt
+transport behind the `LlmJsonClient` port (contracts), so retries live in the caller and each
+attempt can be billed. The worker's `generateJson` reuses the same client and keeps its own
+retry loop.
+
+**Ledger.** One `provider_usage` row per attempt (not per `generate`), with
+`units = promptTokens + completionTokens` and `cost_usd` = measured tokens × the tariff from
+`LLM_INPUT_USD_PER_MTOK`/`LLM_OUTPUT_USD_PER_MTOK`. Tariffs are mandatory when the provider is
+enabled; a missing value fails fast instead of writing `0`. `meta` carries `attempt`, `outcome`,
+token split, rates and the pricing reference. `ASSET_LLM_MAX_USD_PER_CALL` (default `0.02`)
+rejects an attempt before the ledger row.
+
+**Output gate.** JSON `{svg}` → allowlist (`svg/g/path/rect/circle/ellipse/polygon/polyline`;
+no `text`, `image`, `filter`, `mask`, `script`, external `href`, `url(...)`) → ≤200 KB and ≤500
+elements → `normalizeSvg`. One corrective retry, then `InvalidAssetError`. Shadows are banned;
+`studio_flat_2d_v1` effects remain storyboard-level.
+
+**Source and migration.** `ASSET_SOURCES += 'llm'` in contracts and the `asset_source` DB enum
+(migration `0011`, additive); the record gets `source: 'llm'` from the provider result.
+
+**Pilot (2026-11-12).** 10 objects × 3 runs × 3 candidates, geometric prompt with
+`thinking: enabled`: 87/90 structurally valid (96.7%), `normalizeSvg` 87/90,
+`maxColorDistance = 0` on every success, measured **$0.208** for 90 calls, mean latency 18 s.
+Organic `pirate` failed 3/9 with empty content after 16k completion tokens (`thinking` eats the
+output budget) — an open follow-up, not a Recraft decision yet. Visual 1–5 scores require human
+review; artifacts are under `apps/render-worker/out/m3-6b-2/pilot/`.
+
+**Status.** Recraft/FLUX.2 skeletons remain parked and unused; no paid Recraft/fal calls have
+been made.
+
+### D13 — Muted style preset and token budget (M3.6b.3)
+
+**Why.** The 2026-11-12 visual review of 87 pilot SVGs found the v1 palette too bright, sharp
+corners the main anti-pattern, and `thinking` responsible for 4–7× the expected cost. Detail
+level itself was not a problem: simple and detailed candidates both passed when they avoided
+outline strokes around small parts and square corners.
+
+**Preset v2.** `studio_flat_2d_v2` (16 asset-palette slots, ~40–50% saturation: ink/surface/
+paper/amber/sky/coral/sage/danger) becomes `DEFAULT_STYLE_PRESET_ID`. `studio_flat_2d_v1` stays
+addressable so existing records keep resolving; `assets_key_style_unique` means a palette change
+cannot rewrite v1 bytes in place. Migration `0012` changes only the `assets.style_id` column
+default.
+
+**Tier 0 recolor.** `recolor:starter` quantizes the 12 authored SVGs with `paddingRatio: 0`
+(keeps the authored viewBox, idempotent on a second run) and `assets:import` adds rows under v2;
+v1 rows and their S3 objects are left untouched (prune later).
+
+**Prompt.** Rounded corners (`rx`/`ry` ≥ 8% of the smaller side), background `<rect>` without
+`rx` (it is removed by `removeBackgroundRects`, and rounding left white corners), no outline
+`stroke` on small details, 8–15 primitives, 3–5 colors from the 16-slot palette.
+
+**Cost.** `thinking: disabled`, `max_tokens: 1600`. Pilot 10 objects × 3 candidates: 30/30 valid,
+`maxColorDistance = 0`, $0.0146 total (≈$0.00049 per candidate, 4.7× cheaper than the thinking
+pilot), completion 259–1327 tokens, mean latency 3.3 s.
+
+**Revision (M3.6b.4, same day).** Thinking returns as the default: without it the model produced
+overlapping/offset geometry ("каша"), while the reference `geom-test` gallery that set the quality
+bar used reasoning. `max_tokens` is 16000 because reasoning tokens are billed inside the same
+budget (6000 produced empty content on palm/pirate). The prompt now requires a per-element numeric
+PLAN, an object bounding box, silhouette rules (heads/fruits — `ellipse`, not `rect`; wheels —
+concentric circles; windows separated by gaps) and 10–18 primitives. A/B on bus/palm/pirate:
+9/9 valid, $0.071 for 9 calls (≈$0.003–0.008 per candidate, 16–115 s). Thinking off stays
+available per call but is not the production default.
+
 ## Consequences
 
 - The starter pack becomes one `AssetSource` inside the library instead of the only source.

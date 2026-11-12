@@ -3,6 +3,7 @@ import type {
   ImageProviderRequest,
   ImageProviderResult,
   ProviderUsageEntry,
+  ProviderUsageSink,
 } from '@peertoreel/contracts';
 
 /**
@@ -12,9 +13,7 @@ import type {
  * The Drizzle implementation lives in `@peertoreel/db`, so no adapter imports
  * Postgres (packages/assets has no DB dependency).
  */
-export interface ProviderUsageWriter {
-  record(entry: ProviderUsageEntry): Promise<void>;
-}
+export type ProviderUsageWriter = ProviderUsageSink;
 
 export interface ProviderUsageContext {
   readonly writer: ProviderUsageWriter;

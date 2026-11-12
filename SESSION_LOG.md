@@ -6,6 +6,10 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-13 | DeepSeek SVG v3.1: мастер-промпт и бенчмарк пропорций | [2026-11-13-01](docs/sessions/2026-11/2026-11-13-01-deepseek-svg-v3-1-master-prompt-i-benchmark-proporciy.md) |
+| 2026-11-12 | M3.6b.4: числовой PLAN, silhouette rules, think mode | [2026-11-12-06](docs/sessions/2026-11/2026-11-12-06-m3-6b-4-chislovoy-plan-pravila-silueta-think-mode.md) |
+| 2026-11-12 | M3.6b.3: preset v2, скругления и стоимость вызовов | [2026-11-12-05](docs/sessions/2026-11/2026-11-12-05-m3-6b-3-muted-preset-v2-i-stoimost-vyzovov.md) |
+| 2026-11-12 | M3.6b.2: DeepSeek SVG провайдер, контракты, CLI и пилот | [2026-11-12-04](docs/sessions/2026-11/2026-11-12-04-m3-6b-2-deepseek-svg-provayder-pilot.md) |
 | 2026-11-12 | M3.6b.1: provider readiness — alias, ledger, адаптеры | [2026-11-12-02](docs/sessions/2026-11/2026-11-12-02-m3-6b-1-provider-readiness-alias-ledger-adapters.md) |
 | 2026-11-12 | DeepSeek SVG: эксперименты с промптом, выбор генератора | [2026-11-12-03](docs/sessions/2026-11/2026-11-12-03-deepseek-svg-eksperimenty-s-promptom-vybor-generatora.md) |
 | 2026-11-12 | fix: `The chunk size is invalid` на TikTok `video/init` | [2026-11-12-01](docs/sessions/2026-11/2026-11-12-01-fix-the-chunk-size-is-invalid-na-tiktok-video-init.md) |

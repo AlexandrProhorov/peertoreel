@@ -13,7 +13,14 @@ export const ASSET_KINDS = ['svg', 'png', 'raster-cutout'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 export const assetKindSchema = z.enum(ASSET_KINDS);
 
-export const ASSET_SOURCES = ['starter', 'library', 'recraft', 'flux', 'upload'] as const;
+export const ASSET_SOURCES = [
+  'starter',
+  'library',
+  'llm',
+  'recraft',
+  'flux',
+  'upload',
+] as const;
 export type AssetSource = (typeof ASSET_SOURCES)[number];
 export const assetSourceSchema = z.enum(ASSET_SOURCES);
 

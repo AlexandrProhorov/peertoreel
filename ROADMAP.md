@@ -137,7 +137,10 @@ production hardening. Причина — не строить очередь и a
 | M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
 | M3.6a.1 | Asset Library persistence: `DrizzleAssetRepository` (`assets`/`asset_variants`), порт `AssetBlobStore` + S3-адаптер, `assets:import`, `render-storyboard --persist`, Testcontainers integration | агент | DONE |
 | M3.6b.1 | Provider readiness: alias `key → hash`, metadata-refresh, ledger `provider_usage`, Tier 0 в палитре, скелеты Recraft/FLUX.2 без платных вызовов | агент | DONE |
-| M3.6b | Real asset generation: DeepSeek SVG за портом `ImageProvider` (Recraft/FLUX parked), raster-cutout, `cartoon-character`, третья тема | агент | TODO |
+| M3.6b.2 | DeepSeek SVG провайдер: `LlmJsonClient`, allowlist, ledger на attempt, `source: 'llm'`, миграция `0011`, `--provider=deepseek-svg`, пилот 10×3×3 | агент | DONE |
+| M3.6b.3 | Приглушённый пресет `studio_flat_2d_v2`, скругления в промпте, `thinking: off`, пилот 10×3 (30/30, $0.0146) | агент | DONE |
+| M3.6b.4 | Числовой PLAN по референсу geom-test, правила силуэта/пропорций, thinking по умолчанию (bus/palm/pirate: 9/9, $0.071) | агент | DONE |
+| M3.6b | Остаток M3.6: raster-cutout, `cartoon-character`, третья тема, полный M3.6 acceptance | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -338,16 +341,54 @@ Postgres+S3 (alias: `cache`, `providerRequests: 0`, 1 строка alias, зап
 **Не проверено:** реальные Recraft/fal.ai вызовы (нет ключей, это M3.6b.2), живой R2, визуальный
 review перекрашенных иконок.
 
-**M3.6b — Real asset generation.** Остаток M3.6: реальная генерация предметных SVG через
-**DeepSeek API** за портом `ImageProvider` (`DeepSeekSvgProvider`), учёт токенов и стоимости в
-`provider_usage` на каждый вызов, allowlist-валидация ответа и пилот 10×3 с метриками
-(`docs/workspace/research/2026-11-11-deepseek-svg-assets-research.md` §9–§10). Recraft/FLUX.2
-адаптеры **ставятся на паузу**: скелеты в `packages/providers` остаются неиспользуемыми до
-решения по пилоту. Дальше по M3.6: raster-cutout нормализация (PNG decode, alpha occupancy
-8–75%, trim, sticker outline), `cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема
-и полный M3.6 acceptance (кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при
-отказе генерации).
-Предусловия alias `key→hash` и выравнивание палитры 12 стартовых SVG закрыты в M3.6b.1.
+**M3.6b.2 — DeepSeek SVG провайдер (DONE 2026-11-12).** `DeepSeekSvgProvider` за портом
+`ImageProvider` в `packages/providers`; `LlmJsonClient` в контрактах (один вызов = одна попытка,
+клиент не ретраит), поэтому леджер пишется на каждый attempt: `units = prompt + completion`,
+`cost_usd` = токены × тариф из env (`LLM_INPUT_USD_PER_MTOK`/`LLM_OUTPUT_USD_PER_MTOK`
+обязательны при включённом провайдере; без них — fail fast, не ноль). Allowlist отвергает
+`text`/`image`/`filter`/`mask`/`script`/внешние `href`/`url(...)`, лимиты ≤200 КБ и ≤500
+элементов, затем `normalizeSvg`; невалидный ответ — один corrective retry, дальше
+`InvalidAssetError`. `ASSET_SOURCES += 'llm'` и миграция `0011`; CLI
+`--provider=deepseek-svg` требует `--persist`, чтобы расход попал в `provider_usage`.
+Промпт геометрический (400×400, PLAN-комментарий, примитивы, симметрия, ≤5 цветов),
+`thinking: enabled`, 3 кандидата. Пилот 10 объектов × 3 прогона × 3 кандидата:
+**87/90 структурно пригодных (96.7%)**, `normalizeSvg` 87/90, `maxColorDistance = 0` во всех
+успешных, факт **$0.208** за 90 вызовов, средняя латентность 18 с. Провал — `pirate` (органика)
+6/9: `thinking` съедает бюджет вывода (пустой content при 16k completion-токенов); нужен
+отдельный режим для органики или Recraft только для hero. Визуальный балл 1–5 остаётся за
+человеком: 87 SVG и `gallery.html` в `apps/render-worker/out/m3-6b-2/pilot/`. Recraft/FLUX.2
+остаются parked.
+
+**Остаток M3.6b.** raster-cutout нормализация (PNG decode, alpha occupancy 8–75%, trim,
+sticker outline), `cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема и полный
+M3.6 acceptance (кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при отказе
+генерации). Предусловия alias `key→hash` и выравнивание палитры 12 стартовых SVG закрыты в
+M3.6b.1.
+
+**M3.6b.3 — приглушённый стиль и стоимость (DONE 2026-11-12).** Новый пресет
+`studio_flat_2d_v2` (flat 2D, палитра 16 слотов: ink/surface/paper/amber/sky/coral/sage/danger,
+насыщенность ~40–50%) и он же дефолт; `studio_flat_2d_v1` сохранён для старых записей. Tier 0
+перекрашен `recolor:starter` (`paddingRatio: 0`, идемпотентно) и импортирован под v2; миграция
+`0012` меняет только default `style_id`, старые 12 строк v1 остаются. Промпт: скругления
+(`rx ≥ 8%` меньшей стороны), фоновый `<rect>` без `rx`, запрет обводки мелких деталей,
+8–15 примитивов, 3–5 цветов из палитры. `thinking` выключен, `max_tokens` 1600. Пилот 10×3:
+**30/30 годных**, `maxColorDistance = 0`, **$0.0146** за 30 вызовов (≈$0.00049 за кандидата,
+4.7× дешевле), completion 259–1327 токенов (было 2 000–16 000), средняя латентность 3.3 с
+(было 18 с). Визуальная проверка новой палитры — за человеком
+(`apps/render-worker/out/m3-6b-3/pilot/gallery.html`).
+
+**M3.6b.4 — числовой PLAN и silhouette rules (DONE 2026-11-12).** Референс
+`C:\Temp\opencode\geom-test` показал, чего не хватало: PLAN — это чертёж с координатами
+каждого элемента, порядком слоёв, габаритом объекта и формулой зеркала, а не описание.
+Промпт переписан по этому образцу и дополнен правилами силуэта: голова/плод/солнце/мяч —
+`circle`/`ellipse` (не прямоугольник), животное — `ellipse`/капсулы, техника — скруглённые
+`rect`; детали внутри силуэта с отступом 8–16; окна/клавиши разделяются промежутком, а не
+второй заливкой; колесо — концентрические круги разных цветов, арка шире шины; 10–18
+примитивов. `thinking` снова **включён по умолчанию** (`max_tokens` 16000: рассуждение
+считается в тот же бюджет, 6000 давало пустой content). A/B на bus/palm/pirate: **9/9
+годных**, $0.071 за 9 вызовов (≈$0.008 с ретраями, $0.003–0.006 за кандидата), 16–115 с.
+Без thinking — дешевле в 10×, но «каша» по координатам; think mode оставлен рабочим
+режимом. Галерея: `apps/render-worker/out/m3-6b-5/pilot/gallery.html`.
 
 **Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
 лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →

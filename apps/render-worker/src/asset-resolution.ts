@@ -19,9 +19,15 @@ import {
   type AssetRepository,
   type ProviderUsageContext,
 } from '@peertoreel/assets';
+import {
+  createDeepSeekJsonClient,
+  createDeepSeekSvgProvider,
+  createFetchHttpClient,
+} from '@peertoreel/providers';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveSceneComponent } from './mapping.js';
+import type { DeepSeekSvgEnvOptions } from './provider-config.js';
 import type { ResolvedAssetMap } from './props.js';
 
 /**
@@ -33,7 +39,12 @@ import type { ResolvedAssetMap } from './props.js';
  * presigned URLs into props (M3.6a.1).
  */
 
-export type ProviderMode = 'none' | 'fake';
+export type ProviderMode = 'none' | 'fake' | 'deepseek-svg';
+
+/** Provider configuration resolved from env by the CLI, never by scene code. */
+export interface StoryboardProviderConfig {
+  readonly deepseek?: DeepSeekSvgEnvOptions;
+}
 
 export interface ResolvedAssetSummary {
   readonly assetKey: string;
@@ -177,21 +188,41 @@ export async function resolveStoryboardAssets(
   persistence: StoryboardAssetPersistence | null = null,
   injected: ResolvedAssetMap | null = null,
   providerUsage: ProviderUsageContext | null = null,
+  providerConfig: StoryboardProviderConfig | null = null,
 ): Promise<StoryboardAssetResolution> {
   const styleId = storyboard.style.styleId;
   const starter = await buildStarterAssets(
     (objectKey) => readFile(path.join(publicDir, objectKey), 'utf8'),
     styleId,
   );
+  const deepseekConfig = providerConfig?.deepseek;
   const baseProvider =
     providerMode === 'fake'
       ? createFakeImageProvider({
           synthesize: true,
           palette: assetPaletteFor(styleId),
         })
-      : null;
+      : providerMode === 'deepseek-svg'
+        ? createDeepSeekSvgProvider({
+            apiKey: deepseekConfig?.apiKey ?? null,
+            client:
+              deepseekConfig === undefined
+                ? undefined
+                : createDeepSeekJsonClient({
+                    apiKey: deepseekConfig.apiKey,
+                    baseUrl: deepseekConfig.baseUrl,
+                    model: deepseekConfig.model,
+                    http: createFetchHttpClient(),
+                  }),
+            rates: deepseekConfig?.rates,
+            maxUsdPerCall: deepseekConfig?.maxUsdPerCall,
+            usageWriter: providerUsage?.writer ?? null,
+            usageSource: providerUsage?.source ?? 'cli',
+            runId: providerUsage?.runId ?? null,
+          })
+        : null;
   const provider =
-    baseProvider !== null && providerUsage !== null
+    providerMode === 'fake' && baseProvider !== null && providerUsage !== null
       ? recordingImageProvider(baseProvider, providerUsage)
       : baseProvider;
   const resolver = new TieredAssetResolver({
