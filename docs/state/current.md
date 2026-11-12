@@ -2,9 +2,10 @@
 
 Обновлено: 2026-11-12 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
-Активная работа: `feat/m3-animated-factory` @ `0877aba` (M3.6b.1 закоммичен; мёрж PR #5 — `31c32f2`).
-План: `docs/workspace/plans/2026-11-11-m3-6b-1-provider-readiness-session.md` (локальный, не в git).
-Рабочее дерево: чистое.
+Активная работа: `feat/m3-animated-factory` @ `610e338` (M3.6b.1 закоммичен).
+План: `docs/workspace/plans/2026-11-12-m3-6b-2-deepseek-svg-session.md` (локальный, не в git).
+Рабочее дерево: чистое (кроме этого плана вне git).
+Направление: реальная генерация SVG через DeepSeek API; Recraft/FLUX parked.
 
 ## Проверки
 
@@ -34,16 +35,18 @@
 
 ## Следующий шаг
 
-1. M3.6b.2: реальные вызовы Recraft/FLUX.2 — нужны `RECRAFT_API_KEY`/`FAL_KEY`,
-   сетевой доступ и согласованный бюджет (приложение к плану M3.6b.1).
-2. Опционально до M3.6b.2: визуальный review перекрашенных 12 стартовых SVG
-   (`brick`, `thermometer` ушли в янтарный) и `--prune` для 12 сирот в S3.
+1. M3.6b.2: DeepSeek SVG за портом `ImageProvider` — план
+   `docs/workspace/plans/2026-11-12-m3-6b-2-deepseek-svg-session.md`; подтвердить решения
+   о месте адаптера, ledger на attempt и тарифах.
+2. Опционально: визуальный review перекрашенных 12 стартовых SVG (`brick`, `thermometer`
+   ушли в янтарный) и `--prune` для 12 сирот в S3.
 
 ## Открытые решения и блокеры
 
-- `RECRAFT_API_KEY`/`FAL_KEY` отсутствуют; платные вызовы запрещены до M3.6b.2.
-- Бюджет и лимит на сессию для Recraft/FLUX.2 не согласованы.
-- Сетевой доступ к `api.recraft.ai`/`fal.run` с этой машины не проверялся.
+- Recraft/FLUX parked: ключи `RECRAFT_API_KEY`/`FAL_KEY` не нужны, пока пилот DeepSeek
+  не провалит визуальный гейт.
+- Для M3.6b.2 нужны: тариф LLM в env (`LLM_INPUT_USD_PER_MTOK`/`LLM_OUTPUT_USD_PER_MTOK`),
+  лимит расходов на сессию и визуальная оценка пилота (человеком).
 - 12 прежних объектов стартовых SVG остались сиротами в S3 (ключи — в записи
   `docs/sessions/2026-11/2026-11-12-02-...`); `--prune` не сделано.
 

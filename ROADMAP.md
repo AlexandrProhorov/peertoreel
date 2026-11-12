@@ -137,7 +137,7 @@ production hardening. Причина — не строить очередь и a
 | M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
 | M3.6a.1 | Asset Library persistence: `DrizzleAssetRepository` (`assets`/`asset_variants`), порт `AssetBlobStore` + S3-адаптер, `assets:import`, `render-storyboard --persist`, Testcontainers integration | агент | DONE |
 | M3.6b.1 | Provider readiness: alias `key → hash`, metadata-refresh, ledger `provider_usage`, Tier 0 в палитре, скелеты Recraft/FLUX.2 без платных вызовов | агент | DONE |
-| M3.6b | Real asset generation: Recraft Vector / FLUX.2 + BiRefNet, raster-cutout нормализация, `cartoon-character`, третья тема | агент | TODO |
+| M3.6b | Real asset generation: DeepSeek SVG за портом `ImageProvider` (Recraft/FLUX parked), raster-cutout, `cartoon-character`, третья тема | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -338,14 +338,16 @@ Postgres+S3 (alias: `cache`, `providerRequests: 0`, 1 строка alias, зап
 **Не проверено:** реальные Recraft/fal.ai вызовы (нет ключей, это M3.6b.2), живой R2, визуальный
 review перекрашенных иконок.
 
-**M3.6b — Real asset generation.** Остаток M3.6: адаптеры `ImageProvider` для Recraft V4/V4.1
-Vector и FLUX.2 `[klein]`/`[pro]` + BiRefNet v2, реальная запись в R2/Postgres (repository
-adapter), raster-cutout нормализация (PNG decode, alpha occupancy 8–75%, trim, sticker outline),
-`cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема и полный M3.6 acceptance
-(кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при отказе генерации).
-До подключения платного провайдера нужны alias-строки key→hash (сейчас hash-хит возвращает
-запись-владельца и не делает новый ключ адресуемым) и выравнивание палитры 12 стартовых SVG
-под `studio_flat_2d_v1` (Tier 0 сознательно хранится без ре-квантизации).
+**M3.6b — Real asset generation.** Остаток M3.6: реальная генерация предметных SVG через
+**DeepSeek API** за портом `ImageProvider` (`DeepSeekSvgProvider`), учёт токенов и стоимости в
+`provider_usage` на каждый вызов, allowlist-валидация ответа и пилот 10×3 с метриками
+(`docs/workspace/research/2026-11-11-deepseek-svg-assets-research.md` §9–§10). Recraft/FLUX.2
+адаптеры **ставятся на паузу**: скелеты в `packages/providers` остаются неиспользуемыми до
+решения по пилоту. Дальше по M3.6: raster-cutout нормализация (PNG decode, alpha occupancy
+8–75%, trim, sticker outline), `cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема
+и полный M3.6 acceptance (кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при
+отказе генерации).
+Предусловия alias `key→hash` и выравнивание палитры 12 стартовых SVG закрыты в M3.6b.1.
 
 **Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
 лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →

@@ -245,6 +245,13 @@ parsed by pure mappers over recorded fixtures, and HTTP is an injected port. Lic
 policy (`recraft-terms`, `apache-2.0`; `flux [dev]` is non-commercial), and cost is `null` unless
 the provider's own response carries it. No app depends on this package yet.
 
+**Status (2026-11-12): parked.** Research `2026-11-11-deepseek-svg-assets-research.md` recommends
+generating subject SVG with the DeepSeek API instead of Recraft/fal.ai (measured: 6/6 structurally
+valid, ~$0.0003 per asset). The planned production provider is `DeepSeekSvgProvider` behind the
+same `ImageProvider` port; the recraft/flux skeletons stay in the repo, unused, until the pilot in
+M3.6b.2 decides whether a Recraft adapter is needed for organic subjects. No paid Recraft/fal
+calls have been made.
+
 ## Consequences
 
 - The starter pack becomes one `AssetSource` inside the library instead of the only source.
