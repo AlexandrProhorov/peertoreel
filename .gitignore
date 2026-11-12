@@ -21,6 +21,9 @@ coverage/
 # local task list (not part of the repo)
 /todo.md
 
+# local workspace: plans, research, references (not part of the repo)
+/docs/workspace/
+
 # logs / local data
 *.log
 logs/
@@ -41,3 +44,4 @@ Thumbs.db
 # generated media
 spikes/**/out/
 apps/render-worker/out/
+apps/worker/out/
