@@ -34,6 +34,7 @@ packages/
   assets/       # Asset Library core: content hash, resolver, normalization, style presets
   db/           # Drizzle schema + database handle shared by API and worker
   storage/      # S3-compatible object storage (SeaweedFS locally, R2 in production)
+  providers/    # ImageProvider adapters (Recraft, FLUX.2); no app depends on it yet
   tiktok/       # TikTok Open API adapter: OAuth, token cipher, Content Posting API
 infra/          # Dockerfiles, compose, deploy config
 docs/           # adr/, pipeline contracts, API notes

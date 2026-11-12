@@ -68,7 +68,7 @@ alias `key → hash`, metadata-refresh, ledger `provider_usage`, Tier 0 в па�
 - Миграция — `0010`, а не `0009`: `0009` уже занята episode-миграцией (`0008` — assets).
 - Ledger включён в render-worker CLI (`--persist`), а не в `apps/worker`: единственный вызов
   провайдера сегодня там; worker провайдера не вызывает.
-- Root `AGENTS.md` §2 не правился (новый `packages/providers`): обновить в начале следующей сессии.
+- Root `AGENTS.md` §2 обновлён отдельным коммитом после M3.6b.1 (в середине сессии не правился).
 
 ## Блокеры и следующий шаг
 
