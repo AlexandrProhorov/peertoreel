@@ -190,6 +190,11 @@ milestone table or a full flow description into these files — link the single 
 - Avoid editing this file in the middle of a session: instruction changes invalidate the
   provider prompt cache.
 
+### Language
+
+- Reply to the user in Russian. Keep code, identifiers, file paths, commit messages and API
+  names in English. Task cards, questions, session records and explanations are in Russian.
+
 ### Shared
 
 - TypeScript `strict`; no `any` in public APIs, DTOs, form values. No `unknown` in public

@@ -2,7 +2,7 @@
 description: Load the state card and one plan, then print a task card without starting work
 ---
 
-Session start. **Do not edit files and do not begin implementation.**
+Session start. **Answer in Russian.** **Do not edit files and do not begin implementation.**
 
 Read, in this order, and only these:
 
@@ -34,3 +34,5 @@ Rules:
   archive.
 - Do not explore the whole project or read every changed file.
 - Stop after the task card and wait for confirmation.
+
+Write the task card and your questions in Russian.

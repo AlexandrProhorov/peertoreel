@@ -2,7 +2,8 @@
 description: Prepare the session handoff, state card update and session log entry
 ---
 
-Session end. **Do not commit or push.** Do not rewrite history or migrate the log format.
+Session end. **Answer in Russian.** **Do not commit or push.** Do not rewrite history or migrate
+the log format.
 
 Inspect the actual result:
 
@@ -24,3 +25,4 @@ Prepare, but do not apply without confirmation:
 
 Report the proposed edits first. Apply them only after the user confirms.
 Never claim `pnpm check` passed unless it was run in this session.
+Write the proposed record and your report in Russian.
