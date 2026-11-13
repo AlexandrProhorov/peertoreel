@@ -175,10 +175,6 @@ function layerSubject(
     );
   }
 
-  if (!isStarterAssetKey(value.assetKey)) {
-    throw new UnknownStarterAssetError(recipeId, value.assetKey);
-  }
-
   return value;
 }
 
@@ -333,7 +329,11 @@ export function resolveRecipeScene(
         layers.push({
           id: template.id,
           kind: template.kind,
-          content: STARTER_ASSET_CATALOG[subject.assetKey].path,
+          // Starter keys resolve to the local catalog path; a generated key
+          // (`subject/…`) is its own reference for the Asset Resolver.
+          content: isStarterAssetKey(subject.assetKey)
+            ? STARTER_ASSET_CATALOG[subject.assetKey].path
+            : subject.assetKey,
           chart: null,
           items: [],
           layout: template.layout,

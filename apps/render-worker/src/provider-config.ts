@@ -15,6 +15,8 @@ const envSchema = z.object({
   LLM_INPUT_USD_PER_MTOK: z.coerce.number().positive(),
   LLM_OUTPUT_USD_PER_MTOK: z.coerce.number().positive(),
   ASSET_LLM_MAX_USD_PER_CALL: z.coerce.number().positive().default(0.02),
+  /** Acceptance lever: `unavailable` fails before a call, `empty` burns the retry. */
+  DEEPSEEK_SVG_FORCE_FAILURE: z.enum(['unavailable', 'empty']).optional(),
 });
 
 export interface DeepSeekSvgEnvOptions {
@@ -26,6 +28,7 @@ export interface DeepSeekSvgEnvOptions {
     readonly outputUsdPerMtok: number;
   };
   readonly maxUsdPerCall: number;
+  readonly simulateFailure?: 'unavailable' | 'empty';
 }
 
 export function parseDeepSeekSvgEnv(
@@ -38,6 +41,7 @@ export function parseDeepSeekSvgEnv(
     LLM_INPUT_USD_PER_MTOK: source.LLM_INPUT_USD_PER_MTOK,
     LLM_OUTPUT_USD_PER_MTOK: source.LLM_OUTPUT_USD_PER_MTOK,
     ASSET_LLM_MAX_USD_PER_CALL: source.ASSET_LLM_MAX_USD_PER_CALL,
+    DEEPSEEK_SVG_FORCE_FAILURE: source.DEEPSEEK_SVG_FORCE_FAILURE,
   });
 
   if (!parsed.success) {
@@ -64,5 +68,8 @@ export function parseDeepSeekSvgEnv(
       outputUsdPerMtok: parsed.data.LLM_OUTPUT_USD_PER_MTOK,
     },
     maxUsdPerCall: parsed.data.ASSET_LLM_MAX_USD_PER_CALL,
+    ...(parsed.data.DEEPSEEK_SVG_FORCE_FAILURE !== undefined
+      ? { simulateFailure: parsed.data.DEEPSEEK_SVG_FORCE_FAILURE }
+      : {}),
   };
 }

@@ -1,10 +1,15 @@
 import {
   STARTER_ASSET_CATALOG,
   STARTER_ASSET_KEYS,
+  getStoryboardRecipe,
+  isStarterAssetKey,
+  parseRecipeSlots,
+  sanitizeSubjectPrompt,
   type AssetResolution,
   type AssetResolutionTier,
   type AssetUsage,
   type AssetVariant,
+  type AssetDiagnostic,
   type Storyboard,
 } from '@peertoreel/contracts';
 import {
@@ -52,6 +57,10 @@ export interface ResolvedAssetSummary {
   readonly cacheHit: boolean;
   readonly contentHash: string;
   readonly objectKey: string;
+  /** Provider prompt recorded on the asset; null for Tier 0. */
+  readonly prompt: string | null;
+  /** Why this tier won; `provider_failed`/`fallback_used` are acceptance evidence. */
+  readonly diagnostics: readonly AssetDiagnostic[];
 }
 
 /** Persistence is injected, never discovered: the CLI owns env and lifecycle. */
@@ -73,6 +82,99 @@ export interface StoryboardAssetResolution {
 const KEY_BY_PATH = new Map<string, string>(
   STARTER_ASSET_KEYS.map((key) => [STARTER_ASSET_CATALOG[key].path, key]),
 );
+
+/** Prompt and Tier 0 fallback declared by a subject slot (ADR-0016 D13). */
+interface SubjectHints {
+  readonly prompt: string | null;
+  readonly fallbackKey: string | null;
+}
+
+interface SubjectSlotValue {
+  readonly assetKey: string;
+  readonly fallbackIcon: string | null;
+  readonly prompt: string | null;
+}
+
+function isSubjectSlotValue(value: unknown): value is SubjectSlotValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    'assetKey' in value &&
+    typeof (value as { assetKey: unknown }).assetKey === 'string'
+  );
+}
+
+/**
+ * Reference → provider hints for every recipe subject slot. Starter keys map
+ * from their public path (what recipe layers carry); generated keys are their
+ * own reference.
+ */
+function subjectHints(storyboard: Storyboard): Map<string, SubjectHints> {
+  const hints = new Map<string, SubjectHints>();
+
+  for (const scene of storyboard.scenes) {
+    if (scene.implementation.type !== 'recipe') {
+      continue;
+    }
+
+    const implementation = scene.implementation;
+    const recipe = getStoryboardRecipe(implementation.recipeId);
+
+    if (recipe === null) {
+      continue;
+    }
+
+    let slots: ReturnType<typeof parseRecipeSlots>;
+
+    try {
+      slots = parseRecipeSlots(
+        implementation.recipeId,
+        implementation.variant,
+        implementation.slots,
+      );
+    } catch {
+      // Invalid slots fail later with a typed error from the renderer.
+      continue;
+    }
+
+    for (const spec of recipe.slotSpecs) {
+      if (spec.kind !== 'subject') {
+        continue;
+      }
+
+      const value = slots.slots[spec.name];
+
+      if (!isSubjectSlotValue(value)) {
+        continue;
+      }
+
+      const hint: SubjectHints = {
+        prompt:
+          typeof value.prompt === 'string' && value.prompt.trim().length > 0
+            ? sanitizeSubjectPrompt(value.prompt)
+            : null,
+        fallbackKey:
+          typeof value.fallbackIcon === 'string' ? value.fallbackIcon : null,
+      };
+      const reference = isStarterAssetKey(value.assetKey)
+        ? STARTER_ASSET_CATALOG[value.assetKey].path
+        : value.assetKey;
+
+      // First declaration wins: several scenes may reuse one key with slightly
+      // different wording, and re-resolution must not depend on scene order.
+      if (!hints.has(reference)) {
+        hints.set(reference, hint);
+      }
+
+      if (!hints.has(value.assetKey)) {
+        hints.set(value.assetKey, hint);
+      }
+    }
+  }
+
+  return hints;
+}
 
 function isExternalReference(reference: string): boolean {
   return /^(https?:|data:)/i.test(reference);
@@ -216,6 +318,7 @@ export async function resolveStoryboardAssets(
                   }),
             rates: deepseekConfig?.rates,
             maxUsdPerCall: deepseekConfig?.maxUsdPerCall,
+            simulateFailure: deepseekConfig?.simulateFailure,
             usageWriter: providerUsage?.writer ?? null,
             usageSource: providerUsage?.source ?? 'cli',
             runId: providerUsage?.runId ?? null,
@@ -235,6 +338,7 @@ export async function resolveStoryboardAssets(
   const resolutions: ResolvedAssetSummary[] = [];
   const urlByKey = new Map<string, string>();
   const injectedKeys = new Set<string>();
+  const hintsByReference = subjectHints(storyboard);
   const usage: AssetUsage = {
     provider: provider?.id ?? null,
     providerRequests: 0,
@@ -259,11 +363,19 @@ export async function resolveStoryboardAssets(
     }
 
     if (url === undefined) {
+      const hints =
+        hintsByReference.get(reference) ?? hintsByReference.get(assetKey);
       const resolved = await resolver.resolve({
         assetKey,
         styleId,
         assetPalette: storyboard.style.assetPalette,
         allowProvider: provider !== null,
+        ...(hints?.prompt !== null && hints?.prompt !== undefined
+          ? { prompt: hints.prompt }
+          : {}),
+        ...(hints?.fallbackKey !== null && hints?.fallbackKey !== undefined
+          ? { fallbackKey: hints.fallbackKey }
+          : {}),
       });
       const resolution =
         persistence === null
@@ -286,11 +398,18 @@ export async function resolveStoryboardAssets(
       usage.providerRequests += resolution.usage.providerRequests;
       usage.cacheHits += resolution.usage.cacheHits;
 
-      if (resolution.usage.costUsd === null) {
+      if (
+        resolution.usage.providerRequests > 0 &&
+        resolution.usage.costUsd === null
+      ) {
+        // Spend happened but was not reported: the total must stay unknown
+        // rather than silently drop the measured part (root hard rule 7).
         costMeasured = false;
-      } else {
+      } else if (resolution.usage.costUsd !== null) {
         usage.costUsd = (usage.costUsd ?? 0) + resolution.usage.costUsd;
       }
+
+      const metadataPrompt = resolution.asset.metadata['prompt'];
 
       resolutions.push({
         assetKey,
@@ -298,6 +417,8 @@ export async function resolveStoryboardAssets(
         cacheHit: resolution.cacheHit,
         contentHash: resolution.asset.contentHash,
         objectKey: variant.objectKey,
+        prompt: typeof metadataPrompt === 'string' ? metadataPrompt : null,
+        diagnostics: resolution.diagnostics,
       });
     }
 

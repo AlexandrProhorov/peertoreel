@@ -77,14 +77,18 @@ function usage(): void {
 Renders silent 1080x1920/30 h264 scene clips from a peertoreel.storyboard.v1
 document. render-fixture is the shortcut for the built-in -15° fixture.
 --resolve-assets resolves subject keys through the Asset Resolver and passes
-data-URI URLs into Remotion input props; --provider=fake enables the offline
-fake ImageProvider for keys missing from Tier 0; --provider=deepseek-svg calls
+data-URI URLs into Remotion input props; a generated subject
+(subject/<slug> with fallbackIcon + prompt) is produced by the provider and
+falls back to its starter icon; --provider=fake enables the offline fake
+ImageProvider for keys missing from Tier 0; --provider=deepseek-svg calls
 the DeepSeek SVG generator (needs DEEPSEEK_API_KEY plus LLM_*USD_PER_MTOK in
 .env). --assets <map.json> injects
 already-resolved URLs (episode mode: Pixabay images); injected keys win and
 the rest still resolves through Tier 0. --persist (with --resolve-assets)
 writes rows to Postgres and bytes to S3, then passes presigned URLs into
 props; it needs DATABASE_URL and S3_* in .env.
+DEEPSEEK_SVG_FORCE_FAILURE=unavailable|empty is an acceptance lever: fail
+before any call, or feed an empty reply through the corrective retry.
 `);
 }
 

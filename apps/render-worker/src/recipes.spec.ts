@@ -181,4 +181,22 @@ describe('recipe resolution', () => {
       ),
     ).toThrow(InvalidRecipeSlotError);
   });
+
+  it('passes a generated subject key to the resolver as its own reference', () => {
+    const resolved = resolveRecipeScene(
+      implementation('fact-object', 'stage', {
+        fact: 'X',
+        subject: {
+          assetKey: 'subject/wifi-router',
+          fallbackIcon: 'lightning',
+          prompt: 'роутер, вид спереди',
+        },
+      }),
+    );
+    const subject = resolved.recipe.layers.find(
+      (layer) => layer.kind === 'subject',
+    );
+
+    expect(subject?.content).toBe('subject/wifi-router');
+  });
 });

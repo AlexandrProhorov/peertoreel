@@ -105,6 +105,120 @@ describe('storyboard asset resolution', () => {
     expect(withFake.persisted).toBe(false);
   });
 
+  it('sanitizes and locks the first prompt for a reused generated subject', async () => {
+    const showcase = showcaseStoryboard();
+    const generated = {
+      assetKey: 'subject/wifi-router',
+      fallbackIcon: 'lightning',
+      prompt: 'роутер с антеннами, вид три четверти, гладкий корпус',
+    };
+    const storyboard = storyboardSchema.parse({
+      ...showcase,
+      scenes: showcase.scenes.map((candidate) => {
+        if (candidate.implementation.type !== 'recipe') {
+          return candidate;
+        }
+
+        const recipeId = candidate.implementation.recipeId;
+
+        if (recipeId !== 'hook-hero' && recipeId !== 'fact-object') {
+          return candidate;
+        }
+
+        return {
+          ...candidate,
+          implementation: {
+            ...candidate.implementation,
+            slots: {
+              ...candidate.implementation.slots,
+              subject:
+                recipeId === 'hook-hero'
+                  ? generated
+                  : { ...generated, prompt: 'второй промпт, вид сверху' },
+            },
+          },
+        };
+      }),
+    });
+
+    const resolution = await resolveStoryboardAssets(
+      storyboard,
+      PUBLIC_DIR,
+      'fake',
+    );
+    const entry = resolution.resolutions.find(
+      (candidate) => candidate.assetKey === 'subject/wifi-router',
+    );
+
+    expect(entry?.tier).toBe('provider');
+    expect(entry?.prompt).toMatch(/^вид спереди, роутер с антеннами/);
+    expect(entry?.prompt).not.toMatch(/три четверти|вид сверху/);
+    // Scene order must not change the asset: the first declaration wins.
+    expect(entry?.prompt).not.toContain('второй промпт');
+    // Mixed tiers: starter hits add no cost, so the provider's measured cost
+    // must survive the aggregation instead of collapsing to null.
+    expect(resolution.usage.providerRequests).toBe(1);
+    expect(resolution.usage.costUsd).toBe(0);
+  });
+
+  it('generates a declared subject and falls back to its icon without a provider', async () => {
+    const showcase = showcaseStoryboard();
+    const storyboard = storyboardSchema.parse({
+      ...showcase,
+      scenes: showcase.scenes.map((candidate) =>
+        candidate.implementation.type === 'recipe' &&
+        candidate.implementation.recipeId === 'fact-object'
+          ? {
+              ...candidate,
+              implementation: {
+                ...candidate.implementation,
+                slots: {
+                  ...candidate.implementation.slots,
+                  subject: {
+                    assetKey: 'subject/wifi-router',
+                    fallbackIcon: 'lightning',
+                    prompt: 'роутер, вид спереди, две антенны',
+                  },
+                },
+              },
+            }
+          : candidate,
+      ),
+    });
+
+    const generated = await resolveStoryboardAssets(
+      storyboard,
+      PUBLIC_DIR,
+      'fake',
+    );
+    const generatedEntry = generated.resolutions.find(
+      (entry) => entry.assetKey === 'subject/wifi-router',
+    );
+
+    expect(generatedEntry?.tier).toBe('provider');
+    expect(generated.assets['subject/wifi-router']?.url).toMatch(
+      /^data:image\/svg\+xml;base64,/,
+    );
+    // Mixed tiers: starter hits add no cost, so the provider's measured cost
+    // must survive the aggregation instead of collapsing to null.
+    expect(generated.usage.providerRequests).toBe(1);
+    expect(generated.usage.costUsd).toBe(0);
+
+    const fallback = await resolveStoryboardAssets(
+      storyboard,
+      PUBLIC_DIR,
+      'none',
+    );
+    const fallbackEntry = fallback.resolutions.find(
+      (entry) => entry.assetKey === 'subject/wifi-router',
+    );
+
+    expect(fallbackEntry?.tier).toBe('fallback');
+    expect(fallbackEntry?.objectKey).toBe('assets/starter/lightning.svg');
+    expect(fallback.usage.providerRequests).toBe(0);
+    expect(fallback.usage.costUsd).toBeNull();
+  });
+
   it('records one ledger row for a fake provider call', async () => {
     const showcase = showcaseStoryboard();
     const entries: ProviderUsageEntry[] = [];

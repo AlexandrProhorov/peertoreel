@@ -59,8 +59,9 @@ details live in `ROADMAP.md`; architectural decisions in ADR-0012 and ADR-0014.
 - **Recipes are data, not layouts.** A recipe describes how to explain an idea: required slots,
   camera/motion, allowed primitives and 2–3 composition variants. Do not add a per-topic TSX
   branch. New recipes need a test that renders a different topic. `implementation.type = 'recipe'`
-  resolves once in `recipes.ts`; recipe scenes keep `scene.objects` empty, subject slots accept only
-  `STARTER_ASSET_KEYS`, and unknown recipe/variant/asset/layer throws (ADR-0016).
+  resolves once in `recipes.ts`; recipe scenes keep `scene.objects` empty, subject slots accept
+  `STARTER_ASSET_KEYS` or a generated `subject/<slug>` key that declares `fallbackIcon` + `prompt`
+  (ADR-0016 D10), and unknown recipe/variant/asset/layer throws (ADR-0016).
 - **Tests.** Unit tests must not launch Chrome or call `renderMedia`. Cover params defaults,
   invalid-value diagnostics, mapping/resolved scene, unknown-component failure, timing, asset
   key resolution and duration in frames. Render verification is a separate CLI/CI step with
