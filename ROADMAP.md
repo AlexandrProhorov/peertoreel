@@ -140,7 +140,8 @@ production hardening. Причина — не строить очередь и a
 | M3.6b.2 | DeepSeek SVG провайдер: `LlmJsonClient`, allowlist, ledger на attempt, `source: 'llm'`, миграция `0011`, `--provider=deepseek-svg`, пилот 10×3×3 | агент | DONE |
 | M3.6b.3 | Приглушённый пресет `studio_flat_2d_v2`, скругления в промпте, `thinking: off`, пилот 10×3 (30/30, $0.0146) | агент | DONE |
 | M3.6b.4 | Числовой PLAN по референсу geom-test, правила силуэта/пропорций, thinking по умолчанию (bus/palm/pirate: 9/9, $0.071) | агент | DONE |
-| M3.6b | Остаток M3.6: raster-cutout, `cartoon-character`, третья тема, полный M3.6 acceptance | агент | TODO |
+| M3.6b.5 | Третья тема `wifi-wall` + acceptance M3.6: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`), fallback после ошибки провайдера, ledger per attempt, budget stop-crank, `DEEPSEEK_SVG_FORCE_FAILURE`, плоская проекция (правило + санитайзер) | агент | DONE |
+| M3.6b | Остаток M3.6: raster-cutout, `cartoon-character` | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -389,6 +390,19 @@ M3.6b.1.
 годных**, $0.071 за 9 вызовов (≈$0.008 с ретраями, $0.003–0.006 за кандидата), 16–115 с.
 Без thinking — дешевле в 10×, но «каша» по координатам; think mode оставлен рабочим
 режимом. Галерея: `apps/render-worker/out/m3-6b-5/pilot/gallery.html`.
+
+**M3.6b.5 — третья тема и acceptance M3.6 (DONE 2026-11-13).** Тема `wifi-wall`: 7 сцен,
+6 subject-слотов, 5 generated (83%), `subject/wifi-router` и `subject/brick-wall-section` →
+`tier: provider`, 2 вызова, **$0.005104**. Subject-слот теперь принимает `subject/<slug>`
+только с `fallbackIcon` и `prompt` (ADR-0016 D10). Резолвер продолжает в `fallbackKey` после
+ошибки провайдера и учитывает реальные attempts/cost; `ProviderBudgetError` даёт
+`provider_disabled_by_budget` и выключает провайдера до конца прогона. Кэш-прогон — 0 новых
+строк ledger. Для детерминированной проверки добавлен `DEEPSEEK_SVG_FORCE_FAILURE=unavailable|empty`.
+Первый роутер вышел с изометричной «крышкой»: директор написал «вид три четверти», хинты
+перезаписывались последним слотом, провайдер ставил `Объект:` раньше запрета перспективы.
+Исправлено: правило `2а` в промпте провайдера, `sanitizeSubjectPrompt`, first-wins хинтов,
+промпт в `provider_usage.meta`; ассет перегенерирован. Ролик 48.7 с, 1080×1920/30, h264+aac;
+галерея `apps/worker/out/m3-6b-5/gallery.html`.
 
 **Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
 лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →

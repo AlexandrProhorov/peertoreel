@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-13 | M3.6b.5: тема wifi-wall и acceptance M3.6 (generated subjects, fallback, ledger) | [2026-11-13-02](docs/sessions/2026-11/2026-11-13-02-m3-6b-5-tretya-tema-wifi-wall-i-acceptance.md) |
 | 2026-11-13 | DeepSeek SVG v3.1: мастер-промпт и бенчмарк пропорций | [2026-11-13-01](docs/sessions/2026-11/2026-11-13-01-deepseek-svg-v3-1-master-prompt-i-benchmark-proporciy.md) |
 | 2026-11-12 | M3.6b.4: числовой PLAN, silhouette rules, think mode | [2026-11-12-06](docs/sessions/2026-11/2026-11-12-06-m3-6b-4-chislovoy-plan-pravila-silueta-think-mode.md) |
 | 2026-11-12 | M3.6b.3: preset v2, скругления и стоимость вызовов | [2026-11-12-05](docs/sessions/2026-11/2026-11-12-05-m3-6b-3-muted-preset-v2-i-stoimost-vyzovov.md) |

@@ -146,6 +146,21 @@ resolution error (unknown recipe/variant/slot/layer/asset) throws a typed error 
 `mapping.ts`; it is not converted into a generic `kinetic-typography` scene. The catalog only
 references implemented backgrounds, so a valid recipe always resolves in M3.4.
 
+### D10 — Generated subjects extend the slot, not the starter pack (M3.6b.5)
+
+A subject slot may reference a key outside `STARTER_ASSET_KEYS` only in the
+`subject/<latin-slug>` namespace and only together with both:
+
+- `fallbackIcon` — a real starter key, used as the Tier 0 fallback;
+- `prompt` — a short Russian description of the object, passed to the provider.
+
+The pair is a contract rule, not a convention: `parseRecipeSlots` rejects a generated key
+without either field, so a failed generation can never leave a scene with no asset. Starter keys
+keep `fallbackIcon: null, prompt: null` and behave exactly as before. The recipe layer carries
+the generated key as its own reference; the Asset Resolver maps objectives
+(`assetKey` → `prompt`/`fallbackKey`) in `asset-resolution.ts`, so the renderer still sees URLs
+only. An unknown key outside the `subject/` namespace remains an error (typo guard).
+
 ## Consequences
 
 - The M3.5 director consumes `STORYBOARD_RECIPE_IDS`, each recipe's slot specs and
