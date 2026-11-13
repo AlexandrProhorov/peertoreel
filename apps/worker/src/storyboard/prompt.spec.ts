@@ -69,7 +69,8 @@ describe('storyboard director prompt', () => {
 
     expect(prompt).toContain('ТОЛЬКО один JSON');
     expect(prompt).toContain('не назначаешь тайминги');
-    expect(prompt).toContain('subject.assetKey');
+    expect(prompt).toContain('subject/<');
+    expect(prompt).toContain('fallbackIcon');
     expect(prompt).toContain('recipeId');
   });
 });

@@ -26,7 +26,7 @@ function slotShape(kind: RecipeSlotKind): string {
     case 'text':
       return 'русская строка';
     case 'subject':
-      return '{"assetKey":"<ключ из стартовых ассетов>"}';
+      return '{"assetKey":"<стартовый ключ | subject/slug>","fallbackIcon":"<стартовый ключ | null>","prompt":"<русское описание предмета | null>"}';
     case 'metric':
       return '{"label":"...","value":"...","fraction":0.0-1.0}';
     case 'steps':
@@ -77,9 +77,11 @@ export function storyboardSystemPrompt(): string {
     '- text — это ровно то, что произносит диктор: живой русский, без markdown, номеров сцен и ремарок.',
     '- description — короткая производственная заметка, что видно на экране; её не озвучивают.',
     '- Используй минимум 3 разных recipeId; это должен быть связный сюжет, а не набор карточек.',
-    '- Для предметной темы нужен минимум один subject-слот с ключом из списка стартовых ассетов.',
-    '- recipeId, variant и slots бери только из каталога; subject.assetKey — только из списка ключей.',
-    '- Никаких выдуманных полей, путей, URL и assetKey. Неизвестный ключ — ошибка.',
+    '- Для предметной темы нужен минимум один subject-слот.',
+    '- Главный предмет темы всегда задавай как "subject/<латинский-slug>" с fallbackIcon (ближайший стартовый ключ) и prompt — русское описание предмета: фронтальная проекция (анфас или сбоку), форма, части. Без подписей, букв и цифр; без ракурсов, изометрии и вида сверху.',
+    '- Стартовый ключ в assetKey бери только для второстепенной детали, которую не нужно рисовать заново; тогда fallbackIcon и prompt — null.',
+    '- recipeId, variant и slots бери только из каталога. Неизвестный стартовый ключ в fallbackIcon — ошибка.',
+    '- Никаких выдуманных полей, путей и URL.',
     '- Для сравнений используй metric (fraction 0..1), для процессов — steps (2–4 шага).',
     '- Не проси нарисовать схему с подписями: подписи и числа рисует Remotion из слотов.',
     '- id сцены — уникальный латинский slug (например, "wet-nose-hook").',
@@ -93,7 +95,7 @@ export function storyboardUserPrompt(topic: string): string {
     'Каталог рецептов (recipeId → variants и слоты):',
     JSON.stringify(storyboardPromptCatalog(), null, 2),
     '',
-    'Стартовые ассеты (subject.assetKey выбирай только отсюда):',
+    'Стартовые ассеты (ключи для subject.assetKey и fallbackIcon):',
     JSON.stringify(storyboardPromptStarterAssets(), null, 2),
     '',
     'Собери раскадровку под эту тему. Верни только JSON по системной схеме.',
