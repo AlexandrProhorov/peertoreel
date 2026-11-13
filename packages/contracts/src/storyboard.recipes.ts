@@ -132,10 +132,74 @@ export interface RecipeStep {
   readonly detail: string | null;
 }
 
+/**
+ * Prefix for provider-generated subject keys (`subject/wifi-router`). A key
+ * outside the curated Tier 0 pack is legal only together with `fallbackIcon`
+ * and `prompt`, so a failed generation cannot leave a scene with no asset
+ * (ADR-0016 D13).
+ */
+export const GENERATED_SUBJECT_KEY_PREFIX = 'subject/';
+
 export interface RecipeSubject {
-  readonly assetKey: StarterAssetKey;
-  /** Tier 0 fallback for a future generator; unused by the M3.4 renderer. */
+  /** Tier 0 key (`brick-wall`) or a generated key (`subject/wifi-router`). */
+  readonly assetKey: string;
+  /** Tier 0 fallback; mandatory when `assetKey` is generated. */
   readonly fallbackIcon: StarterAssetKey | null;
+  /** Russian provider prompt; mandatory when `assetKey` is generated. */
+  readonly prompt: string | null;
+}
+
+/**
+ * Phrases that turn a flat front view into a perspective drawing. The provider
+ * obeys the object description over the style line, so the prompt is cleaned
+ * before it reaches an adapter (M3.6b.5 follow-up).
+ */
+const PERSPECTIVE_PHRASES: readonly RegExp[] = [
+  /сверху[\s-]*сбоку/gi,
+  /три[\s-]*четверти/gi,
+  /изометр[а-яё]*/gi,
+  /3\s*[dд]/gi,
+  /объ[её]м[а-яё]*/gi,
+  /под\s+углом/gi,
+  /сверху/gi,
+  /ракурс[а-яё]*/gi,
+  /перспектив[а-яё]*/gi,
+  /наклон[а-яё]*/gi,
+];
+
+const ALLOWED_VIEW = /(спереди|сбоку|анфас|в\s+профиль)/i;
+
+const FLAT_PROJECTION = 'плоская 2D-проекция без перспективы и верхней грани';
+
+/**
+ * Force a flat projection: drop perspective words, keep an explicit front/side
+ * view when the author wrote one, and always state the flat constraint last.
+ * Applied once at the resolver boundary; the result is not re-sanitized.
+ */
+export function sanitizeSubjectPrompt(prompt: string): string {
+  let cleaned = prompt;
+
+  for (const pattern of PERSPECTIVE_PHRASES) {
+    cleaned = cleaned.replace(pattern, ' ');
+  }
+
+  cleaned = cleaned
+    .replace(/(^|[\s,])вид\s*(?=,|$)/gi, '$1')
+    .replace(/\s*-\s*(?=,|$)/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,(\s*,)+/g, ',')
+    .replace(/^[\s,]+|[\s,]+$/g, '')
+    .trim();
+
+  const withView =
+    cleaned.length === 0
+      ? 'вид спереди'
+      : ALLOWED_VIEW.test(cleaned)
+        ? cleaned
+        : `вид спереди, ${cleaned}`;
+
+  return `${withView.slice(0, 1800)}, ${FLAT_PROJECTION}`;
 }
 
 export interface RecipeMetric {
@@ -164,8 +228,9 @@ const recipeStepSchema = z.object({
 const recipeStepsSlotSchema = z.array(recipeStepSchema).min(2).max(4);
 
 const recipeSubjectSlotSchema = z.object({
-  assetKey: starterAssetKeySchema,
+  assetKey: z.string().min(1).max(200),
   fallbackIcon: starterAssetKeySchema.nullable().default(null),
+  prompt: z.string().min(1).max(2000).nullable().default(null),
 });
 
 const recipeMetricSlotSchema = z.object({
@@ -903,8 +968,9 @@ function issuePath(
 }
 
 /**
- * An unknown starter key is always a contract error, even in an optional slot:
- * a typo must not silently drop the subject and render an empty frame.
+ * A generated subject key is legal only with a Tier 0 `fallbackIcon` and a
+ * provider `prompt`; an unknown starter key stays a contract error, so a typo
+ * cannot silently drop the subject and render an empty frame (ADR-0016 D13).
  */
 function invalidSubjectAssetPath(
   slot: string,
@@ -917,7 +983,20 @@ function invalidSubjectAssetPath(
   const assetKey = value.assetKey;
 
   if (typeof assetKey === 'string' && !isStarterAssetKey(assetKey)) {
-    return `${slot}.assetKey`;
+    if (!assetKey.startsWith(GENERATED_SUBJECT_KEY_PREFIX)) {
+      return `${slot}.assetKey`;
+    }
+
+    if (
+      typeof value.fallbackIcon !== 'string' ||
+      !isStarterAssetKey(value.fallbackIcon)
+    ) {
+      return `${slot}.fallbackIcon`;
+    }
+
+    if (typeof value.prompt !== 'string' || value.prompt.trim().length === 0) {
+      return `${slot}.prompt`;
+    }
   }
 
   const fallbackIcon = value.fallbackIcon;

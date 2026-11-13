@@ -48,6 +48,8 @@ export const ASSET_DIAGNOSTIC_CODES = [
   'tag_match',
   'provider_generated',
   'provider_skipped',
+  'provider_failed',
+  'provider_disabled_by_budget',
   'deduplicated',
   'fallback_used',
 ] as const;
@@ -289,6 +291,18 @@ export interface AssetResolver {
 // Typed errors
 // ---------------------------------------------------------------------------
 
+/**
+ * Spend that already happened in a failed provider call. A resolver merges it
+ * into `AssetUsage`, so a fallback resolution never hides a billed attempt
+ * (root hard rule 7).
+ */
+export interface ProviderCallUsage {
+  /** Failed HTTP/model attempts that were actually made. */
+  readonly requests: number;
+  /** Measured cost, or null when the provider did not report tokens. */
+  readonly costUsd: number | null;
+}
+
 export class UnknownAssetError extends Error {
   constructor(
     readonly assetKey: string | null,
@@ -318,6 +332,7 @@ export class ProviderUnavailableError extends Error {
   constructor(
     readonly providerId: string | null,
     readonly reason: string,
+    readonly usage?: ProviderCallUsage,
   ) {
     super(
       `Image provider "${providerId ?? '(none)'}" is unavailable: ${reason}`,
@@ -344,11 +359,31 @@ export class InvalidAssetError extends Error {
     readonly assetKey: string,
     readonly providerId: string | null,
     readonly reason: string,
+    readonly usage?: ProviderCallUsage,
   ) {
     super(
       `Asset "${assetKey}" from provider "${providerId ?? '(none)'}" is invalid: ${reason}`,
     );
     this.name = 'InvalidAssetError';
+  }
+}
+
+/**
+ * A call already exceeded the per-call price ceiling. The spend is real, so the
+ * error carries it; the resolver stops using the provider for the rest of the
+ * run instead of masking the limit (M3.6b.5 decision 6).
+ */
+export class ProviderBudgetError extends Error {
+  constructor(
+    readonly providerId: string,
+    readonly costUsd: number,
+    readonly limitUsd: number,
+    readonly usage?: ProviderCallUsage,
+  ) {
+    super(
+      `Provider "${providerId}" call would cost $${costUsd} and exceeds the $${limitUsd} per-call limit`,
+    );
+    this.name = 'ProviderBudgetError';
   }
 }
 

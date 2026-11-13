@@ -17,6 +17,7 @@ import {
   getRecipeVariant,
   getStoryboardRecipe,
   parseRecipeSlots,
+  sanitizeSubjectPrompt,
   type RecipeVariant,
 } from './storyboard.recipes.js';
 
@@ -245,6 +246,60 @@ describe('recipe slot parsing', () => {
     }
   });
 
+  it('accepts a generated subject with a Tier 0 fallback and a prompt', () => {
+    const parsed = parseRecipeSlots('fact-object', 'stage', {
+      subject: {
+        assetKey: 'subject/wifi-router',
+        fallbackIcon: 'lightning',
+        prompt: 'роутер, вид спереди, две антенны и три индикатора',
+      },
+      fact: 'ФАКТ',
+    });
+
+    expect(parsed.slots.subject).toEqual({
+      assetKey: 'subject/wifi-router',
+      fallbackIcon: 'lightning',
+      prompt: 'роутер, вид спереди, две антенны и три индикатора',
+    });
+  });
+
+  it('rejects a generated subject without a Tier 0 fallback', () => {
+    try {
+      parseRecipeSlots('fact-object', 'stage', {
+        subject: { assetKey: 'subject/wifi-router', prompt: 'роутер' },
+        fact: 'ФАКТ',
+      });
+      expect.unreachable('expected a contract error');
+    } catch (error) {
+      expect((error as InvalidRecipeSlotError).path).toBe('subject.fallbackIcon');
+    }
+  });
+
+  it('rejects a generated subject without a provider prompt', () => {
+    try {
+      parseRecipeSlots('fact-object', 'stage', {
+        subject: { assetKey: 'subject/wifi-router', fallbackIcon: 'lightning' },
+        fact: 'ФАКТ',
+      });
+      expect.unreachable('expected a contract error');
+    } catch (error) {
+      expect((error as InvalidRecipeSlotError).path).toBe('subject.prompt');
+    }
+  });
+
+  it('defaults fallbackIcon and prompt to null for a starter subject', () => {
+    const parsed = parseRecipeSlots('fact-object', 'stage', {
+      subject: { assetKey: 'brick-wall' },
+      fact: 'ФАКТ',
+    });
+
+    expect(parsed.slots.subject).toEqual({
+      assetKey: 'brick-wall',
+      fallbackIcon: null,
+      prompt: null,
+    });
+  });
+
   it('defaults an optional subject of the wrong shape and records invalid_value', () => {
     const parsed = parseRecipeSlots('hook-hero', 'subject-lead', {
       ...hookSlots,
@@ -255,6 +310,44 @@ describe('recipe slot parsing', () => {
     expect(parsed.diagnostics).toEqual([
       { path: 'subject', reason: 'invalid_value', received: 'dog-snout' },
     ]);
+  });
+
+  it('drops a three-quarter view from a subject prompt', () => {
+    const prompt = sanitizeSubjectPrompt(
+      'Компактный роутер с антеннами, вид три четверти, пластиковый корпус',
+    );
+
+    expect(prompt).not.toMatch(/три четверти/i);
+    expect(prompt).toMatch(/^вид спереди, Компактный роутер/);
+    expect(prompt).toContain('без перспективы и верхней грани');
+  });
+
+  it('keeps an explicit side view and still forbids perspective', () => {
+    const prompt = sanitizeSubjectPrompt(
+      'Домашний роутер, вид сбоку, матовый корпус',
+    );
+
+    expect(prompt).toBe(
+      'Домашний роутер, вид сбоку, матовый корпус, плоская 2D-проекция без перспективы и верхней грани',
+    );
+  });
+
+  it('removes isometric wording without leaving debris', () => {
+    const prompt = sanitizeSubjectPrompt('Роутер сверху-сбоку, изометрия');
+
+    expect(prompt).not.toMatch(/изометр|сверху/i);
+    expect(prompt).toMatch(/^вид спереди, Роутер/);
+  });
+
+  it('does not prepend a front view when a side view is already stated', () => {
+    const prompt = sanitizeSubjectPrompt(
+      'фронтальная проекция участка кирпичной стены, вид строго сбоку',
+    );
+
+    expect(prompt).not.toMatch(/^вид спереди/);
+    expect(prompt).toBe(
+      'фронтальная проекция участка кирпичной стены, вид строго сбоку, плоская 2D-проекция без перспективы и верхней грани',
+    );
   });
 
   it('parses metric and steps slots for comparison and process', () => {
