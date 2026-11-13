@@ -7,7 +7,7 @@ const RUN_ID = 'b1f0c2de-0000-4000-8000-000000000042';
  * Fixed acceptance fixture for the M3 animated-factory experiment. It is not a
  * real run: it exercises the programmatic, image_animation and ai_video
  * branches (hybrid is covered by a schema test) without calling an LLM, TTS or
- * S3. See docs/ignore/plans/2026-11-08-animated-factory-plan.md and ADR-0012.
+ * S3. See docs/workspace/plans/2026-11-08-animated-factory-plan.md and ADR-0012.
  */
 export const storyboardFixture15Deg: Storyboard = {
   schemaVersion: 'peertoreel.storyboard.v1',

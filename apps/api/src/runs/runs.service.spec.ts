@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { storyboardFixture15Deg } from '@peertoreel/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { ArtifactsRepository } from './artifacts.repository.js';
 import type { StorageService } from '../storage/storage.service.js';
@@ -16,6 +17,7 @@ function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
     id: runId,
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'Почему небо синее',
+    mode: 'pipeline',
     state: 'DRAFT',
     currentStage: 'topic_discovery',
     failedStage: null,
@@ -60,15 +62,75 @@ describe('RunsService', () => {
 
     const run = await service.create('22222222-2222-4222-8222-222222222222', {
       topic: '  Почему небо синее  ',
+      mode: 'pipeline',
     });
 
     expect(repository.createWithEvent).toHaveBeenCalledWith({
       createdBy: '22222222-2222-4222-8222-222222222222',
       topic: 'Почему небо синее',
+      mode: 'pipeline',
       stage: 'topic_discovery',
     });
     expect(run.state).toBe('DRAFT');
+    expect(run.mode).toBe('pipeline');
     expect(run.createdAt).toBe('2026-11-03T12:00:00.000Z');
+  });
+
+  it('creates an episode run in DRAFT', async () => {
+    const { service, repository } = setup(
+      makeRun({ mode: 'episode', currentStage: 'topic_discovery' }),
+    );
+
+    const run = await service.create('22222222-2222-4222-8222-222222222222', {
+      topic: 'Почему у собак мокрый нос',
+      mode: 'episode',
+    });
+
+    expect(repository.createWithEvent).toHaveBeenCalledWith({
+      createdBy: '22222222-2222-4222-8222-222222222222',
+      topic: 'Почему у собак мокрый нос',
+      mode: 'episode',
+      stage: 'topic_discovery',
+    });
+    expect(run.mode).toBe('episode');
+  });
+
+  it('lets an episode run skip research to the script gate', async () => {
+    const episode = makeRun({ mode: 'episode', state: 'DRAFT' });
+    const planned = makeRun({
+      mode: 'episode',
+      state: 'SCRIPT_READY',
+      currentStage: 'episode_plan',
+    });
+    const { service, repository } = setup(episode, planned);
+
+    const run = await service.transition(runId, { to: 'SCRIPT_READY' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        state: 'SCRIPT_READY',
+        currentStage: 'episode_plan',
+      }),
+      expect.objectContaining({
+        fromState: 'DRAFT',
+        toState: 'SCRIPT_READY',
+        stage: 'episode_plan',
+      }),
+      {},
+    );
+    expect(run.state).toBe('SCRIPT_READY');
+  });
+
+  it('keeps episode runs out of pipeline-only edges', async () => {
+    const { service, repository } = setup(
+      makeRun({ mode: 'episode', state: 'SCRIPT_READY' }),
+    );
+
+    await expect(
+      service.transition(runId, { to: 'VOICE_READY' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.applyTransition).not.toHaveBeenCalled();
   });
 
   it('rejects a transition the state machine forbids', async () => {
@@ -116,6 +178,31 @@ describe('RunsService', () => {
         stage: 'research',
         reason: 'Pixabay 429',
       }),
+      {},
+    );
+  });
+
+  it('tags an episode failure with the episode stage', async () => {
+    const planned = makeRun({
+      mode: 'episode',
+      state: 'SCRIPT_READY',
+      currentStage: 'episode_plan',
+    });
+    const { service, repository } = setup(planned);
+
+    await service.transition(runId, {
+      to: 'FAILED',
+      reason: 'Google TTS 429',
+    });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        state: 'FAILED',
+        failedStage: 'episode_plan',
+        resumeState: 'SCRIPT_READY',
+      }),
+      expect.objectContaining({ stage: 'episode_plan' }),
       {},
     );
   });
@@ -225,6 +312,177 @@ describe('RunsService', () => {
 
     await expect(service.qcReport(runId)).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('returns the storyboard, visuals and manifest of an episode run', async () => {
+    const { service, artifacts, storage } = setup(
+      makeRun({ mode: 'episode', state: 'SCRIPT_READY' }),
+    );
+    const visuals = {
+      images: [],
+      providerRequests: 0,
+      cacheHits: 0,
+      skipped: 2,
+    };
+    const manifest = {
+      kind: 'm3.5.1-episode',
+      topic: 'Почему у собак мокрый нос',
+      title: 'Мокрый нос',
+      generatedAt: '2026-11-11T12:00:00.000Z',
+      totalMs: 1000,
+      llm: {
+        provider: 'deepseek',
+        model: 'deepseek-flash',
+        attempts: 1,
+        promptTokens: 100,
+        completionTokens: 200,
+        ms: 500,
+        costUsd: null,
+      },
+      tts: {
+        provider: 'google-translate-spike',
+        model: 'google-translate:ru',
+        characters: 40,
+        words: 8,
+        audioDurationSec: 3,
+        bytes: 1000,
+        ms: 200,
+        costUsd: 0,
+      },
+      stock: {
+        provider: 'pixabay',
+        queries: 2,
+        providerRequests: 2,
+        cacheHits: 0,
+        images: 0,
+        skipped: 2,
+        costUsd: 0,
+      },
+    };
+    const bodies: Record<string, unknown> = {
+      storyboard_json: storyboardFixture15Deg,
+      episode_visuals_json: visuals,
+      episode_manifest: manifest,
+    };
+
+    vi.mocked(artifacts.findByType).mockImplementation((_id, type) =>
+      Promise.resolve(
+        type in bodies
+          ? {
+              id: '44444444-4444-4444-8444-444444444444',
+              stage: 'episode_plan' as const,
+              type,
+              objectKey: `runs/${runId}/episode/${type}.json`,
+              contentType: 'application/json',
+              sizeBytes: 100,
+              createdAt: new Date('2026-11-11T12:00:00.000Z'),
+            }
+          : null,
+      ),
+    );
+    vi.mocked(storage.getObject).mockImplementation(async (objectKey) =>
+      Buffer.from(JSON.stringify(bodies[objectKey.split('/').at(-1)?.replace('.json', '') ?? ''])),
+    );
+
+    const result = await service.storyboard(runId);
+
+    expect(result.storyboard.runId).toBe(storyboardFixture15Deg.runId);
+    expect(result.visuals.skipped).toBe(2);
+    expect(result.manifest.title).toBe('Мокрый нос');
+  });
+
+  it('returns 404 when the episode plan is missing', async () => {
+    const { service } = setup(makeRun({ mode: 'episode' }));
+
+    await expect(service.storyboard(runId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('takes the publish card title from the episode manifest', async () => {
+    const review = makeRun({
+      mode: 'episode',
+      state: 'REVIEW',
+      currentStage: 'episode_render',
+      topic: 'топ 5 пород собак',
+    });
+    const scheduled = makeRun({
+      mode: 'episode',
+      state: 'SCHEDULED',
+      currentStage: 'publish',
+    });
+    const { service, artifacts, storage, repository } = setup(
+      review,
+      scheduled,
+    );
+
+    vi.mocked(artifacts.findByType).mockImplementation((_id, type) =>
+      Promise.resolve(
+        type === 'episode_manifest'
+          ? {
+              id: '55555555-5555-4555-8555-555555555555',
+              stage: 'episode_plan' as const,
+              type,
+              objectKey: `runs/${runId}/episode/manifest.json`,
+              contentType: 'application/json',
+              sizeBytes: 100,
+              createdAt: new Date('2026-11-11T12:00:00.000Z'),
+            }
+          : null,
+      ),
+    );
+    vi.mocked(storage.getObject).mockResolvedValue(
+      Buffer.from(
+        JSON.stringify({
+          kind: 'm3.5.1-episode',
+          topic: 'топ 5 пород собак',
+          title: 'Пять пород для квартиры',
+          generatedAt: '2026-11-11T12:00:00.000Z',
+          totalMs: 1000,
+          llm: {
+            provider: 'deepseek',
+            model: 'deepseek-flash',
+            attempts: 1,
+            promptTokens: 100,
+            completionTokens: 200,
+            ms: 500,
+            costUsd: null,
+          },
+          tts: {
+            provider: 'google-translate-spike',
+            model: 'google-translate:ru',
+            characters: 40,
+            words: 8,
+            audioDurationSec: 3,
+            bytes: 1000,
+            ms: 200,
+            costUsd: 0,
+          },
+          stock: {
+            provider: 'pixabay',
+            queries: 0,
+            providerRequests: 0,
+            cacheHits: 0,
+            images: 0,
+            skipped: 0,
+            costUsd: 0,
+          },
+        }),
+      ),
+    );
+
+    await service.transition(runId, { to: 'SCHEDULED' });
+
+    expect(repository.applyTransition).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({ state: 'SCHEDULED' }),
+      expect.objectContaining({ fromState: 'REVIEW', toState: 'SCHEDULED' }),
+      expect.objectContaining({
+        defaultCard: expect.objectContaining({
+          title: 'Пять пород для квартиры',
+        }),
+      }),
     );
   });
 

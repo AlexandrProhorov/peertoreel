@@ -23,7 +23,11 @@ export type ParallaxCityParams = z.infer<typeof parallaxCityParamsSchema>;
 export const kineticTypographyParamsSchema = z.object({
   text: z.string().min(1).max(400).default('ЗАГОЛОВОК'),
   accentWords: z.array(z.string().min(1).max(80)).max(8).default([]),
-  preset: z.enum(['statement', 'counter', 'pill']).default('statement'),
+  /**
+   * `backdrop` renders only the grid/glow environment. Recipe backgrounds use
+   * it when all text comes from the recipe layer plan (ADR-0016).
+   */
+  preset: z.enum(['statement', 'counter', 'pill', 'backdrop']).default('statement'),
   align: z.enum(['left', 'center', 'right']).default('center'),
   underline: z.boolean().default(false),
 });

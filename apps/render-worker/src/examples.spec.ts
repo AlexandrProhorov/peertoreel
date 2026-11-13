@@ -1,4 +1,5 @@
 import {
+  STARTER_ASSET_CATALOG,
   storyboardFixture15Deg,
   storyboardSchema,
 } from '@peertoreel/contracts';
@@ -12,6 +13,15 @@ const EXAMPLE_PATH = new URL(
 );
 const raw: unknown = JSON.parse(readFileSync(EXAMPLE_PATH, 'utf8'));
 const storyboard = storyboardSchema.parse(raw);
+
+const RECIPE_EXAMPLE_PATH = new URL(
+  '../examples/recipe-showcase.json',
+  import.meta.url,
+);
+const recipeRaw: unknown = JSON.parse(
+  readFileSync(RECIPE_EXAMPLE_PATH, 'utf8'),
+);
+const recipeStoryboard = storyboardSchema.parse(recipeRaw);
 
 describe('examples/custom-storyboard.json', () => {
   it('is a valid storyboard.v1 document', () => {
@@ -69,5 +79,61 @@ describe('examples/custom-storyboard.json', () => {
     );
 
     expect(total).toBeCloseTo(storyboard.audio.durationSec, 5);
+  });
+});
+
+describe('examples/recipe-showcase.json', () => {
+  it('is a valid storyboard.v1 document with five recipe scenes', () => {
+    expect(recipeStoryboard.schemaVersion).toBe('peertoreel.storyboard.v1');
+    expect(recipeStoryboard.scenes).toHaveLength(5);
+    expect(recipeStoryboard.runId).not.toBe(storyboardFixture15Deg.runId);
+  });
+
+  it('mixes at least three recipes and resolves every scene', () => {
+    const recipeIds = new Set<string>();
+
+    for (const scene of recipeStoryboard.scenes) {
+      if (scene.implementation.type !== 'recipe') {
+        throw new Error(`scene ${scene.id} is not a recipe scene`);
+      }
+
+      recipeIds.add(scene.implementation.recipeId);
+
+      const resolved = resolveSceneComponent(scene);
+
+      expect(resolved.recipe).not.toBeNull();
+      expect(resolved.recipe?.layers.length).toBeGreaterThan(0);
+      expect(resolved.diagnostics).toEqual([]);
+    }
+
+    expect(recipeIds.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('uses only catalog starter assets and renders a subject layer', () => {
+    const paths = new Set(
+      Object.values(STARTER_ASSET_CATALOG).map((entry) => entry.path),
+    );
+    const subjectLayers = recipeStoryboard.scenes.flatMap((scene) => {
+      const resolved = resolveSceneComponent(scene);
+
+      return (resolved.recipe?.layers ?? []).filter(
+        (layer) => layer.kind === 'subject',
+      );
+    });
+
+    expect(subjectLayers.length).toBeGreaterThanOrEqual(1);
+
+    for (const layer of subjectLayers) {
+      expect(paths.has(layer.content ?? '')).toBe(true);
+    }
+  });
+
+  it('keeps scene durations equal to the audio length', () => {
+    const total = recipeStoryboard.scenes.reduce(
+      (sum, scene) => sum + scene.durationSec,
+      0,
+    );
+
+    expect(total).toBeCloseTo(recipeStoryboard.audio.durationSec, 5);
   });
 });

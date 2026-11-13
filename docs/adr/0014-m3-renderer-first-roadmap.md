@@ -108,5 +108,5 @@ not a component branch; assets are validated against it before use.
 - `docs/adr/0012-storyboard-and-scene-render.md`
 - `docs/adr/0015-subject-assets-and-mvp-formats.md`
 - `ROADMAP.md` (M3.3–M3.7)
-- `docs/ignore/plans/2026-11-10-m3-3-renderer-foundation-session.md`
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`
+- `docs/workspace/plans/2026-11-10-m3-3-renderer-foundation-session.md`
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`

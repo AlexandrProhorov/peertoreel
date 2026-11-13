@@ -17,6 +17,8 @@
     "typecheck": "pnpm build:packages && pnpm -r --if-present typecheck",
     "test": "pnpm build:packages && pnpm -r --if-present test",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "context:check": "node scripts/context-budget.mjs",
+    "sessions:split": "node scripts/split-session-log.mjs",
     "db:migrate": "pnpm --filter @peertoreel/api db:migrate",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "infra:down": "docker compose -f infra/docker-compose.yml down",

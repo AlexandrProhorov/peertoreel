@@ -16,6 +16,7 @@ import { RunDetailStoreService } from './run-detail-store.service';
 const run: Run = {
   id: '11111111-1111-4111-8111-111111111111',
   topic: 'Почему небо синее',
+  mode: 'pipeline',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   failedStage: null,
@@ -48,6 +49,20 @@ const reviewDetail: RunDetail = {
   ...run,
   state: 'REVIEW',
   currentStage: 'qc',
+  events: [],
+};
+const episodeDraftDetail: RunDetail = {
+  ...run,
+  mode: 'episode',
+  state: 'DRAFT',
+  currentStage: 'topic_discovery',
+  events: [],
+};
+const episodeRenderingDetail: RunDetail = {
+  ...run,
+  mode: 'episode',
+  state: 'RENDERING',
+  currentStage: 'episode_render',
   events: [],
 };
 
@@ -286,6 +301,34 @@ describe('RunDetailStoreService', () => {
     expect(stageJob).toHaveBeenCalledWith(run.id, 'visuals');
     expect(store.watchingStage()).toBe('visuals');
     expect(store.stageRunning()).toBe(true);
+  });
+
+  it('offers the episode plan from DRAFT and rehydrates its progress', () => {
+    vi.useFakeTimers();
+
+    const stageJob = vi.fn().mockReturnValue(of(activeJob('episode_plan')));
+    const detail = vi.fn().mockReturnValue(of(episodeDraftDetail));
+    const store = setup({ detail, stageJob });
+
+    store.setRelativeId(run.id);
+
+    expect(store.stageToRun()).toBe('episode_plan');
+    expect(stageJob).toHaveBeenCalledWith(run.id, 'episode_plan');
+    expect(store.allowed()).toEqual(['SCRIPT_READY', 'FAILED']);
+  });
+
+  it('rehydrates the episode render from RENDERING', () => {
+    vi.useFakeTimers();
+
+    const stageJob = vi.fn().mockReturnValue(of(activeJob('episode_render')));
+    const detail = vi.fn().mockReturnValue(of(episodeRenderingDetail));
+    const store = setup({ detail, stageJob });
+
+    store.setRelativeId(run.id);
+
+    expect(stageJob).toHaveBeenCalledWith(run.id, 'episode_render');
+    expect(store.stageToRun()).toBeNull();
+    expect(store.watchingStage()).toBe('episode_render');
   });
 
   it('keeps a stage failure visible after refreshing the run', async () => {

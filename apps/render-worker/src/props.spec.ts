@@ -14,6 +14,7 @@ import {
 const resolved = {
   componentId: 'parallax-city' as const,
   params: {},
+  recipe: null,
 };
 
 describe('scene input props', () => {
@@ -36,6 +37,27 @@ describe('scene input props', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('accepts a resolved asset map and rejects a malformed one', () => {
+    const withAssets = sceneInputPropsSchema.safeParse({
+      scene: storyboardFixture15Deg.scenes[0]!,
+      style: storyboardFixture15Deg.style,
+      resolved,
+      assets: {
+        'assets/starter/brick.svg': { url: 'data:image/svg+xml;base64,PHN2Zy8+' },
+      },
+    });
+
+    expect(withAssets.success).toBe(true);
+    expect(
+      sceneInputPropsSchema.safeParse({
+        scene: storyboardFixture15Deg.scenes[0]!,
+        style: storyboardFixture15Deg.style,
+        resolved,
+        assets: { broken: {} },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects props without a resolved scene', () => {

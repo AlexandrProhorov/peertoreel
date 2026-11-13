@@ -9,10 +9,22 @@ export const RUN_STAGES = [
   'render',
   'qc',
   'publish',
+  // Episode mode (M3.5.1): a parallel two-stage path for the cheap spike.
+  'episode_plan',
+  'episode_render',
 ] as const;
 
 export const runStageSchema = z.enum(RUN_STAGES);
 export type RunStage = z.infer<typeof runStageSchema>;
+
+/**
+ * Two independent execution paths. `pipeline` is the production queue chain
+ * (script → voiceover → visuals → render → qc); `episode` is the cheap
+ * DeepSeek + Google TTS + Pixabay + Remotion prototype.
+ */
+export const RUN_MODES = ['pipeline', 'episode'] as const;
+export const runModeSchema = z.enum(RUN_MODES);
+export type RunMode = z.infer<typeof runModeSchema>;
 
 export const RUN_STATES = [
   'DRAFT',
@@ -49,6 +61,30 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   FAILED: [],
 };
 
+/**
+ * Episode mode skips research and visuals: one job goes DRAFT → SCRIPT_READY
+ * (plan) and the second SCRIPT_READY → REVIEW (render). The publish tail is
+ * shared with the pipeline. States that only exist on the pipeline path stay
+ * unreachable here instead of silently allowing a dead end.
+ */
+const EPISODE_TRANSITIONS: Record<RunState, readonly RunState[]> = {
+  DRAFT: ['SCRIPT_READY'],
+  RESEARCHING: [],
+  SCRIPT_READY: ['RENDERING'],
+  VOICE_READY: [],
+  VISUALS_READY: [],
+  RENDERING: ['REVIEW'],
+  REVIEW: ['SCHEDULED', 'SCRIPT_READY'],
+  SCHEDULED: ['PUBLISHING', 'REVIEW'],
+  PUBLISHING: ['PUBLISHED'],
+  PUBLISHED: [],
+  FAILED: [],
+};
+
+function transitionsFor(mode: RunMode): Record<RunState, readonly RunState[]> {
+  return mode === 'episode' ? EPISODE_TRANSITIONS : TRANSITIONS;
+}
+
 /** Which pipeline stage owns each state; used to tag failures and progress. */
 const STATE_STAGE: Record<RunState, RunStage | null> = {
   DRAFT: 'topic_discovery',
@@ -64,19 +100,37 @@ const STATE_STAGE: Record<RunState, RunStage | null> = {
   FAILED: null,
 };
 
-export function stageForState(state: RunState): RunStage | null {
-  return STATE_STAGE[state];
+/**
+ * Episode states map to the job that produced them, so `currentStage` and the
+ * history stay readable. `SCRIPT_READY` is the plan gate, not a script stage.
+ */
+const EPISODE_STATE_STAGE: Record<RunState, RunStage | null> = {
+  ...STATE_STAGE,
+  RESEARCHING: null,
+  SCRIPT_READY: 'episode_plan',
+  VOICE_READY: null,
+  VISUALS_READY: null,
+  RENDERING: 'episode_render',
+  REVIEW: 'episode_render',
+};
+
+export function stageForState(
+  state: RunState,
+  mode: RunMode = 'pipeline',
+): RunStage | null {
+  return (mode === 'episode' ? EPISODE_STATE_STAGE : STATE_STAGE)[state];
 }
 
 export function allowedTransitions(
   from: RunState,
   resumeState: RunState | null = null,
+  mode: RunMode = 'pipeline',
 ): readonly RunState[] {
   if (from === 'FAILED') {
     return resumeState ? [resumeState] : [];
   }
 
-  const next = TRANSITIONS[from];
+  const next = transitionsFor(mode)[from];
 
   return from === 'PUBLISHED' ? next : [...next, 'FAILED'];
 }
@@ -85,13 +139,15 @@ export function canTransition(
   from: RunState,
   to: RunState,
   resumeState: RunState | null = null,
+  mode: RunMode = 'pipeline',
 ): boolean {
-  return allowedTransitions(from, resumeState).includes(to);
+  return allowedTransitions(from, resumeState, mode).includes(to);
 }
 
 export const runSchema = z.object({
   id: z.uuid(),
   topic: z.string().min(1).max(300),
+  mode: runModeSchema,
   state: runStateSchema,
   currentStage: runStageSchema.nullable(),
   failedStage: runStageSchema.nullable(),
@@ -104,8 +160,15 @@ export type Run = z.infer<typeof runSchema>;
 
 export const createRunRequestSchema = z.object({
   topic: z.string().min(1).max(300),
+  /**
+   * The API default keeps existing clients (topic only) on the pipeline path;
+   * episode mode must be requested explicitly.
+   */
+  mode: runModeSchema.default('pipeline'),
 });
 export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
+/** Request body as the client sends it: `mode` may be omitted. */
+export type CreateRunRequestInput = z.input<typeof createRunRequestSchema>;
 
 export const transitionRunRequestSchema = z.object({
   to: runStateSchema,

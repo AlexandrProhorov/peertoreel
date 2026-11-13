@@ -15,9 +15,11 @@ import {
   type ImplementedComponentId,
   type SceneComponentSource,
 } from './mapping.js';
+import type { ResolvedSceneRecipe } from './recipes.js';
 import {
   SCENE_COMPOSITION_ID,
   sceneInputPropsSchema,
+  type ResolvedAssetMap,
   type SceneInputProps,
 } from './props.js';
 import { SCENE_RENDER_MEDIA_OPTIONS } from './video-target.js';
@@ -26,6 +28,8 @@ export interface RenderSceneOptions {
   scene: StoryboardScene;
   style: StoryboardStyle;
   wordTimings?: readonly DerivedWord[];
+  /** Already resolved by the asset resolver (ADR-0017 D6). */
+  assets?: ResolvedAssetMap;
   outPath: string;
   onProgress?: (progress: number) => void;
 }
@@ -37,6 +41,8 @@ export interface RenderSceneResult {
   sizeBytes: number;
   componentId: ImplementedComponentId;
   source: SceneComponentSource;
+  recipe: ResolvedSceneRecipe | null;
+  slotDiagnostics: ComponentParamDiagnostic[];
   diagnostics: ComponentParamDiagnostic[];
 }
 
@@ -86,6 +92,7 @@ export async function renderScene({
   scene,
   style,
   wordTimings,
+  assets,
   outPath,
   onProgress,
 }: RenderSceneOptions): Promise<RenderSceneResult> {
@@ -96,8 +103,10 @@ export async function renderScene({
     resolved: {
       componentId: resolved.componentId,
       params: resolved.params,
+      recipe: resolved.recipe,
     },
     wordTimings,
+    assets,
   });
   const serveUrl = await getSceneBundle();
   const executable = browserExecutable();
@@ -136,6 +145,8 @@ export async function renderScene({
     sizeBytes: file.size,
     componentId: resolved.componentId,
     source: resolved.source,
+    recipe: resolved.recipe,
+    slotDiagnostics: resolved.slotDiagnostics,
     diagnostics: resolved.diagnostics,
   };
 }

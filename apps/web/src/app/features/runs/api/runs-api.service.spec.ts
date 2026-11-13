@@ -5,12 +5,14 @@ import {
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import type { QcReport, Run, RunDetail } from '@peertoreel/contracts';
+import { storyboardFixture15Deg } from '@peertoreel/contracts';
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { RunsApiService } from './runs-api.service';
 
 const run: Run = {
   id: '11111111-1111-4111-8111-111111111111',
   topic: 'Почему небо синее',
+  mode: 'pipeline',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   failedStage: null,
@@ -80,13 +82,28 @@ describe('RunsApiService', () => {
   });
 
   it('creates a run', () => {
-    api.create('Почему небо синее').subscribe();
+    api.create('Почему небо синее', 'pipeline').subscribe();
 
     const request = http.expectOne('http://api.test/api/v1/runs');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ topic: 'Почему небо синее' });
+    expect(request.request.body).toEqual({
+      topic: 'Почему небо синее',
+      mode: 'pipeline',
+    });
 
     request.flush(run);
+  });
+
+  it('creates an episode run', () => {
+    api.create('Почему у собак мокрый нос', 'episode').subscribe();
+
+    const request = http.expectOne('http://api.test/api/v1/runs');
+    expect(request.request.body).toEqual({
+      topic: 'Почему у собак мокрый нос',
+      mode: 'episode',
+    });
+
+    request.flush({ ...run, mode: 'episode' });
   });
 
   it('posts a transition with the reason', () => {
@@ -206,5 +223,68 @@ describe('RunsApiService', () => {
     request.flush(qcReport);
 
     expect(result?.verdict).toBe('pass');
+  });
+
+  it('reads and validates the episode storyboard', () => {
+    let result: unknown;
+
+    api.storyboard(run.id).subscribe((value) => {
+      result = value;
+    });
+
+    const request = http.expectOne(
+      `http://api.test/api/v1/runs/${run.id}/storyboard`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+
+    const response = {
+      storyboard: storyboardFixture15Deg,
+      visuals: {
+        images: [],
+        providerRequests: 2,
+        cacheHits: 1,
+        skipped: 3,
+      },
+      manifest: {
+        kind: 'm3.5.1-episode',
+        topic: 'Почему у собак мокрый нос',
+        title: 'Мокрый нос',
+        generatedAt: '2026-11-11T12:00:00.000Z',
+        totalMs: 1000,
+        llm: {
+          provider: 'deepseek',
+          model: 'deepseek-flash',
+          attempts: 1,
+          promptTokens: 100,
+          completionTokens: 200,
+          ms: 500,
+          costUsd: null,
+        },
+        tts: {
+          provider: 'google-translate-spike',
+          model: 'google-translate:ru',
+          characters: 40,
+          words: 8,
+          audioDurationSec: 3,
+          bytes: 1000,
+          ms: 200,
+          costUsd: 0,
+        },
+        stock: {
+          provider: 'pixabay',
+          queries: 2,
+          providerRequests: 2,
+          cacheHits: 1,
+          images: 0,
+          skipped: 3,
+          costUsd: 0,
+        },
+      },
+    };
+
+    request.flush(response);
+
+    expect(result).toEqual(response);
   });
 });

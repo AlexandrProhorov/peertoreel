@@ -1,0 +1,33 @@
+{
+  "name": "@peertoreel/assets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Asset library core: content hash, resolver, SVG/raster normalization and style presets",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "lint": "oxlint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@peertoreel/contracts": "workspace:*",
+    "svgo": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "oxlint": "^1.90.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

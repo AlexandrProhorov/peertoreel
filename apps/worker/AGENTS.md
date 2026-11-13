@@ -18,3 +18,20 @@ conventions.
   are configured per queue, never hardcoded in handlers.
 - FFmpeg arguments come from structured inputs only — never interpolate user text into
   shell strings. Shell out with argument arrays.
+- **The director returns a draft, not timings.** The M3.5 director draft may choose
+  recipes/variants/slots and narration text only; scene windows are derived from real TTS audio
+  and a word-count mismatch fails instead of shifting scenes. Google TTS is used by the CLI
+  spike and the M3.5.1 `episode_plan` prototype; the production `voiceover` stage stays on
+  ElevenLabs and the provider is recorded in the manifest.
+- **Assets come from the resolver, not from job code.** When a stage needs a subject asset, call
+  `@peertoreel/assets` (`TieredAssetResolver`) with `allowProvider` set explicitly from config;
+  never import Recraft/fal.ai SDKs in a processor. The resolver's typed errors are terminal for
+  the asset, not for the run: use `fallbackKey`/Tier 0 instead of retrying a licence or unknown
+  key (ADR-0017).
+- **Seeding goes through the library service.** `assets:import` writes Tier 0 via
+  `AssetLibraryService` (content-addressed key, hash dedup, presigned URL only for output). Never
+  insert `assets`/`asset_variants` rows by hand: a row whose object was never uploaded is a broken
+  cache entry, and a local `assets/starter/...` key must not reach the database.
+- **Record real provider usage.** `AssetResolution.usage` carries the provider's measured
+  requests/cost (`costUsd: null` when not measured). Never replace it with an estimate; the
+  cost ledger is M3.7.

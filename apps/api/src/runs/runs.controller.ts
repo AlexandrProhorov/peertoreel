@@ -21,6 +21,7 @@ import {
   type RunArtifactsResponse,
   type RunDetail,
   type RunListResponse,
+  type RunStoryboardResponse,
   type StageJobSnapshot,
   type StageQueueName,
   type TransitionRunRequest,
@@ -67,6 +68,13 @@ export class RunsController {
   @Get(':id/qc')
   qc(@Param('id', ParseUUIDPipe) id: string): Promise<QcReport> {
     return this.runs.qcReport(id);
+  }
+
+  @Get(':id/storyboard')
+  storyboard(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<RunStoryboardResponse> {
+    return this.runs.storyboard(id);
   }
 
   @Post(':id/stages/:stage')

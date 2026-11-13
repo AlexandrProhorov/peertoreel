@@ -31,8 +31,10 @@ apps/
   render-worker/ # Remotion scene renderer (M3.3 data-driven; React only here)
 packages/
   contracts/    # Zod schemas, DTOs, stage contracts, error codes — single source of truth
+  assets/       # Asset Library core: content hash, resolver, normalization, style presets
   db/           # Drizzle schema + database handle shared by API and worker
   storage/      # S3-compatible object storage (SeaweedFS locally, R2 in production)
+  providers/    # ImageProvider adapters (Recraft, FLUX.2); no app depends on it yet
   tiktok/       # TikTok Open API adapter: OAuth, token cipher, Content Posting API
 infra/          # Dockerfiles, compose, deploy config
 docs/           # adr/, pipeline contracts, API notes
@@ -59,7 +61,7 @@ docs/           # adr/, pipeline contracts, API notes
 | LLM | DeepSeek V4.1 Flash (default), stronger model for QC | behind `LlmProvider` port |
 | TTS | ElevenLabs | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed) |
 | Stock | **Pixabay** API | Pexels dropped (new keys paused); 100 req/60 s, cache 24 h |
-| Images / Vectors | Recraft V4/V4.1 Vector (SVG) + fal.ai (FLUX.2 `[klein] 4B` / `[pro]` + BiRefNet v2) | `FLUX.2 [klein] 4B` (Apache 2.0) and `BiRefNet v2` (MIT) are commercial-safe; `FLUX [dev]` and self-hosted `Bria RMBG 2.0` (`CC BY-NC 4.0`) are non-commercial. Behind `ImageProvider` port (ADR-0015) |
+| Images / Vectors | Recraft V4/V4.1 Vector (SVG) + fal.ai (FLUX.2 `[klein] 4B` / `[pro]` + BiRefNet v2) | `FLUX.2 [klein] 4B` (Apache 2.0) and `BiRefNet v2` (MIT) are commercial-safe; `FLUX [dev]` and self-hosted `Bria RMBG 2.0` (`CC BY-NC 4.0`) are non-commercial. Behind `ImageProvider` port (ADR-0015, ADR-0017) |
 | Video gen | MiniMax H3 (via fal.ai), optional M4.8 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |
 | Deploy | Docker Compose on one VPS | web + api + worker + postgres + redis |
 
@@ -105,9 +107,10 @@ DRAFT → RESEARCHING → SCRIPT_READY → VOICE_READY → VISUALS_READY
 
 `packages/db/src/schema.ts` is the authoritative field list — do not mirror the DDL here.
 Implemented tables: `users`, `sessions`, `tiktok_accounts`, `runs`, `run_events`, `artifacts`,
-`publish_cards`. Planned/not yet in schema: `projects`, `templates`, `topics`, `jobs_audit`,
-`provider_usage` (run states and their fields are in §4 and ADR-0005/0006). Do not assume a
-planned table exists until it is in `schema.ts` and has a migration.
+`publish_cards`, `assets`, `asset_variants`. Planned/not yet in schema: `projects`, `templates`,
+`topics`, `jobs_audit`, `provider_usage` (run states and their fields are in §4 and
+ADR-0005/0006). Do not assume a planned table exists until it is in `schema.ts` and has a
+migration.
 
 Invariants that must hold regardless of the schema:
 
@@ -171,6 +174,28 @@ there: `apps/web/AGENTS.md` (Angular), `apps/api/AGENTS.md` (NestJS), `apps/work
 in the closest file; the root gets only cross-cutting rules. Never copy a field list, a
 milestone table or a full flow description into these files — link the single source of truth.
 
+### Session start / lazy context
+
+- Start with `docs/state/current.md` and the plan the user named. Check Git state only when
+  the task depends on it; if HEAD differs from the card, say the card may be stale.
+- Do not read `SESSION_LOG.md`, `ROADMAP.md`, `ARCHITECTURE.md`, ADRs or
+  `docs/workspace/research/*` "for context". Open one only for a named section, and say why.
+- For files over 200–300 lines, read a line range or `grep` for the symbol; never load a whole
+  file to find one definition. Do not re-read a file already in context.
+- If research spans several unrelated areas or a long dependency chain, delegate it to the
+  `explore` subagent. Bring back conclusions, source links and risks, not raw dumps.
+- Pass plans by path, not by pasting their text. A session plan is a task card: ≤120 lines,
+  preferably ≤8 KB, with goal, DoD, decisions, out of scope and a read map (`file:line` or
+  symbols). Template: `docs/templates/session-plan.md`. Do not copy reference documentation
+  into it.
+- Avoid editing this file in the middle of a session: instruction changes invalidate the
+  provider prompt cache.
+
+### Language
+
+- Reply to the user in Russian. Keep code, identifiers, file paths, commit messages and API
+  names in English. Task cards, questions, session records and explanations are in Russian.
+
 ### Shared
 
 - TypeScript `strict`; no `any` in public APIs, DTOs, form values. No `unknown` in public
@@ -186,11 +211,15 @@ milestone table or a full flow description into these files — link the single 
 
 - One work session delivers one finished slice: code, tests, demo, and updated docs.
 - End an implementation session with a short theory block (5–10 bullets) tied to the code
-  that was just written. Keep it practical.
+  that was just written. Keep it practical; store it in local `LEARNING.md`, not in the
+  session record.
 - Do not add control questions, quizzes or explain-back prompts to implementation sessions.
   Deep theory and review are a separate learning session.
-- Update `SESSION_LOG.md` after each session. `LEARNING.md` is a local, gitignored
-  learning artifact and is not part of the repository.
+- Update `SESSION_LOG.md` after each session: add one index row and a record under
+  `docs/sessions/<YYYY-MM>/` (at most 50 lines, template in
+  `docs/templates/session-record.md`). Do not paste full narratives into the index; open a
+  record only when it is needed. `LEARNING.md` is a local, gitignored learning artifact and
+  is not part of the repository.
 
 ### App-specific
 
@@ -220,8 +249,10 @@ resolve conflicts.
   explicit unknown-component failure, clip-local object timing, duration-in-frames, input-prop
   validation, local asset resolution, a custom-storyboard boundary test (no fixture imports in
   the core path), and seed/order determinism. For scene recipes: recipe → component/params
-  composition, 2–3 variants, diversity rules and no per-topic code. For the asset library (when
-  it lands): content hash/dedup, variants, resolver precedence and style-preset matching.
+  composition, 2–3 variants, diversity rules and no per-topic code. For the asset library:
+  content hash/dedup, resolver precedence (Tier 0 → cache → provider → fallback), licence guard,
+  SVG/OKLab normalization, variants and style-preset matching; resolver tests use an in-memory
+  repository and a fake `ImageProvider` (no DB, network or Docker).
   Unit tests must not launch Chrome or call `renderMedia`.
 - External providers are mocked in CI (port fakes or recorded fixtures). No real API calls,
   no real TikTok publishes in tests.

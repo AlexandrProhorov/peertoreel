@@ -5,12 +5,11 @@ import type {
 } from '@peertoreel/contracts';
 import {
   AbsoluteFill,
-  interpolate,
   random,
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
-import type { CSSProperties } from 'react';
+import { cameraTransform, toCssTransform } from '../camera.js';
 
 interface ParallaxCityProps {
   scene: StoryboardScene;
@@ -22,43 +21,6 @@ function backgroundColors(style: StoryboardStyle): [string, string] {
   const background = style.palette.background;
 
   return [background[0] ?? '#0b1220', background[1] ?? background[0] ?? '#16233c'];
-}
-
-function cameraStyle(
-  movement: StoryboardScene['camera']['movement'],
-  speed: number,
-  progress: number,
-): CSSProperties {
-  const strength = 0.6 + speed;
-
-  switch (movement) {
-    case 'pan':
-      return {
-        transform: `translateX(${interpolate(progress, [0, 1], [-1.6, 1.6]) * strength}%) scale(1.06)`,
-      };
-    case 'zoom_in':
-      return {
-        transform: `scale(${interpolate(progress, [0, 1], [1, 1.06 + speed * 0.08])})`,
-      };
-    case 'zoom_out':
-      return {
-        transform: `scale(${interpolate(progress, [0, 1], [1.08, 1])})`,
-      };
-    case 'dolly':
-      return {
-        transform: `translateY(${interpolate(progress, [0, 1], [0, 1.4])}%) scale(${interpolate(progress, [0, 1], [1, 1.05])})`,
-      };
-    case 'tilt':
-      return {
-        transform: `translateY(${interpolate(progress, [0, 1], [0, -1.8])}%) scale(1.04)`,
-      };
-    case 'orbit':
-      return {
-        transform: `translateX(${Math.sin(progress * Math.PI * 2) * 1.2}%) scale(1.05)`,
-      };
-    default:
-      return {};
-  }
 }
 
 function focusTransformOrigin(focus: ParallaxCityParams['focus']): string {
@@ -280,7 +242,16 @@ export function ParallaxCity({ scene, style, params }: ParallaxCityProps) {
   const seedPrefix = `city-${params.buildingsSeed}`;
   const farBuildings = makeBuildings(14, `${seedPrefix}-far`, 260);
   const nearBuildings = makeBuildings(9, `${seedPrefix}-near`, 420);
-  const camera = cameraStyle(scene.camera.movement, scene.camera.speed, progress);
+  const farTransform = toCssTransform(
+    cameraTransform(scene.camera, progress, 0.15),
+  );
+  const nearTransform = toCssTransform(
+    cameraTransform(scene.camera, progress, 0.55),
+  );
+  const streetTransform = toCssTransform(
+    cameraTransform(scene.camera, progress, 1),
+  );
+  const transformOrigin = focusTransformOrigin(params.focus);
 
   return (
     <AbsoluteFill
@@ -294,25 +265,25 @@ export function ParallaxCity({ scene, style, params }: ParallaxCityProps) {
         }}
       />
 
-      <AbsoluteFill
-        style={{
-          ...camera,
-          transformOrigin: focusTransformOrigin(params.focus),
-        }}
-      >
+      <AbsoluteFill style={{ transform: farTransform, transformOrigin }}>
         <BuildingLayer
           buildings={farBuildings}
           color={skyBottom}
           windowColor={style.palette.accent}
           bottom={300}
         />
+      </AbsoluteFill>
+
+      <AbsoluteFill style={{ transform: nearTransform, transformOrigin }}>
         <BuildingLayer
           buildings={nearBuildings}
           color="#070c15"
           windowColor={style.palette.cold}
           bottom={230}
         />
+      </AbsoluteFill>
 
+      <AbsoluteFill style={{ transform: streetTransform, transformOrigin }}>
         <div
           style={{
             position: 'absolute',

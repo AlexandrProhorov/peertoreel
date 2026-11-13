@@ -23,6 +23,8 @@ const STAGE_LABELS: Record<RunStage, string> = {
   render: 'Рендер',
   qc: 'Проверка качества',
   publish: 'Публикация',
+  episode_plan: 'Эпизод: сценарий',
+  episode_render: 'Эпизод: рендер',
 };
 
 export function runStateLabel(state: RunState): string {

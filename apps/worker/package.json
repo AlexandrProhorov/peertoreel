@@ -11,11 +11,15 @@
     "lint": "oxlint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts"
+    "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts",
+    "storyboard:episode": "tsx src/storyboard/episode-spike.ts",
+    "assets:import": "tsx src/assets/import.ts"
   },
   "dependencies": {
+    "@peertoreel/assets": "workspace:*",
     "@peertoreel/contracts": "workspace:*",
     "@peertoreel/db": "workspace:*",
+    "@peertoreel/providers": "workspace:*",
     "@peertoreel/storage": "workspace:*",
     "@peertoreel/tiktok": "workspace:*",
     "bullmq": "^6.5.2",

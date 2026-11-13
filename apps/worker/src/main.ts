@@ -18,6 +18,8 @@ import { eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { loadWorkerEnv, type WorkerEnv } from './config/env.js';
+import { processEpisodePlanStage } from './episode/plan.processor.js';
+import { processEpisodeRenderStage } from './episode/render.processor.js';
 import { processPing } from './processors/ping.processor.js';
 import { processPublishStage } from './publish/publish.processor.js';
 import { redisConnectionOptions } from './redis-connection.js';
@@ -211,6 +213,22 @@ const workers: Worker[] = [
     },
   ),
   new Worker(
+    STAGE_QUEUES.episode_plan,
+    (job) => withTerminalErrors(() => processEpisodePlanStage(job, deps)),
+    {
+      connection,
+      concurrency: 1,
+    },
+  ),
+  new Worker(
+    STAGE_QUEUES.episode_render,
+    (job) => withTerminalErrors(() => processEpisodeRenderStage(job, deps)),
+    {
+      connection,
+      concurrency: 1,
+    },
+  ),
+  new Worker(
     PUBLISH_QUEUE,
     (job) => withPublishErrors(() => processPublishStage(job, deps)),
     {
@@ -227,6 +245,8 @@ const [
   visualsWorker,
   renderWorker,
   qcWorker,
+  episodePlanWorker,
+  episodeRenderWorker,
   publishWorker,
 ] = workers;
 
@@ -258,6 +278,14 @@ renderWorker?.on('failed', (job, error) => {
 
 qcWorker?.on('failed', (job, error) => {
   void handleFinalFailure(job, error, 'qc');
+});
+
+episodePlanWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'episode_plan');
+});
+
+episodeRenderWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'episode_render');
 });
 
 publishWorker?.on('failed', (job, error) => {

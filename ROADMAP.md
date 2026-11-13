@@ -16,8 +16,8 @@
 
 MVP = M0 + M2 + manual export. M1 — опциональный risk spike. M3 — производство оригинальных
 анимированных видео вместо стоковых клипов (исследование
-`docs/ignore/research/2026-11-08-ai-video-production-research.md`, план —
-`docs/ignore/plans/2026-11-08-animated-factory-plan.md`; оба файла локальные, `docs/ignore/`
+`docs/workspace/research/2026-11-08-ai-video-production-research.md`, план —
+`docs/workspace/plans/2026-11-08-animated-factory-plan.md`; оба файла локальные, `docs/workspace/`
 в `.gitignore`). Прежние M3/M4 перенумерованы в M4/M5 (содержание сохранено).
 
 ## M0 — Walking Skeleton
@@ -121,19 +121,27 @@ production hardening. Причина — не строить очередь и a
 визуальная связность. Решения: `docs/adr/0014-m3-renderer-first-roadmap.md` и
 `docs/adr/0015-subject-assets-and-mvp-formats.md`. Контракт
 раскадровки и базовая архитектура — ADR-0012; исследования:
-`docs/ignore/research/2026-11-08-ai-video-production-research.md`,
-`docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`; брифы:
-`docs/ignore/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
-`docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
+`docs/workspace/research/2026-11-08-ai-video-production-research.md`,
+`docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`; брифы:
+`docs/workspace/plans/2026-11-08-animated-factory-plan.md`; промпт ближайшей сессии:
+`docs/workspace/plans/2026-11-10-m3-4-scene-recipes-session.md`.
 
 | ID | Задача | Owner | Статус |
 |---|---|---|---|
 | M3.1 | Контракт раскадровки `peertoreel.storyboard.v1` + фикстура «−15°» + ADR-0012 | агент | DONE |
 | M3.2 | Render worker (Remotion): bootstrap, рендер сцен-клипов из фикстуры | агент | DONE |
 | M3.3 | Renderer foundation: произвольный storyboard JSON, params, local assets, явные ошибки неизвестных компонентов | агент | DONE |
-| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | TODO — next |
-| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | TODO |
-| M3.6 | Asset Library + Asset Generator: metadata/hash/variants/resolver, Recraft Vector / FLUX.2 + BiRefNet, OKLab нормализация, `cartoon-character`, style preset | агент | TODO |
+| M3.4 | Scene Recipes v1: 5 рецептов × 2–3 варианта композиции + слои (вкл. local subject SVG) + starter pack | агент | DONE |
+| M3.5 | End-to-end animation spike: 2 темы, DeepSeek → Remotion (+ local starter SVGs) → FFmpeg, без облачных AI-ассетов | агент | DONE |
+| M3.5.1 | Episode в UI (прототип): режим run'а, две стадии `episode_plan`/`episode_render`, превью раскадровки, Pixabay-картинки, гейт сценария и ревью без QC | агент | DONE |
+| M3.6a | Asset Library core: metadata/hash/variants, resolver Tier 0→cache→provider→fallback, SVG + OKLab нормализация, fake `ImageProvider`, style preset `studio_flat_2d_v1`, renderer input props | агент | DONE |
+| M3.6a.1 | Asset Library persistence: `DrizzleAssetRepository` (`assets`/`asset_variants`), порт `AssetBlobStore` + S3-адаптер, `assets:import`, `render-storyboard --persist`, Testcontainers integration | агент | DONE |
+| M3.6b.1 | Provider readiness: alias `key → hash`, metadata-refresh, ledger `provider_usage`, Tier 0 в палитре, скелеты Recraft/FLUX.2 без платных вызовов | агент | DONE |
+| M3.6b.2 | DeepSeek SVG провайдер: `LlmJsonClient`, allowlist, ledger на attempt, `source: 'llm'`, миграция `0011`, `--provider=deepseek-svg`, пилот 10×3×3 | агент | DONE |
+| M3.6b.3 | Приглушённый пресет `studio_flat_2d_v2`, скругления в промпте, `thinking: off`, пилот 10×3 (30/30, $0.0146) | агент | DONE |
+| M3.6b.4 | Числовой PLAN по референсу geom-test, правила силуэта/пропорций, thinking по умолчанию (bus/palm/pirate: 9/9, $0.071) | агент | DONE |
+| M3.6b.5 | Третья тема `wifi-wall` + acceptance M3.6: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`), fallback после ошибки провайдера, ledger per attempt, budget stop-crank, `DEEPSEEK_SVG_FORCE_FAILURE`, плоская проекция (правило + санитайзер) | агент | DONE |
+| M3.6b | Остаток M3.6: raster-cutout, `cartoon-character` | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -205,6 +213,23 @@ M3.5 (ADR-0015). **Acceptance:** один storyboard смешивает ≥3 р�
 `starter/`); два рендера одной сцены детерминированы; ролик не выглядит как одинаковые карточки;
 каталог рецептов доступен будущему DeepSeek-режиссёру.
 
+**Итог M3.4.** Форма контракта зафиксирована в ADR-0016: `implementation.type = 'recipe'` с
+`recipeId`/`variant`/`slots`, `programmatic` остаётся escape hatch. Добавлены
+`packages/contracts/src/storyboard.recipes.ts` (5 рецептов × 2 варианта, slot specs, layer plan,
+camera hint, `STARTER_ASSET_KEYS`/`STARTER_ASSET_CATALOG`), слот-диагностика с семантикой
+`parseComponentParams`, `subject` в `sceneObjectKindSchema` и `preset: 'backdrop'` у
+`kinetic-typography`. В render worker: `recipes.ts` (единственный resolution), `camera.ts`
+(shot/movement/speed/parallax), слои `components/layers/*`, рабочий `image`/`subject` через
+`resolveAssetKey` + `assetUrl`, manifest с `recipeId`/`variant`/slot diagnostics. В
+`public/assets/starter/` лежат 12 authored SVG без `<text>`; `examples/recipe-showcase.json`
+смешивает все 5 рецептов. Проверено: contracts 137 тестов, render-worker 84; showcase 78.5 с,
+фикстура 135.9 с, custom 77.7 с; все клипы 1080×1920/30/h264/`yuv420p`/BT.709 без аудио;
+SHA-256 сцены совпадает в полном прогоне, одиночно и после другой сцены; смена варианта меняет
+кадр; неизвестные recipeId/variant/slot/assetKey дают Zod-путь и exit 1; невалидный optional
+slot рендерится с diagnostics в манифесте. Камера теперь влияет на кадры fixture/custom
+(`shot`/`parallax` — требование M3.4), длительности и состав сцен не менялись. Полная сборка
+showcase с озвучкой и FFmpeg concat — задача M3.5.
+
 **M3.5 — End-to-end animation spike.** Две темы: «Почему у собак мокрый нос?» и «Почему дома
 строят из кирпича?». DeepSeek выдаёт `storyboard.v1` (используя каталог рецептов M3.4 и список
 ключей локального стартового пакета `public/assets/starter/`), render worker рендерит сцены,
@@ -214,6 +239,30 @@ CLI/скрипт и ручная сборка существующим `buildVis
 визуальные сетапы, отсутствие per-topic кода; визуальный review фиксирует, что подход работает.
 **Не входит:** production queue, облачный `ImageProvider`, R2 Asset Library, vision QC.
 
+**Итог M3.5.** Добавлены `packages/contracts/src/storyboard.director.ts` (драфт 5–8 сцен:
+recipeId/variant/slots, без таймингов) и CLI `storyboard:episode` в `apps/worker`:
+DeepSeek → ElevenLabs (или spike-fallback) → `buildStoryboardFromDraft` → render-storyboard →
+`buildVisualConcatArgs` → `renderDraft`. Промпт собирается из каталога рецептов и
+`STARTER_ASSET_KEYS`, тайминги выводятся из реальной озвучки, а не из LLM. Оба ролика собраны:
+«собака» — 7 сцен / 50.4 с / 86 слов, «кирпичи» — 6 сцен / 46.0 с / 75 слов; LLM с первой
+попытки (2511/916 и 2512/795 токенов). Оба — 1080×1920/30, h264 + AAC, BT.709; сцены
+146/137 с, concat 3.2/3.3 с, финальная сборка 6.4/5.5 с. Визуальный review: разные рецепты,
+предметный слой и ASS-субтитры читаются, per-topic кода нет. Из-за исчерпанной квоты
+ElevenLabs (осталось 290 кредитов) спайк озвучен `--tts google`: точные длительности сцен,
+word timings — пропорциональная оценка; production-путь voiceover остаётся ElevenLabs,
+провайдер записан в manifest.
+
+**Итог M3.5.1 (прототип, 2026-11-11).** Episode — второй режим run'а, а не замена
+production-пайплайна. Добавлены `runs.mode` (`pipeline`/`episode`), стадии `episode_plan`
+(`DRAFT → SCRIPT_READY`) и `episode_render` (`SCRIPT_READY → REVIEW`), `GET /runs/:id/storyboard`,
+чекбокс режима на странице прогонов и превью раскадровки на гейте сценария. `episode_plan`
+использует DeepSeek, Google TTS и Pixabay; `episode_render` — Remotion + FFmpeg. Pixabay
+закрывает только subject-слоты: сначала теги стартового ключа, затем описание сцены
+(`lang: ru`), не больше двух запросов на слот. Episode-ревью не запускает QC: «Одобрить»
+доступно без `qc_report`, в UI явно показано «QC не запускался»; pipeline-гейт не ослаблен.
+DeepSeek-генерация ассетов (вместо Pixabay) остаётся открытым вопросом и в этот слайс не
+входит.
+
 **M3.6 — Asset Library + Asset Generator.** После spike становится видно, каких объектов не
 хватает в стартовом пакете. Добавляются: общая библиотека ассетов, metadata и content hash,
 версии/варианты, проверка лицензий (`commercialUse: true`), трёхуровневый `AssetResolver`
@@ -222,10 +271,153 @@ CLI/скрипт и ручная сборка существующим `buildVis
 нормализация стиля (`svgo` + OKLab квантование палитры в `style.assetPalette`, стикер-контур для
 растра), параметрический rig `cartoon-character` (5 эмоций по `syncToWord` + аксессуары) и
 первый style preset (`studio_flat_2d_v1`, ADR-0015). Процедурные объекты, SVG и AI-иллюстрации
-сосуществуют; реальные фото и AI-схемы с текстом в flat 2D не попадают. **Acceptance:** две темы
-M3.5 плюс третья собираются из смеси procedural/SVG/AI; персонаж и палитра консистентны между
-сценами; кэш предотвращает повторные оплаты; при отказе генерации сцена деградирует в Tier 0
-иконку или процедурный fallback.
+сосуществуют; реальные фото и AI-схемы с текстом в flat 2D не попадают.
+
+**M3.6 разделён на M3.6a / M3.6b (2026-11-11).** M3.6a закрывает инфраструктуру без платных
+вызовов, M3.6b — реальные провайдеры и полный acceptance. Причина: в окружении M3.6a нет
+`RECRAFT_API_KEY`/`FAL_KEY`, а проверять непроверенные вызовы нельзя.
+
+**Итог M3.6a.** Добавлены `packages/contracts/src/assets.ts` (metadata, `AssetRequest`/
+`AssetResolution`, порты `AssetResolver`/`ImageProvider`, typed-ошибки, `buildAssetObjectKey`),
+`packages/contracts/src/style.ts` (`STYLE_PRESETS`, `studio_flat_2d_v1`), optional
+`assetPalette` в `storyboardStyleSchema`, таблицы `assets`/`asset_variants` + миграция `0008`
+(unique `content_hash`, check `commercial_use = true`), helper `buildAssetObjectKey` в
+`packages/storage`, новый пакет `packages/assets` (SHA-256 dedup, `AssetRepository` +
+in-memory fake, `TieredAssetResolver`, `normalizeSvg` с OKLab-квантованием, alpha-проверки
+растра, `createFakeImageProvider`, preset→style) и renderer input props
+`assets?: Record<key, { url }>` (`SubjectLayer` берёт URL из props, локальный ключ — fallback).
+CLI получил `--resolve-assets [--provider=fake]`, манифест — `assets.resolutions`/`usage`;
+`examples/recipe-showcase.json` переведён на `studio_flat_2d_v1`. **Проверено:** `pnpm check`
+зелёный (contracts 153, assets 42, render-worker 89 тестов), showcase 79.5 с / fixture 137.1 с /
+custom 78.2 с, все клипы 1080×1920/30/h264/`yuv420p`/BT.709; showcase резолвит `dog-snout` и
+`scent-wave` как Tier 0 и передаёт их data-URI в props; миграция применена на локальный
+Postgres, unique content hash и check `commercial_use` проверены живыми INSERT'ами. **Не
+проверено:** реальные Recraft/fal.ai/BiRefNet вызовы (нет ключей), raster-cutout decode/trim,
+`cartoon-character`, третья тема — это M3.6b. Подробности: ADR-0017, `SESSION_LOG.md`.
+
+**Итог M3.6a.1.** Добавлены `DrizzleAssetRepository` в `packages/db` (транзакционный upsert
+`assets` по `(key, style_id)` + вариантов по `(asset_id, variant_id)`, удаление устаревших
+вариантов, маппинг `AssetRecord ↔ rows` с `buildAssetId`), порт `AssetBlobStore` +
+`InMemoryAssetBlobStore`, `AssetLibraryService` (байты → строки, hash-hit без второго `put`,
+presigned URL в `variants[0].url`), `S3AssetBlobStore` и `ObjectStorage.objectExists` (HEAD),
+CLI `assets:import` и `render-storyboard --persist`. **Проверено:** `pnpm check` зелёный (680
+тестов); `assets:import` дважды — 12 записей, второй прогон `добавлено 0, уже было 12`; БД
+содержит 12 `assets`/12 `asset_variants` с content-addressed `object_key`; presigned URL отдаёт
+`image/svg+xml`, SHA-256 скачанных байтов совпадает с `content_hash`; `--persist` рендерит
+showcase 5 сцен (80.0 с) с `assets.persisted: true`, `ffprobe` без изменений
+(1080×1920/30, h264, `yuv420p`, BT.709); provider-ассет (`--provider=fake --persist`) в первом
+прогоне `tier: provider`, во втором — `tier: cache`, `cacheHit: true`, `providerRequests: 0`,
+`costUsd: null`, байты в S3 совпадают с `content_hash` (регрессия «пустой объект» закрыта
+тестом с репозиторием, отбрасывающим `url`); Postgres-адаптер проверен Testcontainers-тестом
+(round-trip, идемпотентность, hash-hit, `listByStyle`, удаление варианта, уникальность
+`content_hash`, check `commercial_use`). **Не проверено:** живой R2 (только локальный
+SeaweedFS), реальные платные провайдеры — M3.6b. Hash-хит не обновляет metadata (повторный
+import не перезапишет теги), persist принимает один набор байтов на запись; alias-строки key→hash
+остаются предусловием M3.6b.
+
+**Итог M3.6b.1.** Добавлены `asset_aliases` (`(key, style_id) → content_hash`, unique по
+паре, без FK: удалённые байты → `null`) и append-only `provider_usage` (`cost_usd` nullable,
+`run_id` FK `set null`); миграция `0010_powerful_wong.sql`. `AssetRepository` расширен
+`findByAlias`/`saveAlias` (in-memory + Drizzle); резолвер в cache-tier идёт
+`findByKey → findByAlias → tag-match`, поэтому второй ключ при hash-хите даёт `tier: cache`,
+`cacheHit: true`, `providerRequests: 0` и провайдер не вызывается. `AssetLibraryService.persist`
+пишет alias при чужом ключе и обновляет `tags`/`license`/`metadata` только когда меняется
+`(key, styleId)` и каталог реально отличается (идентичный повторный импорт не пишет ничего).
+Леджер пишется декоратором `recordingImageProvider` через порт `ProviderUsageWriter`;
+Drizzle-писатель — `DrizzleProviderUsageWriter`; в CLI он включён в `--persist`, `cost_usd: 0`
+для fake, `null` для неизмеренной стоимости. Новый `packages/providers` — скелеты `recraft`
+(`recraftv4_styles_vector`, native SVG, `controls.colors` из `assetPalette`) и `flux`
+(FLUX.2 `[klein] 4B`, raster): `enabled` из `RECRAFT_API_KEY`/`FAL_KEY`, без ключа
+`ProviderUnavailableError` и ни одного запроса, чистые мапперы и записанные фикстуры, классификация
+retryable/terminal, лицензии по политике (`recraft-terms`, `apache-2.0`, `flux [dev]`
+non-commercial). 12 стартовых SVG перекрашены в `studio_flat_2d_v1.assetPalette` и хранятся
+нормализованными: исключение ADR-0017 D5 снято, хэши изменились, 12 прежних объектов остались
+сиротами в S3 (ключи — в записи сессии). **Проверено:** `pnpm check` зелёный (767 тестов);
+`assets:import` дважды — первый прогон `добавлено 12`, второй `добавлено 0, уже было 12`, в БД
+12 `assets`/12 `asset_variants`, `object_key` обновились; живой прогон alias/metadata-refresh на
+Postgres+S3 (alias: `cache`, `providerRequests: 0`, 1 строка alias, запись-владелец не мутирована;
+правка `tags` обновила запись без новых строк); один вызов fake-провайдера → одна строка
+`provider_usage` с `cost_usd = 0`; `render-storyboard --resolve-assets --persist` (showcase, 5 сцен,
+79.5 с) с `assets.persisted: true`, `ffprobe` 1080×1920/30, h264, `yuv420p`, BT.709.
+**Не проверено:** реальные Recraft/fal.ai вызовы (нет ключей, это M3.6b.2), живой R2, визуальный
+review перекрашенных иконок.
+
+**M3.6b.2 — DeepSeek SVG провайдер (DONE 2026-11-12).** `DeepSeekSvgProvider` за портом
+`ImageProvider` в `packages/providers`; `LlmJsonClient` в контрактах (один вызов = одна попытка,
+клиент не ретраит), поэтому леджер пишется на каждый attempt: `units = prompt + completion`,
+`cost_usd` = токены × тариф из env (`LLM_INPUT_USD_PER_MTOK`/`LLM_OUTPUT_USD_PER_MTOK`
+обязательны при включённом провайдере; без них — fail fast, не ноль). Allowlist отвергает
+`text`/`image`/`filter`/`mask`/`script`/внешние `href`/`url(...)`, лимиты ≤200 КБ и ≤500
+элементов, затем `normalizeSvg`; невалидный ответ — один corrective retry, дальше
+`InvalidAssetError`. `ASSET_SOURCES += 'llm'` и миграция `0011`; CLI
+`--provider=deepseek-svg` требует `--persist`, чтобы расход попал в `provider_usage`.
+Промпт геометрический (400×400, PLAN-комментарий, примитивы, симметрия, ≤5 цветов),
+`thinking: enabled`, 3 кандидата. Пилот 10 объектов × 3 прогона × 3 кандидата:
+**87/90 структурно пригодных (96.7%)**, `normalizeSvg` 87/90, `maxColorDistance = 0` во всех
+успешных, факт **$0.208** за 90 вызовов, средняя латентность 18 с. Провал — `pirate` (органика)
+6/9: `thinking` съедает бюджет вывода (пустой content при 16k completion-токенов); нужен
+отдельный режим для органики или Recraft только для hero. Визуальный балл 1–5 остаётся за
+человеком: 87 SVG и `gallery.html` в `apps/render-worker/out/m3-6b-2/pilot/`. Recraft/FLUX.2
+остаются parked.
+
+**Остаток M3.6b.** raster-cutout нормализация (PNG decode, alpha occupancy 8–75%, trim,
+sticker outline), `cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема и полный
+M3.6 acceptance (кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при отказе
+генерации). Предусловия alias `key→hash` и выравнивание палитры 12 стартовых SVG закрыты в
+M3.6b.1.
+
+**M3.6b.3 — приглушённый стиль и стоимость (DONE 2026-11-12).** Новый пресет
+`studio_flat_2d_v2` (flat 2D, палитра 16 слотов: ink/surface/paper/amber/sky/coral/sage/danger,
+насыщенность ~40–50%) и он же дефолт; `studio_flat_2d_v1` сохранён для старых записей. Tier 0
+перекрашен `recolor:starter` (`paddingRatio: 0`, идемпотентно) и импортирован под v2; миграция
+`0012` меняет только default `style_id`, старые 12 строк v1 остаются. Промпт: скругления
+(`rx ≥ 8%` меньшей стороны), фоновый `<rect>` без `rx`, запрет обводки мелких деталей,
+8–15 примитивов, 3–5 цветов из палитры. `thinking` выключен, `max_tokens` 1600. Пилот 10×3:
+**30/30 годных**, `maxColorDistance = 0`, **$0.0146** за 30 вызовов (≈$0.00049 за кандидата,
+4.7× дешевле), completion 259–1327 токенов (было 2 000–16 000), средняя латентность 3.3 с
+(было 18 с). Визуальная проверка новой палитры — за человеком
+(`apps/render-worker/out/m3-6b-3/pilot/gallery.html`).
+
+**M3.6b.4 — числовой PLAN и silhouette rules (DONE 2026-11-12).** Референс
+`C:\Temp\opencode\geom-test` показал, чего не хватало: PLAN — это чертёж с координатами
+каждого элемента, порядком слоёв, габаритом объекта и формулой зеркала, а не описание.
+Промпт переписан по этому образцу и дополнен правилами силуэта: голова/плод/солнце/мяч —
+`circle`/`ellipse` (не прямоугольник), животное — `ellipse`/капсулы, техника — скруглённые
+`rect`; детали внутри силуэта с отступом 8–16; окна/клавиши разделяются промежутком, а не
+второй заливкой; колесо — концентрические круги разных цветов, арка шире шины; 10–18
+примитивов. `thinking` снова **включён по умолчанию** (`max_tokens` 16000: рассуждение
+считается в тот же бюджет, 6000 давало пустой content). A/B на bus/palm/pirate: **9/9
+годных**, $0.071 за 9 вызовов (≈$0.008 с ретраями, $0.003–0.006 за кандидата), 16–115 с.
+Без thinking — дешевле в 10×, но «каша» по координатам; think mode оставлен рабочим
+режимом. Галерея: `apps/render-worker/out/m3-6b-5/pilot/gallery.html`.
+
+**M3.6b.5 — третья тема и acceptance M3.6 (DONE 2026-11-13).** Тема `wifi-wall`: 7 сцен,
+6 subject-слотов, 5 generated (83%), `subject/wifi-router` и `subject/brick-wall-section` →
+`tier: provider`, 2 вызова, **$0.005104**. Subject-слот теперь принимает `subject/<slug>`
+только с `fallbackIcon` и `prompt` (ADR-0016 D10). Резолвер продолжает в `fallbackKey` после
+ошибки провайдера и учитывает реальные attempts/cost; `ProviderBudgetError` даёт
+`provider_disabled_by_budget` и выключает провайдера до конца прогона. Кэш-прогон — 0 новых
+строк ledger. Для детерминированной проверки добавлен `DEEPSEEK_SVG_FORCE_FAILURE=unavailable|empty`.
+Первый роутер вышел с изометричной «крышкой»: директор написал «вид три четверти», хинты
+перезаписывались последним слотом, провайдер ставил `Объект:` раньше запрета перспективы.
+Исправлено: правило `2а` в промпте провайдера, `sanitizeSubjectPrompt`, first-wins хинтов,
+промпт в `provider_usage.meta`; ассет перегенерирован. Ролик 48.7 с, 1080×1920/30, h264+aac;
+галерея `apps/worker/out/m3-6b-5/gallery.html`.
+
+**Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
+лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →
+V4 Styles Vector **$0.05**, V4.1 Vector **$0.08**, Vectorize **$0.01** (старые $0.055/0.088/0.011 —
+артефакт чтения); FLUX.2 `[klein] 4B` на fal — **$0.005/MP** (было $0.009). Цена пригодного
+ассета (r=1.4, оценка): cutout klein+BiRefNet ≈ **$0.010**, vectorized klein+Vectorize ≈ **$0.021**,
+native Recraft V4 Styles Vector ≈ **$0.070**; ролик (3–5 ассетов) — $0.04–0.45. Рекомендация:
+Tier 1 primary — Recraft `recraftv4_styles_vector` (`style_id` + палитра), economy fallback —
+FLUX.2 `[klein]` + Vectorize (break-even: vectorized дешевле, пока его r < 3.3× r_native);
+Tier 2 primary — FLUX.2 `[klein]` + BiRefNet v2 (MIT), Bria RMBG — только платный API
+(self-host CC BY-NC запрещён). Self-host FLUX.2 `[klein]` (Apache 2.0) окупается с ~290
+роликов/день. Важно: у Recraft V4/V4.1 нет `no_text` — «без текста» обеспечивается промптом +
+пост-проверкой. Подробности, cost model 100/1 000/10 000 роликов, scorecard альтернатив и
+метрики пилота: `docs/workspace/research/2026-11-11-fal-vs-recraft-for-slop-factory.md`.
+Статусы M3.6a/M3.6b не меняются.
 
 **M3.7 — Production hardening.** Отдельные `scene_clip` artifacts, per-scene regeneration,
 очередь `scene-render` с payload `{runId, sceneIdx}`, vision QC ассетов и готовых сцен,
@@ -240,8 +432,10 @@ off-style и нечитаемые сцены; стоимость генерац�
   локальный `subject`-слой и стартовый SVG-пак без `<text>`.
 - M3.5: две разные темы проходят путь topic → storyboard → сцены → ролик без per-topic кода и
   с предметным слоем из стартового пака.
-- M3.6: asset library/resolver/generator (Tier 0–2), OKLab-нормализация, `cartoon-character`,
-  style preset, procedural/SVG/AI coexisting.
+- M3.6a: asset library/resolver core (Tier 0→cache→provider→fallback), content hash/dedup,
+  лицензии, OKLab-нормализация, style preset, renderer input props — DONE.
+- M3.6b: реальные Recraft/FLUX.2/BiRefNet вызовы, raster-cutout, `cartoon-character`,
+  procedural/SVG/AI coexisting и полный M3.6 acceptance.
 - M3.7: `scene_clip`, per-scene regen, `scene-render` queue, vision QC, review UI, cost ledger.
 - Общий baseline M3.2 (эксперимент «−15°») сохраняется: 1080×1920/30, ≤15 мин рендера,
   детерминизм, стиль и палитра консистентны.
@@ -270,14 +464,9 @@ off-style и нечитаемые сцены; стоимость генерац�
 
 ## Следующие сессии
 
-1. **M3.4 — Scene Recipes v1.** Пять рецептов × 2–3 варианта; разделение `SceneObjects` на
-   слои, включая локальный `image`/`subject`-слой и стартовый SVG-пак
-   `apps/render-worker/public/assets/starter/` (ADR-0015). M3.3 закрыт 2026-11-10. Промпт:
-   `docs/ignore/plans/2026-11-10-m3-4-scene-recipes-session.md`.
-2. M3.5 — End-to-end spike на двух темах (собака, кирпичи) на каталоге рецептов + локальном
-   стартовом паке, без облачных AI-ассетов и без очереди.
-3. M3.6 — Asset Library, Asset Resolver (Tier 0–2), `ImageProvider` (Recraft Vector /
-   FLUX.2 + BiRefNet), OKLab-нормализация, `cartoon-character`, style preset.
-4. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
-5. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
+1. **M3.6b — Real asset generation.** Recraft Vector / FLUX.2 + BiRefNet adapters, raster-cutout
+   normalization, `cartoon-character`, third topic, full M3.6 acceptance. M3.6a закрыт
+   2026-11-11 (resolver, hash/dedup, style preset, renderer props).
+2. M3.7 — `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost.
+3. M1.2c — webhooks, rate limiter, выбор аккаунта, автошедулинг (параллельно, когда понадобится
    публичная публикация).
