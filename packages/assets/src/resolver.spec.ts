@@ -1,6 +1,7 @@
 import {
   AssetLicenseError,
   InvalidAssetError,
+  ProviderBudgetError,
   ProviderUnavailableError,
   UnknownAssetError,
   UnsupportedAssetKindError,
@@ -470,5 +471,125 @@ describe('tiered asset resolver', () => {
         allowProvider: true,
       }),
     ).rejects.toBeInstanceOf(InvalidAssetError);
+  });
+
+  it('falls back after an invalid provider output and keeps the real spend', async () => {
+    const provider = createFakeImageProvider({
+      assets: { 'subject/broken': 'not an svg document' },
+    });
+    const { resolver } = await createResolver({ provider });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'subject/broken',
+      fallbackKey: 'brick',
+      styleId: STYLE_ID,
+      allowProvider: true,
+    });
+
+    expect(resolution.tier).toBe('fallback');
+    expect(resolution.asset.key).toBe('brick');
+    expect(resolution.usage.providerRequests).toBe(1);
+    expect(resolution.usage.costUsd).toBe(0);
+    expect(resolution.diagnostics.map((entry) => entry.code)).toEqual(
+      expect.arrayContaining(['provider_failed', 'fallback_used']),
+    );
+  });
+
+  it('merges attempts reported by a typed provider failure into usage', async () => {
+    const provider = {
+      id: 'deepseek-svg',
+      enabled: true,
+      supports: (): boolean => true,
+      generate: async (): Promise<never> => {
+        throw new InvalidAssetError('subject/router', 'deepseek-svg', 'empty', {
+          requests: 2,
+          costUsd: 0.0004,
+        });
+      },
+    };
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: await starterAssets(),
+      provider,
+    });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'subject/router',
+      fallbackKey: 'brick',
+      styleId: STYLE_ID,
+      allowProvider: true,
+    });
+
+    expect(resolution.usage.providerRequests).toBe(2);
+    expect(resolution.usage.costUsd).toBe(0.0004);
+  });
+
+  it('counts an attempt without a cost when the failure reports no usage', async () => {
+    const provider = {
+      id: 'deepseek-svg',
+      enabled: true,
+      supports: (): boolean => true,
+      generate: async (): Promise<never> => {
+        throw new ProviderUnavailableError('deepseek-svg', 'network down');
+      },
+    };
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: await starterAssets(),
+      provider,
+    });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'subject/router',
+      fallbackKey: 'brick',
+      styleId: STYLE_ID,
+      allowProvider: true,
+    });
+
+    expect(resolution.usage.providerRequests).toBe(1);
+    expect(resolution.usage.costUsd).toBeNull();
+  });
+
+  it('stops calling the provider for the rest of the run after a budget error', async () => {
+    let calls = 0;
+    const provider = {
+      id: 'deepseek-svg',
+      enabled: true,
+      supports: (): boolean => true,
+      generate: async (): Promise<never> => {
+        calls += 1;
+        throw new ProviderBudgetError('deepseek-svg', 0.05, 0.02, {
+          requests: 1,
+          costUsd: 0.05,
+        });
+      },
+    };
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: await starterAssets(),
+      provider,
+    });
+
+    const first = await resolver.resolve({
+      assetKey: 'subject/router',
+      fallbackKey: 'brick',
+      styleId: STYLE_ID,
+      allowProvider: true,
+    });
+    const second = await resolver.resolve({
+      assetKey: 'subject/phone',
+      fallbackKey: 'house',
+      styleId: STYLE_ID,
+      allowProvider: true,
+    });
+
+    expect(first.tier).toBe('fallback');
+    expect(second.tier).toBe('fallback');
+    expect(calls).toBe(1);
+    expect(second.diagnostics.map((entry) => entry.code)).toContain(
+      'provider_disabled_by_budget',
+    );
+    expect(second.usage.providerRequests).toBe(0);
+    expect(second.usage.costUsd).toBeNull();
   });
 });

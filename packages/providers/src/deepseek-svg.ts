@@ -1,5 +1,6 @@
 import {
   InvalidAssetError,
+  ProviderBudgetError,
   ProviderUnavailableError,
   type AssetKind,
   type ImageProvider,
@@ -26,6 +27,7 @@ import { svgSize } from './mappers.js';
  */
 
 export const DEEPSEEK_SVG_PROVIDER_ID = 'deepseek-svg';
+export { ProviderBudgetError };
 export const DEEPSEEK_SVG_OPERATION = 'asset.svg.generate';
 /** Tariffs are pinned to the official page on the date they were copied. */
 export const DEEPSEEK_SVG_PRICE_REF =
@@ -40,6 +42,13 @@ export interface DeepSeekSvgRates {
   readonly inputUsdPerMtok: number;
   readonly outputUsdPerMtok: number;
 }
+
+/**
+ * Deterministic failure lever for acceptance runs (`DEEPSEEK_SVG_FORCE_FAILURE`).
+ * `unavailable` fails before any call (no spend); `empty` feeds an empty model
+ * reply through the corrective retry (zero tokens, zero cost).
+ */
+export type DeepSeekSvgSimulatedFailure = 'unavailable' | 'empty';
 
 export interface DeepSeekSvgProviderOptions {
   readonly apiKey?: string | null;
@@ -60,19 +69,8 @@ export interface DeepSeekSvgProviderOptions {
   readonly thinking?: 'enabled' | 'disabled';
   /** Visible-output cap; thinking tokens are billed on top of it. */
   readonly maxTokens?: number;
-}
-
-export class ProviderBudgetError extends Error {
-  constructor(
-    readonly providerId: string,
-    readonly costUsd: number,
-    readonly limitUsd: number,
-  ) {
-    super(
-      `Provider "${providerId}" call would cost $${costUsd} and exceeds the $${limitUsd} per-call limit`,
-    );
-    this.name = 'ProviderBudgetError';
-  }
+  /** Dev/acceptance lever; unset in production. */
+  readonly simulateFailure?: DeepSeekSvgSimulatedFailure | null;
 }
 
 const ALLOWED_ELEMENTS = new Set([
@@ -213,6 +211,9 @@ export function buildDeepSeekSvgPrompts(
     '   палитру (3–5 хексов). Пример строки: "Lens: circle cx=200 cy=246 r=64 #0C1B31".',
     '2. Силуэт важнее деталей: объект должен узнаваться с расстояния. Соблюдай реальные',
     '   пропорции (высота/ширина) и укажи габарит объекта в PLAN (x, y, w, h).',
+    '2а. Проекция строго фронтальная (анфас) или профиль. Запрещены изометрия, «три четверти»,',
+    '   вид сверху, верхняя грань, наклон корпуса и любая перспектива. Верхнюю плоскость не',
+    '   рисуй отдельным многоугольником: корпус — один прямоугольник со скруглениями.',
     '3. Форма по смыслу: голова, плод, солнце, мяч, капля — circle/ellipse; животное —',
     '   ellipse и капсулы; техника, мебель, экран — скруглённые прямоугольники. Не строй',
     '   голову или лицо прямоугольником.',
@@ -247,6 +248,8 @@ export function buildDeepSeekSvgPrompts(
 
   const user = [
     `Объект: ${request.prompt}`,
+    'Проекция: строго анфас или профиль. Верхняя грань, изометрия и «три четверти» запрещены,',
+    'даже если в описании объекта сказано иначе.',
     `Логический ключ ассета: ${request.key}.`,
     `Стиль: flat 2D, приглушённые цвета, ${request.styleId}.`,
     'Один изолированный объект по центру, без окружения и без перспективы.',
@@ -315,6 +318,7 @@ export function createDeepSeekSvgProvider(
   const maxTokens = options.maxTokens ?? (thinking === 'enabled' ? 16_000 : 1600);
   const usageWriter = options.usageWriter ?? null;
   const usageSource = options.usageSource ?? 'assets';
+  const simulateFailure = options.simulateFailure ?? null;
 
   if (
     enabled &&
@@ -331,7 +335,7 @@ export function createDeepSeekSvgProvider(
   const recordAttempt = async (
     request: ImageProviderRequest,
     attempt: number,
-    outcome: 'ok' | 'invalid',
+    outcome: 'ok' | 'invalid' | 'over_budget',
     usage: LlmJsonUsage,
     costUsd: number,
   ): Promise<void> => {
@@ -353,6 +357,7 @@ export function createDeepSeekSvgProvider(
         styleId: request.styleId,
         attempt,
         outcome,
+        prompt: request.prompt.slice(0, 600),
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
         inputUsdPerMtok: rates.inputUsdPerMtok,
@@ -383,35 +388,54 @@ export function createDeepSeekSvgProvider(
         );
       }
 
+      if (simulateFailure === 'unavailable') {
+        throw new ProviderUnavailableError(
+          DEEPSEEK_SVG_PROVIDER_ID,
+          'simulated failure (DEEPSEEK_SVG_FORCE_FAILURE=unavailable)',
+        );
+      }
+
       const prompts = buildDeepSeekSvgPrompts(request);
       let lastReason = 'model returned no usable SVG';
       let totalCost = 0;
       let totalUnits = 0;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        const response = await client.complete({
-          system: prompts.system,
-          user:
-            attempt === 1
-              ? prompts.user
-              : `${prompts.user}\n\nПредыдущий ответ не прошёл проверку: ${lastReason}. Верни ТОЛЬКО JSON-объект {"svg": "<svg …>"} с допустимыми элементами и палитрой.`,
-          maxTokens,
-          temperature: 0.4,
-          thinking,
-        });
+        const response =
+          simulateFailure === 'empty'
+            ? {
+                content: '',
+                usage: { promptTokens: 0, completionTokens: 0 },
+                model,
+              }
+            : await client.complete({
+                system: prompts.system,
+                user:
+                  attempt === 1
+                    ? prompts.user
+                    : `${prompts.user}\n\nПредыдущий ответ не прошёл проверку: ${lastReason}. Верни ТОЛЬКО JSON-объект {"svg": "<svg …>"} с допустимыми элементами и палитрой.`,
+                maxTokens,
+                temperature: 0.4,
+                thinking,
+              });
 
         const costUsd = costOf(response.usage, rates);
 
+        totalCost = round6(totalCost + costUsd);
+        totalUnits += response.usage.promptTokens + response.usage.completionTokens;
+
         if (costUsd > maxUsdPerCall) {
+          // The call already happened: record it before refusing the output, so
+          // the ledger shows the real spend instead of hiding it.
+          await recordAttempt(request, attempt, 'over_budget', response.usage, costUsd);
+
           throw new ProviderBudgetError(
             DEEPSEEK_SVG_PROVIDER_ID,
             costUsd,
             maxUsdPerCall,
+            { requests: attempt, costUsd: totalCost },
           );
         }
-
-        totalCost = round6(totalCost + costUsd);
-        totalUnits += response.usage.promptTokens + response.usage.completionTokens;
 
         const payload = parseSvgPayload(response.content);
         const reason =
@@ -442,7 +466,10 @@ export function createDeepSeekSvgProvider(
         lastReason = reason ?? 'model returned no usable SVG';
       }
 
-      throw new InvalidAssetError(request.key, DEEPSEEK_SVG_PROVIDER_ID, lastReason);
+      throw new InvalidAssetError(request.key, DEEPSEEK_SVG_PROVIDER_ID, lastReason, {
+        requests: maxAttempts,
+        costUsd: totalCost,
+      });
     },
   };
 }

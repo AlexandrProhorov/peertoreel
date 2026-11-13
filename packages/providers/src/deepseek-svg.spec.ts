@@ -227,7 +227,7 @@ describe('createDeepSeekSvgProvider', () => {
     );
   });
 
-  it('refuses a call above the per-call budget before writing the ledger', async () => {
+  it('records an over-budget call, then refuses it', async () => {
     const { client } = fakeClient([
       {
         content: JSON.stringify({ svg: VALID_SVG }),
@@ -243,10 +243,59 @@ describe('createDeepSeekSvgProvider', () => {
       maxUsdPerCall: 0.01,
     });
 
-    await expect(provider.generate(REQUEST)).rejects.toBeInstanceOf(
-      ProviderBudgetError,
-    );
+    const error = await provider.generate(REQUEST).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ProviderBudgetError);
+    expect(error).toMatchObject({
+      usage: { requests: 1, costUsd: expect.any(Number) },
+    });
+    expect(usage.entries).toHaveLength(1);
+    expect(usage.entries[0]?.meta['outcome']).toBe('over_budget');
+  });
+
+  it('simulates an unavailable provider without calling the model', async () => {
+    const { client, calls } = fakeClient([
+      { content: JSON.stringify({ svg: VALID_SVG }) },
+    ]);
+    const usage = collector();
+    const provider = createDeepSeekSvgProvider({
+      apiKey: 'key',
+      client,
+      rates: RATES,
+      usageWriter: usage,
+      simulateFailure: 'unavailable',
+    });
+
+    const error = await provider.generate(REQUEST).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ProviderUnavailableError);
+    expect(error).toMatchObject({ usage: undefined });
+    expect(calls).toHaveLength(0);
     expect(usage.entries).toHaveLength(0);
+  });
+
+  it('simulates an empty reply and spends the corrective retry', async () => {
+    const { client, calls } = fakeClient([
+      { content: JSON.stringify({ svg: VALID_SVG }) },
+    ]);
+    const usage = collector();
+    const provider = createDeepSeekSvgProvider({
+      apiKey: 'key',
+      client,
+      rates: RATES,
+      usageWriter: usage,
+      simulateFailure: 'empty',
+    });
+
+    const error = await provider.generate(REQUEST).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(InvalidAssetError);
+    expect(error).toMatchObject({
+      usage: { requests: 2, costUsd: 0 },
+    });
+    expect(calls).toHaveLength(0);
+    expect(usage.entries).toHaveLength(2);
+    expect(usage.entries.every((entry) => entry.units === 0)).toBe(true);
   });
 
   it('can disable reasoning for cheap runs', async () => {
@@ -275,6 +324,25 @@ describe('createDeepSeekSvgProvider', () => {
     expect(prompts.system).toContain('rx');
     expect(prompts.system).toContain('filter');
     expect(prompts.user).toContain('brick wall, front view');
+  });
+
+  it('repeats the flat-projection ban after the object description', () => {
+    const prompts = buildDeepSeekSvgPrompts({
+      ...REQUEST,
+      prompt: 'роутер, вид три четверти',
+    });
+
+    expect(prompts.system).toContain('2а. Проекция строго фронтальная');
+    expect(prompts.system).toContain('верхняя грань');
+
+    const objectIndex = prompts.user.indexOf('Объект:');
+    const projectionIndex = prompts.user.indexOf('Проекция: строго анфас');
+
+    expect(objectIndex).toBeGreaterThanOrEqual(0);
+    expect(projectionIndex).toBeGreaterThan(objectIndex);
+    expect(prompts.user).toContain(
+      'Верхняя грань, изометрия и «три четверти» запрещены',
+    );
   });
 
   it('does not call the client for non-SVG kinds', async () => {
