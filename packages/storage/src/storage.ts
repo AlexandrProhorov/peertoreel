@@ -2,6 +2,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -106,6 +107,38 @@ export class ObjectStorage {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }),
     );
+  }
+
+  /**
+   * Every key under `prefix`, sorted for deterministic reports. Used by
+   * `assets:prune`; pagination is explicit because a silent first-page limit
+   * would leave orphans behind and look like a clean run.
+   */
+  async listKeys(prefix: string): Promise<readonly string[]> {
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const response = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.config.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+
+      for (const object of response.Contents ?? []) {
+        if (object.Key !== undefined) {
+          keys.push(object.Key);
+        }
+      }
+
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined;
+    } while (continuationToken !== undefined);
+
+    return keys.sort();
   }
 
   /**

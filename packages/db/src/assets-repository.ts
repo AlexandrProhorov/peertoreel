@@ -221,6 +221,19 @@ export class DrizzleAssetRepository implements AssetRepository {
       });
   }
 
+  /**
+   * Every object key referenced by a variant row (M3.6b.8 prune guard).
+   * Content-addressed keys are shared only by identical bytes, so the set is
+   * small; sorting keeps the dry-run report stable between runs.
+   */
+  async listObjectKeys(): Promise<readonly string[]> {
+    const rows = await this.db
+      .selectDistinct({ objectKey: assetVariants.objectKey })
+      .from(assetVariants);
+
+    return rows.map((row) => row.objectKey).sort();
+  }
+
   async listByStyle(styleId: string): Promise<readonly AssetRecord[]> {
     const rows = await this.db
       .select()

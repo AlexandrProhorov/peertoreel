@@ -7,6 +7,7 @@ export * from './oklab.js';
 export * from './provider-fake.js';
 export * from './provider-usage.js';
 export * from './raster-pipeline.js';
+export * from './prune.js';
 export * from './repository.js';
 export * from './resolver.js';
 export * from './starter.js';

@@ -13,7 +13,8 @@
     "test": "vitest run",
     "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts",
     "storyboard:episode": "tsx src/storyboard/episode-spike.ts",
-    "assets:import": "tsx src/assets/import.ts"
+    "assets:import": "tsx src/assets/import.ts",
+    "assets:prune": "tsx src/assets/prune.ts"
   },
   "dependencies": {
     "@peertoreel/assets": "workspace:*",
