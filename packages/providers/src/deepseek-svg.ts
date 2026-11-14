@@ -12,6 +12,10 @@ import {
 } from '@peertoreel/contracts';
 import { z } from 'zod';
 import { svgSize } from './mappers.js';
+import {
+  inspectSvgStructure,
+  type SvgStructureViolation,
+} from './svg-structure.js';
 
 /**
  * DeepSeek SVG adapter (M3.6b.2).
@@ -338,6 +342,7 @@ export function createDeepSeekSvgProvider(
     outcome: 'ok' | 'invalid' | 'over_budget',
     usage: LlmJsonUsage,
     costUsd: number,
+    structureViolations: readonly string[] = [],
   ): Promise<void> => {
     if (usageWriter === null || rates === undefined) {
       return;
@@ -358,6 +363,7 @@ export function createDeepSeekSvgProvider(
         attempt,
         outcome,
         prompt: request.prompt.slice(0, 600),
+        structureViolations: [...structureViolations],
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
         inputUsdPerMtok: rates.inputUsdPerMtok,
@@ -438,10 +444,26 @@ export function createDeepSeekSvgProvider(
         }
 
         const payload = parseSvgPayload(response.content);
-        const reason =
+        let reason =
           payload.ok === true ? validateSvgDocument(payload.svg).reason : payload.reason;
+        let violations: readonly SvgStructureViolation[] = [];
 
-        await recordAttempt(request, attempt, reason === null ? 'ok' : 'invalid', response.usage, costUsd);
+        if (payload.ok === true && reason === null) {
+          violations = inspectSvgStructure(payload.svg);
+
+          if (violations.length > 0) {
+            reason = violations[0]?.reason ?? 'SVG violates the flat-projection rules';
+          }
+        }
+
+        await recordAttempt(
+          request,
+          attempt,
+          reason === null ? 'ok' : 'invalid',
+          response.usage,
+          costUsd,
+          violations.map((violation) => violation.code),
+        );
 
         if (payload.ok === true && reason === null) {
           const size = svgSize(payload.svg, request.key);

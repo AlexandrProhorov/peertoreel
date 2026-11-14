@@ -5,3 +5,4 @@ export * from './flux.js';
 export * from './http.js';
 export * from './mappers.js';
 export * from './recraft.js';
+export * from './svg-structure.js';

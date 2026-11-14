@@ -24,6 +24,14 @@ const VALID_SVG = [
   '</svg>',
 ].join('');
 
+/** Allowed markup, forbidden geometry: the 2026-11-13 isometric lid. */
+const LID_SVG = [
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">',
+  '<path d="M80 212h224l28-34H108z" fill="#0C1B31"/>',
+  '<rect width="224" height="112" x="80" y="210" fill="#23405F" rx="18"/>',
+  '</svg>',
+].join('');
+
 const REQUEST: ImageProviderRequest = {
   key: 'subject/brick',
   prompt: 'brick wall, front view',
@@ -296,6 +304,53 @@ describe('createDeepSeekSvgProvider', () => {
     expect(calls).toHaveLength(0);
     expect(usage.entries).toHaveLength(2);
     expect(usage.entries.every((entry) => entry.units === 0)).toBe(true);
+  });
+
+  it('retries when the model draws a slanted top face', async () => {
+    const { client, calls } = fakeClient([
+      { content: JSON.stringify({ svg: LID_SVG }) },
+      { content: JSON.stringify({ svg: VALID_SVG }) },
+    ]);
+    const usage = collector();
+    const provider = createDeepSeekSvgProvider({
+      apiKey: 'key',
+      client,
+      rates: RATES,
+      usageWriter: usage,
+    });
+
+    const result = await provider.generate(REQUEST);
+
+    expect(result.asset.data).toBe(VALID_SVG);
+    expect(calls).toHaveLength(2);
+    expect(usage.entries.map((entry) => entry.meta['outcome'])).toEqual([
+      'invalid',
+      'ok',
+    ]);
+    expect(usage.entries[0]?.meta['structureViolations']).toEqual([
+      'top_face_polygon',
+    ]);
+  });
+
+  it('fails with real usage when both attempts keep the top face', async () => {
+    const { client } = fakeClient([
+      { content: JSON.stringify({ svg: LID_SVG }) },
+      { content: JSON.stringify({ svg: LID_SVG }) },
+    ]);
+    const usage = collector();
+    const provider = createDeepSeekSvgProvider({
+      apiKey: 'key',
+      client,
+      rates: RATES,
+      usageWriter: usage,
+    });
+
+    const error = await provider.generate(REQUEST).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(InvalidAssetError);
+    expect(error).toMatchObject({ usage: { requests: 2 } });
+    expect((error as InvalidAssetError).reason).toMatch(/верхнюю грань/i);
+    expect(usage.entries).toHaveLength(2);
   });
 
   it('can disable reasoning for cheap runs', async () => {
