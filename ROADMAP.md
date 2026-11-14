@@ -142,7 +142,8 @@ production hardening. Причина — не строить очередь и a
 | M3.6b.4 | Числовой PLAN по референсу geom-test, правила силуэта/пропорций, thinking по умолчанию (bus/palm/pirate: 9/9, $0.071) | агент | DONE |
 | M3.6b.5 | Третья тема `wifi-wall` + acceptance M3.6: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`), fallback после ошибки провайдера, ledger per attempt, budget stop-crank, `DEEPSEEK_SVG_FORCE_FAILURE`, плоская проекция (правило + санитайзер) | агент | DONE |
 | M3.6b.5.1 | Структурный guard SVG: верхняя грань над корпусом и любой `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta` | агент | DONE |
-| M3.6b | Остаток M3.6: raster-cutout, `cartoon-character` | агент | TODO |
+| M3.6b.6 | Raster-cutout: PNG-декодер `fast-png`, trim по alpha, cutout-политика 8–75 %, ветвление резолвера по encoding, persist PNG | агент | DONE |
+| M3.6b | Остаток M3.6: `cartoon-character` rig | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -361,11 +362,10 @@ review перекрашенных иконок.
 человеком: 87 SVG и `gallery.html` в `apps/render-worker/out/m3-6b-2/pilot/`. Recraft/FLUX.2
 остаются parked.
 
-**Остаток M3.6b.** raster-cutout нормализация (PNG decode, alpha occupancy 8–75%, trim,
-sticker outline), `cartoon-character` rig с 5 эмоциями и аксессуарами, третья тема и полный
-M3.6 acceptance (кэш предотвращает повторные оплаты, сцена деградирует в Tier 0 при отказе
-генерации). Предусловия alias `key→hash` и выравнивание палитры 12 стартовых SVG закрыты в
-M3.6b.1.
+**Остаток M3.6b.** raster-cutout закрыт в M3.6b.6 (PNG decode `fast-png`, alpha occupancy
+8–75 %, trim; sticker outline — отдельный срез), третья тема и полный M3.6 acceptance — M3.6b.5.
+Остаётся `cartoon-character` rig с 5 эмоциями и аксессуарами. Предусловия alias `key→hash` и
+выравнивание палитры 12 стартовых SVG закрыты в M3.6b.1.
 
 **M3.6b.3 — приглушённый стиль и стоимость (DONE 2026-11-12).** Новый пресет
 `studio_flat_2d_v2` (flat 2D, палитра 16 слотов: ink/surface/paper/amber/sky/coral/sage/danger,
@@ -404,6 +404,14 @@ M3.6b.1.
 Исправлено: правило `2а` в промпте провайдера, `sanitizeSubjectPrompt`, first-wins хинтов,
 промпт в `provider_usage.meta`; ассет перегенерирован. Ролик 48.7 с, 1080×1920/30, h264+aac;
 галерея `apps/worker/out/m3-6b-5/gallery.html`.
+
+**M3.6b.6 — raster-cutout (DONE 2026-11-14).** PNG-пайплайн резолвера: `fast-png` (pure JS,
+вместо `sharp`), `decodePng`/`trimToAlpha`/`encodePng`; `raster-cutout` проходит alpha-окно
+8–75 %, `png` — без окна, оба обрезаются по непрозрачным пикселям; hash считается по обрезанным
+байтам. Резолвер ветвится по `encoding` (`utf8`/`base64`), вариант получает `.png`-ключ,
+`image/png` и `metadata: { occupancy, trimmedFrom }`. Пустой cutout и непрозрачный фон →
+`fallbackKey`/Tier 0. `--persist` работает без изменений. Sticker-outline и webp — отдельно.
+Тесты: assets 82, fake-провайдер синтезирует `24×24` cutout, живых вызовов нет.
 
 **Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
 лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →

@@ -2,18 +2,20 @@
 
 Обновлено: 2026-11-13 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
-Активная работа: `feat/m3-animated-factory`; HEAD `22aa2af` + незакоммиченные изменения M3.6b.5.1.
-План: `docs/workspace/plans/2026-11-14-m3-6b-5-1-svg-structural-guard-session.md` — выполнен.
-Рабочее дерево: изменено (M3.6b.5.1), коммит не сделан.
+Активная работа: `feat/m3-animated-factory`; HEAD `bb16b80` + незакоммиченные изменения M3.6b.6.
+План: `docs/workspace/plans/2026-11-14-m3-6b-6-raster-cutout-session.md` — выполнен.
+Рабочее дерево: изменено (M3.6b.6), коммит не сделан.
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-14, M3.6b.5.1): contracts 172, providers 39 (7 кейсов
-  инспектора + retry), assets 71, render-worker 110, worker 145 тестов.
-- Guard: фикстура вчерашнего роутера ловится (`top_face_polygon` + `perspective_transform`),
-  чистая геометрия, крыша-треугольник, отдельная трапеция и мелкий четырёхугольник — проходят.
-- Живой прогон под guard'ом — `Not verified` (ограничились фикстурами).
+- `pnpm check` — зелёный (2026-11-14, M3.6b.6): contracts 172, providers 39, assets 82
+  (растр: decode/trim/encode, cutout-границы, resolver, persist PNG), render-worker 110,
+  worker 145 тестов.
+- Raster-cutout: fake-провайдер отдаёт `24×24` PNG → `tier: provider`, `kind: raster-cutout`,
+  `image/png`, hash по обрезанным байтам; пустой cutout и непрозрачный фон → fallback.
+- Живой flux/BiRefNet-ответ — `Not verified` (нет `FAL_KEY`).
+- Guard SVG (M3.6b.5.1): фикстура вчерашнего роутера ловится, чистая геометрия проходит.
 - Acceptance `wifi-wall` (2026-11-13, после фикса перспективы): 7 сцен, 6 subject-слотов,
   5 generated (83%); `subject/wifi-router` и `subject/brick-wall-section` → `tier: provider`,
   2 вызова, $0.005104. Промпты — в `provider_usage.meta` и манифесте.
@@ -31,6 +33,8 @@
 
 ## Готово
 
+- M3.6b.6: raster-cutout — `decodePng`/`trimToAlpha`/`encodePng` на `fast-png`, ветвление
+  резолвера по encoding, cutout-политика 8–75 %, hash по обрезанному PNG, persist PNG.
 - M3.6b.5.1: структурный guard SVG (`inspectSvgStructure`): верхняя грань над корпусом и любой
   `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta`.
 - M3.6b.5: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`, ADR-0016 D10);
@@ -45,12 +49,12 @@
 
 ## В процессе
 
-- Ничего не в работе; изменения M3.6b.5.1 ждут коммита.
+- Ничего не в работе; изменения M3.6b.6 ждут коммита.
 
 ## Следующий шаг
 
-1. Коммит M3.6b.5.1.
-2. M3.6b.6 raster-cutout (PNG decode, alpha 8–75 %, trim, sticker) — план не создан.
+1. Коммит M3.6b.6.
+2. M3.6b.7 `cartoon-character` rig (нужны растровые части персонажа) — план не создан.
 3. M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — план не создан.
 
 ## Открытые решения и блокеры

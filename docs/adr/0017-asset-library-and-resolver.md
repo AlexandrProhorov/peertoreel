@@ -338,6 +338,30 @@ falls back to `fallbackKey`/Tier 0 exactly as with an empty reply. v1 parses rec
 the path subset `M/L/H/V/l/h/v/z`; curves are skipped instead of guessed. The guard is strict by
 default — a false positive costs one retry, a false negative costs a hand-rendered review.
 
+### D15 — Raster pipeline: PNG, trim and the decoder choice (M3.6b.6)
+
+The resolver now branches on `ImageProviderResult.asset.encoding`: `utf8` keeps the SVG path
+(normalization, palette, background rect removal), `base64` goes through
+`packages/assets/src/raster-pipeline.ts`:
+
+1. `decodePng` — `fast-png`, pure JS. `sharp` (the comment left in `normalize-raster.ts`) is not
+   adopted: native binaries complicate Windows/CI setup for a few assets per day. Only 8-bit
+   truecolour PNG is accepted; indexed and 16-bit inputs are rejected with a typed error.
+2. Policy per kind: `raster-cutout` must pass `validateCutoutAlpha` (8–75 % occupancy,
+   `empty` / `background_not_removed`); `png` skips the cutout window but is still trimmed.
+3. `trimToAlpha` crops to the opaque bounds; a fully transparent image is an error.
+   `encodePng` writes the trimmed RGBA back, and the content hash is computed over those bytes,
+   so identical provider output dedups and an unrelated margin cannot change the identity.
+4. The record gets `kind: png | raster-cutout`, `mimeType: image/png`, a `.png` object key, a data
+   URI for the renderer and `metadata: { provider, model, prompt, occupancy, trimmedFrom }`.
+   Alpha/decode failures are terminal for the asset, not the run: `provider_failed` →
+   `fallbackKey`/Tier 0 (the same recovery as an invalid SVG).
+
+`webp`/`jpeg` responses are out of scope and degrade to the same fallback. `--persist` works
+unchanged because `AssetLibraryService.persist` is mime-agnostic. There is no live provider
+integration yet: tests drive the path with a fake provider that synthesizes a deterministic
+`24×24` RGBA cutout.
+
 ## Consequences
 
 - The starter pack becomes one `AssetSource` inside the library instead of the only source.

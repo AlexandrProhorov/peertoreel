@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-14 | M3.6b.6: raster-cutout — PNG-пайплайн резолвера | [2026-11-14-02](docs/sessions/2026-11/2026-11-14-02-m3-6b-6-raster-cutout.md) |
 | 2026-11-14 | M3.6b.5.1: структурный guard SVG (плоская проекция) | [2026-11-14-01](docs/sessions/2026-11/2026-11-14-01-m3-6b-5-1-strukturnyy-guard-svg.md) |
 | 2026-11-13 | M3.6b.5: тема wifi-wall и acceptance M3.6 (generated subjects, fallback, ledger) | [2026-11-13-02](docs/sessions/2026-11/2026-11-13-02-m3-6b-5-tretya-tema-wifi-wall-i-acceptance.md) |
 | 2026-11-13 | DeepSeek SVG v3.1: мастер-промпт и бенчмарк пропорций | [2026-11-13-01](docs/sessions/2026-11/2026-11-13-01-deepseek-svg-v3-1-master-prompt-i-benchmark-proporciy.md) |
