@@ -143,7 +143,8 @@ production hardening. Причина — не строить очередь и a
 | M3.6b.5 | Третья тема `wifi-wall` + acceptance M3.6: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`), fallback после ошибки провайдера, ledger per attempt, budget stop-crank, `DEEPSEEK_SVG_FORCE_FAILURE`, плоская проекция (правило + санитайзер) | агент | DONE |
 | M3.6b.5.1 | Структурный guard SVG: верхняя грань над корпусом и любой `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta` | агент | DONE |
 | M3.6b.6 | Raster-cutout: PNG-декодер `fast-png`, trim по alpha, cutout-политика 8–75 %, ветвление резолвера по encoding, persist PNG | агент | DONE |
-| M3.6b | Остаток M3.6: `cartoon-character` rig | агент | TODO |
+| M3.6b.7.1 | `cartoon-character` рига: 5 эмоций, позы idle/wave, anchor, цвета в params, чистая `characterLayers`, SVG-компонент и кадры приёмки | агент | DONE |
+| M3.6b | Остаток M3.6: аксессуары персонажа, `point`, интеграция в рецепты | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,
@@ -412,6 +413,14 @@ review перекрашенных иконок.
 `image/png` и `metadata: { occupancy, trimmedFrom }`. Пустой cutout и непрозрачный фон →
 `fallbackKey`/Tier 0. `--persist` работает без изменений. Sticker-outline и webp — отдельно.
 Тесты: assets 82, fake-провайдер синтезирует `24×24` cutout, живых вызовов нет.
+
+**M3.6b.7.1 — `cartoon-character` (DONE 2026-11-14).** Новый компонент сцены: процедурный
+ведущий из плоских примитивов, 5 эмоций (neutral/happy/surprised/angry/sad), позы idle/wave,
+`anchor` left/center/right, цвета в params (`accent`/`skin`/`hair`/`ink`), `bob` для дыхания.
+Геометрия — чистая `characterLayers(params, frame, fps)`; React только маппит фигуры в SVG,
+поэтому тесты не запускают Chrome. Приёмка: `examples/cartoon-character.json`, 5 клипов
+3 с, 1080×1920/30, кадры в `apps/render-worker/out/m3-6b-7/frames/`. Аксессуары, поза `point`
+и интеграция в рецепты — 7.2.
 
 **Research 2026-11-11 (fal.ai vs Recraft, выводы для M3.6b).** Проверены официальные прайсы и
 лицензии (платных вызовов нет). Корректировки к ADR-0015/E5–E6: Recraft `$1 = 1 000 units` →

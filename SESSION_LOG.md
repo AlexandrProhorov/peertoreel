@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-14 | M3.6b.7.1: `cartoon-character` — рига и 5 эмоций | [2026-11-14-03](docs/sessions/2026-11/2026-11-14-03-m3-6b-7-1-cartoon-character.md) |
 | 2026-11-14 | M3.6b.6: raster-cutout — PNG-пайплайн резолвера | [2026-11-14-02](docs/sessions/2026-11/2026-11-14-02-m3-6b-6-raster-cutout.md) |
 | 2026-11-14 | M3.6b.5.1: структурный guard SVG (плоская проекция) | [2026-11-14-01](docs/sessions/2026-11/2026-11-14-01-m3-6b-5-1-strukturnyy-guard-svg.md) |
 | 2026-11-13 | M3.6b.5: тема wifi-wall и acceptance M3.6 (generated subjects, fallback, ledger) | [2026-11-13-02](docs/sessions/2026-11/2026-11-13-02-m3-6b-5-tretya-tema-wifi-wall-i-acceptance.md) |

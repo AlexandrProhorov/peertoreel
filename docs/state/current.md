@@ -2,20 +2,20 @@
 
 Обновлено: 2026-11-13 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
-Активная работа: `feat/m3-animated-factory`; HEAD `bb16b80` + незакоммиченные изменения M3.6b.6.
-План: `docs/workspace/plans/2026-11-14-m3-6b-6-raster-cutout-session.md` — выполнен.
-Рабочее дерево: изменено (M3.6b.6), коммит не сделан.
+Активная работа: `feat/m3-animated-factory`; HEAD `34d48cd` + незакоммиченные изменения M3.6b.7.1.
+План: `docs/workspace/plans/2026-11-14-m3-6b-7-1-cartoon-character-rig-session.md` — выполнен.
+Рабочее дерево: изменено (M3.6b.7.1), коммит не сделан.
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-14, M3.6b.6): contracts 172, providers 39, assets 82
-  (растр: decode/trim/encode, cutout-границы, resolver, persist PNG), render-worker 110,
-  worker 145 тестов.
-- Raster-cutout: fake-провайдер отдаёт `24×24` PNG → `tier: provider`, `kind: raster-cutout`,
-  `image/png`, hash по обрезанным байтам; пустой cutout и непрозрачный фон → fallback.
-- Живой flux/BiRefNet-ответ — `Not verified` (нет `FAL_KEY`).
-- Guard SVG (M3.6b.5.1): фикстура вчерашнего роутера ловится, чистая геометрия проходит.
+- `pnpm check` — зелёный (2026-11-14, M3.6b.7.1): contracts 172, providers 39, assets 82,
+  render-worker 118 (включая 6 тестов персонажа), worker 145 тестов.
+- `cartoon-character`: 5 эмоций (neutral/happy/surprised/angry/sad), позы idle/wave, `anchor`,
+  цвета в params; кадры ревью — `apps/render-worker/out/m3-6b-7/frames/`.
+- Визуальная оценка человеком — `Not verified` (кадры 0–4 просмотрены).
+- Raster-cutout (M3.6b.6): fake-провайдер отдаёт `24×24` PNG → `tier: provider`,
+  `kind: raster-cutout`, hash по обрезанным байтам; пустой cutout и непрозрачный фон → fallback.
 - Acceptance `wifi-wall` (2026-11-13, после фикса перспективы): 7 сцен, 6 subject-слотов,
   5 generated (83%); `subject/wifi-router` и `subject/brick-wall-section` → `tier: provider`,
   2 вызова, $0.005104. Промпты — в `provider_usage.meta` и манифесте.
@@ -33,6 +33,8 @@
 
 ## Готово
 
+- M3.6b.7.1: `cartoon-character` — процедурный ведущий (5 эмоций, idle/wave, anchor), чистая
+  `characterLayers`, SVG-компонент, пример и кадры приёмки.
 - M3.6b.6: raster-cutout — `decodePng`/`trimToAlpha`/`encodePng` на `fast-png`, ветвление
   резолвера по encoding, cutout-политика 8–75 %, hash по обрезанному PNG, persist PNG.
 - M3.6b.5.1: структурный guard SVG (`inspectSvgStructure`): верхняя грань над корпусом и любой
@@ -49,12 +51,13 @@
 
 ## В процессе
 
-- Ничего не в работе; изменения M3.6b.6 ждут коммита.
+- Ничего не в работе; изменения M3.6b.7.1 ждут коммита.
 
 ## Следующий шаг
 
-1. Коммит M3.6b.6.
-2. M3.6b.7 `cartoon-character` rig (нужны растровые части персонажа) — план не создан.
+1. Коммит M3.6b.7.1.
+2. M3.6b.7.2: аксессуары, поза `point`, интеграция `cartoon-character` в рецепты и промпт
+   директора — план не создан.
 3. M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — план не создан.
 
 ## Открытые решения и блокеры
