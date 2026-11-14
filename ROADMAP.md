@@ -141,6 +141,7 @@ production hardening. Причина — не строить очередь и a
 | M3.6b.3 | Приглушённый пресет `studio_flat_2d_v2`, скругления в промпте, `thinking: off`, пилот 10×3 (30/30, $0.0146) | агент | DONE |
 | M3.6b.4 | Числовой PLAN по референсу geom-test, правила силуэта/пропорций, thinking по умолчанию (bus/palm/pirate: 9/9, $0.071) | агент | DONE |
 | M3.6b.5 | Третья тема `wifi-wall` + acceptance M3.6: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`), fallback после ошибки провайдера, ledger per attempt, budget stop-crank, `DEEPSEEK_SVG_FORCE_FAILURE`, плоская проекция (правило + санитайзер) | агент | DONE |
+| M3.6b.5.1 | Структурный guard SVG: верхняя грань над корпусом и любой `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta` | агент | DONE |
 | M3.6b | Остаток M3.6: raster-cutout, `cartoon-character` | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 

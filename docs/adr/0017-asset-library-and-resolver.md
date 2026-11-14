@@ -319,6 +319,25 @@ concentric circles; windows separated by gaps) and 10–18 primitives. A/B on bu
 9/9 valid, $0.071 for 9 calls (≈$0.003–0.008 per candidate, 16–115 s). Thinking off stays
 available per call but is not the production default.
 
+### D14 — Structural SVG guard (M3.6b.5.1)
+
+Prompt rules reduce perspective artefacts but cannot guarantee them: the first accepted
+`subject/wifi-router` (2026-11-13) passed the element/attribute allowlist and still drew an
+isometric top face as a slanted quad above the body. A cheap geometry check now runs in the
+adapter **before** normalization, on the raw model output:
+
+- `top_face_polygon` — a closed quad with two horizontal and two slanted edges whose lower edge
+  sits on the top edge of a `rect` body (overlap ≥ 60 %, |Δy| ≤ 6) and whose area is ≥ 2 % of the
+  canvas. A standalone trapezoid (cup, lampshade) or a triangular roof stays valid.
+- `perspective_transform` — any `transform` attribute; the flat style is axis-aligned.
+
+A violation is an invalid attempt, not a silent skip: it feeds the existing corrective retry
+(`DEEPSEEK_SVG_MAX_ATTEMPTS`) with a Russian reason, lands in `provider_usage.meta
+.structureViolations`, and after the last attempt becomes `InvalidAssetError`, so the resolver
+falls back to `fallbackKey`/Tier 0 exactly as with an empty reply. v1 parses rects, polygons and
+the path subset `M/L/H/V/l/h/v/z`; curves are skipped instead of guessed. The guard is strict by
+default — a false positive costs one retry, a false negative costs a hand-rendered review.
+
 ## Consequences
 
 - The starter pack becomes one `AssetSource` inside the library instead of the only source.

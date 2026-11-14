@@ -2,17 +2,20 @@
 
 Обновлено: 2026-11-13 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
-Активная работа: `feat/m3-animated-factory`; HEAD `4491c77` + незакоммиченные изменения M3.6b.5.
-План: `docs/workspace/plans/2026-11-13-m3-6b-5-third-topic-and-acceptance-session.md` — выполнен.
-Рабочее дерево: изменено (M3.6b.5), коммит не сделан.
+Активная работа: `feat/m3-animated-factory`; HEAD `22aa2af` + незакоммиченные изменения M3.6b.5.1.
+План: `docs/workspace/plans/2026-11-14-m3-6b-5-1-svg-structural-guard-session.md` — выполнен.
+Рабочее дерево: изменено (M3.6b.5.1), коммит не сделан.
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-13, M3.6b.5): contracts 172, assets 71, providers 30,
-  render-worker 110, worker 145 тестов.
-- Acceptance `wifi-wall` (после фикса перспективы): 7 сцен, 6 subject-слотов, 5 generated (83%);
-  `subject/wifi-router` и `subject/brick-wall-section` → `tier: provider`, `source: llm`,
+- `pnpm check` — зелёный (2026-11-14, M3.6b.5.1): contracts 172, providers 39 (7 кейсов
+  инспектора + retry), assets 71, render-worker 110, worker 145 тестов.
+- Guard: фикстура вчерашнего роутера ловится (`top_face_polygon` + `perspective_transform`),
+  чистая геометрия, крыша-треугольник, отдельная трапеция и мелкий четырёхугольник — проходят.
+- Живой прогон под guard'ом — `Not verified` (ограничились фикстурами).
+- Acceptance `wifi-wall` (2026-11-13, после фикса перспективы): 7 сцен, 6 subject-слотов,
+  5 generated (83%); `subject/wifi-router` и `subject/brick-wall-section` → `tier: provider`,
   2 вызова, $0.005104. Промпты — в `provider_usage.meta` и манифесте.
 - Повторный прогон → `tier: cache`, `providerRequests: 0`, 0 новых строк `provider_usage`.
 - `--provider=none`, `DEEPSEEK_SVG_FORCE_FAILURE=unavailable|empty`, budget ($0.000001 на вызов)
@@ -28,6 +31,8 @@
 
 ## Готово
 
+- M3.6b.5.1: структурный guard SVG (`inspectSvgStructure`): верхняя грань над корпусом и любой
+  `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta`.
 - M3.6b.5: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`, ADR-0016 D10);
   резолвер продолжает в fallback после ошибки провайдера и отдаёт реальные attempts/cost;
   `ProviderBudgetError` → стоп-кран `provider_disabled_by_budget`; ledger пишет over-budget;
@@ -40,14 +45,13 @@
 
 ## В процессе
 
-- Ничего не в работе; изменения M3.6b.5 ждут коммита.
+- Ничего не в работе; изменения M3.6b.5.1 ждут коммита.
 
 ## Следующий шаг
 
-1. Коммит M3.6b.5 (`feat(assets)`/`feat(render-worker)`) и визуальный review
-   `apps/worker/out/m3-6b-5/gallery.html`.
-2. Остаток M3.6b: raster-cutout (b.6), `cartoon-character` (b.7) — плана нет.
-3. M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — плана нет.
+1. Коммит M3.6b.5.1.
+2. M3.6b.6 raster-cutout (PNG decode, alpha 8–75 %, trim, sticker) — план не создан.
+3. M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — план не создан.
 
 ## Открытые решения и блокеры
 
