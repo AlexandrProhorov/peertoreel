@@ -1,9 +1,11 @@
 import {
+  CARTOON_CHARACTER_BLUEPRINT,
   CARTOON_CHARACTER_EMOTIONS,
   CARTOON_CHARACTER_POSES,
   cartoonCharacterParamsSchema,
   type CartoonCharacterParams,
 } from '@peertoreel/contracts';
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   CHARACTER_VIEWBOX,
@@ -37,7 +39,100 @@ function withinCanvas(value: number, max: number): boolean {
   return value >= 0 && value <= max;
 }
 
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonical);
+  }
+
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+        .map(([key, entry]) => [key, canonical(entry)]),
+    );
+  }
+
+  return value;
+}
+
+/** Key-order-independent digest of the rendered primitives. */
+function geometryDigest(shapes: readonly CharacterShape[]): string {
+  return createHash('sha256')
+    .update(JSON.stringify(canonical(shapes)))
+    .digest('hex')
+    .slice(0, 16);
+}
+
+/**
+ * M3.6b.8 golden fixture, captured from `characterLayers` *before* geometry
+ * moved into `CARTOON_CHARACTER_BLUEPRINT`. A mismatch is a visual change, not
+ * an improvement: the blueprint refactor must stay pixel-identical.
+ */
+const GOLDEN_GEOMETRY = [
+  { emotion: 'neutral', pose: 'idle', frame: 17, digest: '00bc1dea89590b37' },
+  { emotion: 'neutral', pose: 'wave', frame: 17, digest: '12c10b92c6dde053' },
+  { emotion: 'happy', pose: 'idle', frame: 17, digest: '76cdca5f9a8f42ae' },
+  { emotion: 'happy', pose: 'wave', frame: 17, digest: '945a3dec95cb1799' },
+  { emotion: 'surprised', pose: 'idle', frame: 17, digest: '0db81c4180497968' },
+  { emotion: 'surprised', pose: 'wave', frame: 17, digest: '8a9c5f746ba98393' },
+  { emotion: 'angry', pose: 'idle', frame: 17, digest: '58b741457b0ccb85' },
+  { emotion: 'angry', pose: 'wave', frame: 17, digest: '572f918c3f75df2a' },
+  { emotion: 'sad', pose: 'idle', frame: 17, digest: '619b1f339d4ca04d' },
+  { emotion: 'sad', pose: 'wave', frame: 17, digest: '73df222e47da4d97' },
+] as const;
+
 describe('cartoon character geometry', () => {
+  it('matches the pre-blueprint golden signature for every emotion and pose', () => {
+    for (const entry of GOLDEN_GEOMETRY) {
+      const shapes = characterLayers(
+        params({ emotion: entry.emotion, pose: entry.pose }),
+        entry.frame,
+        FPS,
+      );
+
+      expect(geometryDigest(shapes), `${entry.emotion}/${entry.pose}`).toBe(
+        entry.digest,
+      );
+    }
+  });
+
+  it('draws shapes in the blueprint order', () => {
+    const shapes = characterLayers(params(), 0, FPS);
+
+    expect(shapes.map((item) => item.id)).toEqual([
+      'arm-left',
+      'arm-right',
+      'hand-left',
+      'hand-right',
+      'torso',
+      'neck',
+      'ear-left',
+      'ear-right',
+      'head',
+      'hair',
+      'eye-left',
+      'eye-right',
+      'pupil-left',
+      'pupil-right',
+      'brow-left',
+      'brow-right',
+      'mouth',
+    ]);
+    expect(CARTOON_CHARACTER_BLUEPRINT.drawOrder).toEqual([
+      'arms',
+      'hands',
+      'torso',
+      'neck',
+      'ears',
+      'head',
+      'hair',
+      'eyes',
+      'pupils',
+      'brows',
+      'mouth',
+    ]);
+  });
+
   it('has a visibly different face for every emotion', () => {
     const signatures = CARTOON_CHARACTER_EMOTIONS.map((emotion) =>
       signature(characterLayers(params({ emotion }), 0, FPS)),

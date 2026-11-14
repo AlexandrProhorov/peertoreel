@@ -1,4 +1,5 @@
 import {
+  CHARACTER_BLUEPRINT_VERSION,
   storyboardFixture15Deg,
   storyboardSchema,
   wordTimingsFixture15Deg,
@@ -6,6 +7,7 @@ import {
   type DerivedWord,
   type Storyboard,
 } from '@peertoreel/contracts';
+import { SVG_PROMPT_VERSION } from '@peertoreel/providers';
 import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,6 +47,9 @@ interface RenderManifest {
   input: string | null;
   runId: string;
   styleId: string;
+  /** Pipeline snapshot: which prompt family and rig geometry were current. */
+  promptVersion: string;
+  blueprintVersion: string;
   generatedAt: string;
   totalMs: number;
   scenes: RenderedScene[];
@@ -333,6 +338,8 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
     input: input.input,
     runId: input.storyboard.runId,
     styleId: input.storyboard.style.styleId,
+    promptVersion: SVG_PROMPT_VERSION,
+    blueprintVersion: CHARACTER_BLUEPRINT_VERSION,
     generatedAt: new Date().toISOString(),
     totalMs,
     scenes: rendered,

@@ -1,14 +1,24 @@
-import type { CartoonCharacterParams } from '@peertoreel/contracts';
+import {
+  CARTOON_CHARACTER_BLUEPRINT,
+  type CartoonCharacterParams,
+  type CharacterCurvePath,
+  type CharacterMouthGeometry,
+} from '@peertoreel/contracts';
 
 /**
- * Procedural presenter geometry (M3.6b.7.1).
+ * Procedural presenter geometry (M3.6b.7.1, blueprint in M3.6b.8).
  *
  * Pure data: the React component only maps these shapes to SVG elements and
- * never decides coordinates. Everything is derived from `frame`/`fps`, so the
- * same params produce the same frames (no `Math.random`, no wall clock).
+ * never decides coordinates. Body geometry, anchors and bounds come from
+ * `CARTOON_CHARACTER_BLUEPRINT`; this module adds expression and motion and
+ * keeps every base number in the contract (M3.6b.8: golden signature must not
+ * change). Everything is derived from `frame`/`fps`, so the same params
+ * produce the same frames (no `Math.random`, no wall clock).
  */
 
-export const CHARACTER_VIEWBOX = { width: 400, height: 700 } as const;
+const BLUEPRINT = CARTOON_CHARACTER_BLUEPRINT;
+
+export const CHARACTER_VIEWBOX = BLUEPRINT.canvas;
 
 export interface CharacterRotation {
   readonly angle: number;
@@ -60,12 +70,7 @@ interface EmotionSpec {
   readonly browTilt: number;
   readonly eyeRy: number;
   readonly pupilDy: number;
-  readonly mouth:
-    | 'smile'
-    | 'big-smile'
-    | 'open'
-    | 'frown'
-    | 'small-frown';
+  readonly mouth: keyof typeof BLUEPRINT.face.mouths;
 }
 
 const EMOTIONS: Readonly<Record<CartoonCharacterParams['emotion'], EmotionSpec>> = {
@@ -123,58 +128,46 @@ function rotateAround(point: Point, pivot: Point, angle: number): Point {
   };
 }
 
-function mouthPath(
-  mouth: EmotionSpec['mouth'],
-  ink: string,
-): Extract<CharacterShape, { kind: 'path' }> | Extract<CharacterShape, { kind: 'ellipse' }> {
-  switch (mouth) {
-    case 'open':
-      return {
-        kind: 'ellipse',
-        id: 'mouth',
-        cx: 200,
-        cy: 314,
-        rx: 14,
-        ry: 19,
-        fill: ink,
-      };
-    case 'big-smile':
-      return {
-        kind: 'path',
-        id: 'mouth',
-        d: 'M 164 304 Q 200 350 236 304',
-        stroke: ink,
-        strokeWidth: 7,
-        fill: null,
-      };
-    case 'frown':
-      return {
-        kind: 'path',
-        id: 'mouth',
-        d: 'M 176 326 Q 200 304 224 326',
-        stroke: ink,
-        strokeWidth: 7,
-        fill: null,
-      };
-    case 'small-frown':
-      return {
-        kind: 'path',
-        id: 'mouth',
-        d: 'M 182 322 Q 200 310 218 322',
-        stroke: ink,
-        strokeWidth: 6,
-        fill: null,
-      };
-    case 'smile':
-      return {
-        kind: 'path',
-        id: 'mouth',
-        d: 'M 178 312 Q 200 324 222 312',
-        stroke: ink,
-        strokeWidth: 6,
-        fill: null,
-      };
+/** `M x y Q cx cy x2 y2 …`; the blueprint owns the points, not the syntax. */
+function curvePathData(path: CharacterCurvePath, y: (value: number) => number): string {
+  const segments = path.curves.map(
+    (curve) =>
+      `Q ${curve.control.x} ${y(curve.control.y)} ${curve.to.x} ${y(curve.to.y)}`,
+  );
+  const parts = [`M ${path.start.x} ${y(path.start.y)}`, ...segments];
+
+  if (path.closed === true) {
+    parts.push('Z');
   }
+
+  return parts.join(' ');
+}
+
+function mouthShape(
+  mouth: CharacterMouthGeometry,
+  ink: string,
+  y: (value: number) => number,
+): CharacterShape {
+  if (mouth.kind === 'ellipse') {
+    return {
+      kind: 'ellipse',
+      id: 'mouth',
+      cx: mouth.cx,
+      cy: y(mouth.cy),
+      rx: mouth.rx,
+      ry: mouth.ry,
+      fill: ink,
+    };
+  }
+
+  return {
+    kind: 'path',
+    id: 'mouth',
+    d: curvePathData(mouth.path, y),
+    stroke: ink,
+    strokeWidth: mouth.strokeWidth,
+    fill: null,
+  };
 }
 
 /**
@@ -193,16 +186,28 @@ export function characterLayers(
   const wave = params.pose === 'wave';
 
   const y = (value: number): number => value + bob;
-  const leftShoulder: Point = { x: 120, y: y(440) };
-  const rightShoulder: Point = { x: 280, y: y(440) };
+  const { head, ear, neck, torso, hair } = BLUEPRINT.body;
+  const { arms, face } = BLUEPRINT;
+  const leftShoulder: Point = {
+    x: arms.shoulderLeft.x,
+    y: y(arms.shoulderLeft.y),
+  };
+  const rightShoulder: Point = {
+    x: arms.shoulderRight.x,
+    y: y(arms.shoulderRight.y),
+  };
   const leftHand = rotateAround(
-    { x: 106, y: y(586) },
+    { x: arms.idleHandLeft.x, y: y(arms.idleHandLeft.y) },
     leftShoulder,
-    wave ? -0.05 : 0,
+    wave ? arms.waveLeftAngle : 0,
   );
   const rightHand = wave
-    ? rotateAround({ x: 372, y: y(364) }, rightShoulder, wavePhase)
-    : { x: 294, y: y(586) };
+    ? rotateAround(
+        { x: arms.waveHandRight.x, y: y(arms.waveHandRight.y) },
+        rightShoulder,
+        wavePhase,
+      )
+    : { x: arms.idleHandRight.x, y: y(arms.idleHandRight.y) };
 
   const arm = (
     id: string,
@@ -213,7 +218,7 @@ export function characterLayers(
     id,
     d: `M ${from.x} ${from.y} L ${to.x} ${to.y}`,
     stroke: params.accent,
-    strokeWidth: 42,
+    strokeWidth: arms.strokeWidth,
     fill: null,
   });
 
@@ -227,7 +232,7 @@ export function characterLayers(
       id: 'hand-left',
       cx: leftHand.x,
       cy: leftHand.y,
-      r: 22,
+      r: arms.handRadius,
       fill: params.skin,
     },
     {
@@ -235,58 +240,58 @@ export function characterLayers(
       id: 'hand-right',
       cx: rightHand.x,
       cy: rightHand.y,
-      r: 22,
+      r: arms.handRadius,
       fill: params.skin,
     },
     {
       kind: 'rect',
       id: 'torso',
-      x: 110,
-      y: y(398),
-      width: 180,
-      height: 252,
-      rx: 70,
+      x: torso.x,
+      y: y(torso.y),
+      width: torso.width,
+      height: torso.height,
+      rx: torso.rx,
       fill: params.accent,
     },
     {
       kind: 'rect',
       id: 'neck',
-      x: 180,
-      y: y(346),
-      width: 40,
-      height: 60,
-      rx: 16,
+      x: neck.x,
+      y: y(neck.y),
+      width: neck.width,
+      height: neck.height,
+      rx: neck.rx,
       fill: params.skin,
     },
     {
       kind: 'circle',
       id: 'ear-left',
-      cx: 96,
-      cy: y(252),
-      r: 18,
+      cx: head.cx - ear.offsetX,
+      cy: y(ear.cy),
+      r: ear.r,
       fill: params.skin,
     },
     {
       kind: 'circle',
       id: 'ear-right',
-      cx: 304,
-      cy: y(252),
-      r: 18,
+      cx: head.cx + ear.offsetX,
+      cy: y(ear.cy),
+      r: ear.r,
       fill: params.skin,
     },
     {
       kind: 'ellipse',
       id: 'head',
-      cx: 200,
-      cy: y(250),
-      rx: 108,
-      ry: 122,
+      cx: head.cx,
+      cy: y(head.cy),
+      rx: head.rx,
+      ry: head.ry,
       fill: params.skin,
     },
     {
       kind: 'path',
       id: 'hair',
-      d: `M 92 ${y(238)} Q 92 ${y(124)} 200 ${y(118)} Q 308 ${y(124)} 308 ${y(238)} Q 292 ${y(178)} 200 ${y(174)} Q 108 ${y(178)} 92 ${y(238)} Z`,
+      d: curvePathData(hair, y),
       stroke: null,
       strokeWidth: 0,
       fill: params.hair,
@@ -294,59 +299,69 @@ export function characterLayers(
     {
       kind: 'ellipse',
       id: 'eye-left',
-      cx: 160,
-      cy: y(244),
-      rx: 22,
+      cx: face.eye.leftX,
+      cy: y(face.eye.cy),
+      rx: face.eye.rx,
       ry: emotions.eyeRy,
       fill: '#FFFFFF',
     },
     {
       kind: 'ellipse',
       id: 'eye-right',
-      cx: 240,
-      cy: y(244),
-      rx: 22,
+      cx: face.eye.rightX,
+      cy: y(face.eye.cy),
+      rx: face.eye.rx,
       ry: emotions.eyeRy,
       fill: '#FFFFFF',
     },
     {
       kind: 'circle',
       id: 'pupil-left',
-      cx: 160,
-      cy: y(244 + emotions.pupilDy),
-      r: 9,
+      cx: face.eye.leftX,
+      cy: y(face.eye.cy + emotions.pupilDy),
+      r: face.eye.pupilRadius,
       fill: params.ink,
     },
     {
       kind: 'circle',
       id: 'pupil-right',
-      cx: 240,
-      cy: y(244 + emotions.pupilDy),
-      r: 9,
+      cx: face.eye.rightX,
+      cy: y(face.eye.cy + emotions.pupilDy),
+      r: face.eye.pupilRadius,
       fill: params.ink,
     },
     {
       kind: 'rect',
       id: 'brow-left',
-      x: 132,
+      x: face.brow.leftX,
       y: browY,
-      width: 48,
-      height: 11,
-      rx: 5,
+      width: face.brow.width,
+      height: face.brow.height,
+      rx: face.brow.rx,
       fill: params.ink,
-      rotation: { angle: emotions.browTilt, cx: 156, cy: browY + 5 },
+      rotation: {
+        angle: emotions.browTilt,
+        cx: face.brow.leftX + face.brow.pivotInsetX,
+        cy: browY + face.brow.pivotOffsetY,
+      },
     },
     {
       kind: 'rect',
       id: 'brow-right',
-      x: 220,
+      x: face.brow.rightX,
       y: browY,
-      width: 48,
-      height: 11,
-      rx: 5,
+      width: face.brow.width,
+      height: face.brow.height,
+      rx: face.brow.rx,
       fill: params.ink,
-      rotation: { angle: -emotions.browTilt, cx: 244, cy: browY + 5 },
+      rotation: {
+        angle: -emotions.browTilt,
+        cx: face.brow.rightX + face.brow.pivotInsetX,
+        cy: browY + face.brow.pivotOffsetY,
+      },
     },
-    mouthPath(emotions.mouth, params.ink),
+    // Legacy geometry: the mouth has never followed the breathing offset.
+    // M3.6b.8 is a pixel-identical refactor, so it keeps the accepted frames.
+    mouthShape(face.mouths[emotions.mouth], params.ink, (value) => value),
   ];
 }
