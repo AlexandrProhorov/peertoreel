@@ -9,6 +9,7 @@ import { InMemoryAssetBlobStore } from './blob-store.js';
 import { sha256Hex } from './content-hash.js';
 import { AssetLibraryService } from './library-service.js';
 import { createFakeImageProvider } from './provider-fake.js';
+import { encodePng } from './raster-pipeline.js';
 import { InMemoryAssetRepository } from './repository.js';
 import { TieredAssetResolver } from './resolver.js';
 
@@ -109,6 +110,50 @@ describe('AssetLibraryService.persist', () => {
     expect(persisted.asset.variants[0]?.objectKey).toBe(OBJECT_KEY);
     expect(persisted.asset.variants[0]?.url).toBe(`memory://${OBJECT_KEY}`);
     expect(await repository.findByContentHash(HASH)).not.toBeNull();
+  });
+
+  it('persists a PNG cutout under a .png content-addressed key', async () => {
+    const { repository, blobStore, service } = createService();
+    const bytes = encodePng({
+      width: 2,
+      height: 2,
+      data: new Uint8Array(2 * 2 * 4).fill(255),
+    });
+    const hash = sha256Hex(bytes);
+    const objectKey = buildAssetObjectKey(hash, 'png');
+    const pngRecord = record({
+      id: 'library/router-cutout',
+      key: 'subject/router',
+      source: 'library',
+      kind: 'raster-cutout',
+      tags: ['router'],
+      contentHash: hash,
+      variants: [
+        {
+          id: 'default',
+          objectKey,
+          mimeType: 'image/png',
+          width: 2,
+          height: 2,
+          contentHash: hash,
+        },
+      ],
+      metadata: { occupancy: 1 },
+    });
+
+    const persisted = await service.persist(
+      resolutionFor(pngRecord),
+      bytes,
+      'image/png',
+    );
+
+    expect(blobStore.putCount).toBe(1);
+    expect(blobStore.objectKeys()).toEqual([objectKey]);
+    expect(persisted.asset.kind).toBe('raster-cutout');
+    expect(persisted.asset.variants[0]?.mimeType).toBe('image/png');
+    expect(persisted.asset.variants[0]?.objectKey).toBe(objectKey);
+    expect(persisted.asset.variants[0]?.url).toBe(`memory://${objectKey}`);
+    expect(await repository.findByContentHash(hash)).not.toBeNull();
   });
 
   it('is idempotent: a second persist neither uploads nor duplicates rows', async () => {

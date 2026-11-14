@@ -12,7 +12,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
@@ -22,6 +24,7 @@
   },
   "dependencies": {
     "@peertoreel/contracts": "workspace:*",
+    "fast-png": "^8.0.0",
     "svgo": "^4.1.0"
   },
   "devDependencies": {

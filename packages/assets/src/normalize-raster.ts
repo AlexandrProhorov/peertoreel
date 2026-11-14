@@ -2,7 +2,8 @@
  * Raster-cutout checks (ADR-0017 D5).
  *
  * M3.6a ships the pure math only: callers decode a PNG with their own decoder
- * (M3.6b will use `sharp`) and pass RGBA bytes here. No image library, no I/O.
+ * (M3.6b.6 uses `fast-png` in `raster-pipeline.ts`, not `sharp` — ADR-0017 D15)
+ * and pass RGBA bytes here. No image library, no I/O.
  */
 
 export interface RgbaImage {

@@ -5,6 +5,7 @@ import type {
   ImageProviderResult,
 } from '@peertoreel/contracts';
 import { sha256Hex } from './content-hash.js';
+import { encodePng } from './raster-pipeline.js';
 
 /**
  * Deterministic `ImageProvider` for tests and CLI runs (ADR-0017 D4/D9).
@@ -59,6 +60,46 @@ export function syntheticFlatSvg(
   ].join('');
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const value = Number.parseInt(hex.replace('#', '').slice(0, 6), 16);
+
+  return {
+    r: (value >> 16) & 0xff,
+    g: (value >> 8) & 0xff,
+    b: value & 0xff,
+  };
+}
+
+/**
+ * Deterministic RGBA cutout for raster tests: a transparent border with an
+ * opaque square inside. Occupancy stays inside the 8–75 % cutout window, so the
+ * same fixture exercises the resolver's PNG branch without a network call.
+ */
+export function syntheticCutoutPng(
+  key: string,
+  palette: readonly string[] = DEFAULT_PALETTE,
+): Uint8Array {
+  const size = 24;
+  const margin = 6;
+  const hash = sha256Hex(key);
+  const color = hexToRgb(palette[2] ?? '#F59E0B');
+  const data = new Uint8Array(size * size * 4);
+  const offset = Number.parseInt(hash.slice(0, 2), 16) % 2;
+
+  for (let y = margin + offset; y < size - margin; y += 1) {
+    for (let x = margin; x < size - margin; x += 1) {
+      const target = (y * size + x) * 4;
+
+      data[target] = color.r;
+      data[target + 1] = color.g;
+      data[target + 2] = color.b;
+      data[target + 3] = 255;
+    }
+  }
+
+  return encodePng({ width: size, height: size, data });
+}
+
 export function createFakeImageProvider(
   options: FakeImageProviderOptions = {},
 ): FakeImageProvider {
@@ -86,6 +127,25 @@ export function createFakeImageProvider(
 
       if (fixture === undefined && !synthesize) {
         throw new Error(`Fake provider has no fixture for "${request.key}"`);
+      }
+
+      if (request.kind !== 'svg') {
+        const png = syntheticCutoutPng(request.key, palette);
+
+        return {
+          provider: 'fake',
+          model: 'fake-cutout-v1',
+          source: 'library',
+          costUsd: 0,
+          asset: {
+            data: Buffer.from(png).toString('base64'),
+            encoding: 'base64',
+            mimeType: 'image/png',
+            width: 24,
+            height: 24,
+            license: { name: 'authored', commercialUse: true },
+          },
+        };
       }
 
       return {

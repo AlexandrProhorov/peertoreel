@@ -5,11 +5,13 @@ import {
   ProviderUnavailableError,
   UnknownAssetError,
   UnsupportedAssetKindError,
+  buildAssetObjectKey,
   type AssetRecord,
 } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import { sha256Hex } from './content-hash.js';
 import { createFakeImageProvider } from './provider-fake.js';
+import { encodePng } from './raster-pipeline.js';
 import { InMemoryAssetRepository } from './repository.js';
 import { TieredAssetResolver } from './resolver.js';
 import { buildStarterAssets } from './starter.js';
@@ -54,8 +56,65 @@ async function createResolver(
   };
 }
 
-function restrictedStarter(): AssetRecord {
+/** Minimal raster provider: one fixed PNG/webp payload, no network. */
+function rasterProvider(
+  bytes: Uint8Array,
+  mimeType: 'image/png' | 'image/webp' = 'image/png',
+) {
   return {
+    id: 'fake-raster',
+    enabled: true,
+    supports: (): boolean => true,
+    async generate() {
+      return {
+        provider: 'fake-raster',
+        model: 'fake-cutout-v1',
+        source: 'library' as const,
+        costUsd: 0,
+        asset: {
+          data: Buffer.from(bytes).toString('base64'),
+          encoding: 'base64' as const,
+          mimeType,
+          width: 24,
+          height: 24,
+          license: { name: 'authored', commercialUse: true },
+        },
+      };
+    },
+  };
+}
+
+/** Same-kind Tier 0 record: a raster request cannot fall back to an SVG icon. */
+function rasterFallback(
+  kind: 'png' | 'raster-cutout',
+  key = 'fallback-icon',
+): AssetRecord {
+  const hash = sha256Hex(`fallback:${kind}`);
+
+  return {
+    id: `starter/${key}`,
+    key,
+    source: 'starter',
+    kind,
+    styleId: STYLE_ID,
+    contentHash: hash,
+    tags: ['fallback'],
+    license: { name: 'authored', commercialUse: true },
+    variants: [
+      {
+        id: 'default',
+        objectKey: buildAssetObjectKey(hash, 'png'),
+        mimeType: 'image/png',
+        width: 2,
+        height: 2,
+        contentHash: hash,
+      },
+    ],
+    metadata: {},
+  };
+}
+
+function restrictedStarter(): AssetRecord {  return {
     id: 'starter/restricted',
     key: 'restricted',
     source: 'starter',
@@ -550,8 +609,7 @@ describe('tiered asset resolver', () => {
     expect(resolution.usage.costUsd).toBeNull();
   });
 
-  it('stops calling the provider for the rest of the run after a budget error', async () => {
-    let calls = 0;
+  it('stops calling the provider for the rest of the run after a budget error', async () => {    let calls = 0;
     const provider = {
       id: 'deepseek-svg',
       enabled: true,
@@ -591,5 +649,126 @@ describe('tiered asset resolver', () => {
     );
     expect(second.usage.providerRequests).toBe(0);
     expect(second.usage.costUsd).toBeNull();
+  });
+
+  it('generates a raster-cutout, trims it and serves the next resolve from cache', async () => {
+    const provider = createFakeImageProvider({
+      supportedKinds: ['svg', 'png', 'raster-cutout'],
+    });
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: await starterAssets(),
+      provider,
+    });
+
+    const first = await resolver.resolve({
+      assetKey: 'subject/router',
+      styleId: STYLE_ID,
+      kind: 'raster-cutout',
+      allowProvider: true,
+    });
+    const variant = first.asset.variants[0];
+
+    expect(first.tier).toBe('provider');
+    expect(first.asset.kind).toBe('raster-cutout');
+    expect(variant?.mimeType).toBe('image/png');
+    expect(variant?.objectKey.endsWith('.png')).toBe(true);
+    expect(variant?.url).toMatch(/^data:image\/png;base64,/);
+    expect(variant?.width).toBeLessThan(24);
+    expect(variant?.width).toBeGreaterThan(0);
+    expect(Number(first.asset.metadata['occupancy'])).toBeGreaterThan(0.08);
+
+    const second = await resolver.resolve({
+      assetKey: 'subject/router',
+      styleId: STYLE_ID,
+      kind: 'raster-cutout',
+      allowProvider: true,
+    });
+
+    expect(second.tier).toBe('cache');
+    expect(second.cacheHit).toBe(true);
+    expect(provider.calls).toHaveLength(1);
+  });
+
+  it('falls back to a same-kind icon when a cutout is fully transparent', async () => {
+    const provider = rasterProvider(
+      encodePng({ width: 4, height: 4, data: new Uint8Array(4 * 4 * 4) }),
+    );
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: [...(await starterAssets()), rasterFallback('raster-cutout')],
+      provider,
+    });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'subject/empty',
+      fallbackKey: 'fallback-icon',
+      styleId: STYLE_ID,
+      kind: 'raster-cutout',
+      allowProvider: true,
+    });
+
+    expect(resolution.tier).toBe('fallback');
+    expect(resolution.asset.key).toBe('fallback-icon');
+    expect(resolution.asset.kind).toBe('raster-cutout');
+    expect(resolution.diagnostics.map((entry) => entry.code)).toContain(
+      'provider_failed',
+    );
+  });
+
+  it('falls back when the cutout still has an opaque background', async () => {
+    const data = new Uint8Array(4 * 4 * 4).fill(255);
+    const provider = rasterProvider(encodePng({ width: 4, height: 4, data }));
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: [...(await starterAssets()), rasterFallback('raster-cutout')],
+      provider,
+    });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'subject/background',
+      fallbackKey: 'fallback-icon',
+      styleId: STYLE_ID,
+      kind: 'raster-cutout',
+      allowProvider: true,
+    });
+
+    expect(resolution.tier).toBe('fallback');
+    expect(
+      resolution.diagnostics.some((entry) =>
+        entry.message.includes('background_not_removed'),
+      ),
+    ).toBe(true);
+  });
+
+  it('falls back on a raster mime the pipeline cannot decode yet', async () => {
+    const provider = rasterProvider(
+      encodePng({
+        width: 4,
+        height: 4,
+        data: new Uint8Array(4 * 4 * 4).fill(255),
+      }),
+      'image/webp',
+    );
+    const resolver = new TieredAssetResolver({
+      repository: new InMemoryAssetRepository(),
+      starter: [...(await starterAssets()), rasterFallback('png')],
+      provider,
+    });
+
+    const resolution = await resolver.resolve({
+      assetKey: 'subject/webp',
+      fallbackKey: 'fallback-icon',
+      styleId: STYLE_ID,
+      kind: 'png',
+      allowProvider: true,
+    });
+
+    expect(resolution.tier).toBe('fallback');
+    expect(
+      resolution.diagnostics.some((entry) =>
+        entry.message.includes('image/webp'),
+      ),
+    ).toBe(true);
   });
 });

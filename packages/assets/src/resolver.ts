@@ -21,7 +21,13 @@ import {
   type ProviderCallUsage,
 } from '@peertoreel/contracts';
 import { sha256Hex } from './content-hash.js';
+import {
+  InvalidRgbaImageError,
+  alphaOccupancy,
+  validateCutoutAlpha,
+} from './normalize-raster.js';
 import { InvalidSvgError, normalizeSvg } from './normalize-svg.js';
+import { decodePng, encodePng, trimToAlpha } from './raster-pipeline.js';
 import type { AssetRepository } from './repository.js';
 import { assetPaletteFor } from './style.js';
 
@@ -87,6 +93,14 @@ function spendCostUsd(spend: SpendAccumulator): number | null {
   }
 
   return Number(spend.usd.toFixed(6));
+}
+
+/** Tier outcome of a provider call, before the resolver wraps it in usage. */
+interface GeneratedResolution {
+  readonly asset: AssetRecord;
+  readonly tier: AssetResolution['tier'];
+  readonly cacheHit: boolean;
+  readonly diagnostics: readonly AssetDiagnostic[];
 }
 
 /** Spend reported by a typed provider failure; `null` means "not reported". */
@@ -411,12 +425,7 @@ export class TieredAssetResolver implements AssetResolver {
     spend: SpendAccumulator,
     diagnostics: AssetDiagnostic[],
     onFailure: (error: Error) => void,
-  ): Promise<{
-    readonly asset: AssetRecord;
-    readonly tier: AssetResolution['tier'];
-    readonly cacheHit: boolean;
-    readonly diagnostics: readonly AssetDiagnostic[];
-  } | null> {
+  ): Promise<GeneratedResolution | null> {
     const provider = this.provider;
 
     if (provider === null || !provider.enabled) {
@@ -464,7 +473,7 @@ export class TieredAssetResolver implements AssetResolver {
     addSpend(spend, 1, result.costUsd);
     assertCommercialLicense(result.asset.license, key);
 
-    if (result.asset.encoding !== 'utf8') {
+    if (request.kind === 'svg' && result.asset.encoding !== 'utf8') {
       this.providerFailed(
         new InvalidAssetError(key, provider.id, 'only utf8 SVG is supported'),
         key,
@@ -477,16 +486,47 @@ export class TieredAssetResolver implements AssetResolver {
       return null;
     }
 
+    if (request.kind !== 'svg' && result.asset.encoding !== 'base64') {
+      this.providerFailed(
+        new InvalidAssetError(
+          key,
+          provider.id,
+          `kind "${request.kind}" requires base64 raster bytes`,
+        ),
+        key,
+        spend,
+        diagnostics,
+        onFailure,
+        false,
+      );
+
+      return null;
+    }
+
+    return result.asset.encoding === 'utf8'
+      ? await this.storeSvg(request, result, key, palette, spend, diagnostics, onFailure)
+      : await this.storeRaster(request, result, key, spend, diagnostics, onFailure);
+  }
+
+  /** Normalize an SVG response and store it as a content-addressed record. */
+  private async storeSvg(
+    request: AssetRequest,
+    result: Awaited<ReturnType<ImageProvider['generate']>>,
+    key: string,
+    palette: readonly string[],
+    spend: SpendAccumulator,
+    diagnostics: AssetDiagnostic[],
+    onFailure: (error: Error) => void,
+  ): Promise<GeneratedResolution | null> {
+    const providerId = this.provider?.id ?? null;
     let normalized: ReturnType<typeof normalizeSvg>;
 
     try {
-      normalized = normalizeSvg(result.asset.data, {
-        palette,
-      });
+      normalized = normalizeSvg(result.asset.data, { palette });
     } catch (error) {
       if (error instanceof InvalidSvgError) {
         this.providerFailed(
-          new InvalidAssetError(key, provider.id, error.message),
+          new InvalidAssetError(key, providerId, error.message),
           key,
           spend,
           diagnostics,
@@ -501,19 +541,6 @@ export class TieredAssetResolver implements AssetResolver {
     }
 
     const contentHash = sha256Hex(normalized.svg);
-    const existing = await this.repository.findByContentHash(contentHash);
-
-    if (existing !== null) {
-      assertCommercial(existing);
-
-      return {
-        asset: existing,
-        tier: 'cache',
-        cacheHit: true,
-        diagnostics: [...diagnostics, diagnostic('deduplicated', existing.key)],
-      };
-    }
-
     const source = result.source ?? 'library';
     const objectKey = this.objectKeyFor(contentHash, 'svg');
     const record: AssetRecord = {
@@ -546,6 +573,141 @@ export class TieredAssetResolver implements AssetResolver {
         maxColorDistance: normalized.maxColorDistance,
       },
     };
+
+    return this.storeGenerated(record, diagnostics);
+  }
+
+  /**
+   * Decode base64 PNG, apply the alpha policy of the kind, trim transparent
+   * margins and store the result. Cutout failures are terminal for the asset,
+   * not the run: the caller continues to `fallbackKey`.
+   */
+  private async storeRaster(
+    request: AssetRequest,
+    result: Awaited<ReturnType<ImageProvider['generate']>>,
+    key: string,
+    spend: SpendAccumulator,
+    diagnostics: AssetDiagnostic[],
+    onFailure: (error: Error) => void,
+  ): Promise<GeneratedResolution | null> {
+    const providerId = this.provider?.id ?? null;
+
+    if (result.asset.mimeType !== 'image/png') {
+      this.providerFailed(
+        new InvalidAssetError(
+          key,
+          providerId,
+          `mime "${result.asset.mimeType}" is not supported yet; only image/png`,
+        ),
+        key,
+        spend,
+        diagnostics,
+        onFailure,
+        false,
+      );
+
+      return null;
+    }
+
+    let record: AssetRecord;
+
+    try {
+      const image = decodePng(Buffer.from(result.asset.data, 'base64'));
+      let occupancy: number;
+
+      if (request.kind === 'raster-cutout') {
+        const report = validateCutoutAlpha(image);
+
+        if (!report.ok) {
+          throw new InvalidAssetError(
+            key,
+            providerId,
+            `cutout alpha is ${report.reason ?? 'invalid'} (occupancy ${report.occupancy.toFixed(3)})`,
+          );
+        }
+
+        occupancy = report.occupancy;
+      } else {
+        occupancy = alphaOccupancy(image);
+      }
+
+      const trimmed = trimToAlpha(image);
+      const png = encodePng(trimmed.image);
+      const contentHash = sha256Hex(png);
+      const source = result.source ?? 'library';
+      const objectKey = this.objectKeyFor(contentHash, 'png');
+
+      record = {
+        id: buildAssetId(source, key),
+        key,
+        source,
+        kind: request.kind,
+        styleId: request.styleId,
+        contentHash,
+        tags: [...request.tags],
+        license: result.asset.license,
+        variants: [
+          {
+            id: 'default',
+            objectKey,
+            url: `data:image/png;base64,${Buffer.from(png).toString('base64')}`,
+            mimeType: 'image/png',
+            width: trimmed.image.width,
+            height: trimmed.image.height,
+            contentHash,
+          },
+        ],
+        metadata: {
+          provider: result.provider,
+          model: result.model,
+          prompt: request.prompt ?? null,
+          occupancy: Number(occupancy.toFixed(4)),
+          trimmedFrom: trimmed.trimmedFrom,
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof InvalidAssetError ||
+        error instanceof InvalidRgbaImageError
+      ) {
+        this.providerFailed(
+          error instanceof InvalidAssetError
+            ? error
+            : new InvalidAssetError(key, providerId, error.message),
+          key,
+          spend,
+          diagnostics,
+          onFailure,
+          false,
+        );
+
+        return null;
+      }
+
+      throw error;
+    }
+
+    return this.storeGenerated(record, diagnostics);
+  }
+
+  /** Content-hash dedup, then save; identical bytes never create a second row. */
+  private async storeGenerated(
+    record: AssetRecord,
+    diagnostics: readonly AssetDiagnostic[],
+  ): Promise<GeneratedResolution> {
+    const existing = await this.repository.findByContentHash(record.contentHash);
+
+    if (existing !== null) {
+      assertCommercial(existing);
+
+      return {
+        asset: existing,
+        tier: 'cache',
+        cacheHit: true,
+        diagnostics: [...diagnostics, diagnostic('deduplicated', existing.key)],
+      };
+    }
+
     const saved = await this.repository.save(record);
     // A repository returns stored data only (no ephemeral data URI). Keep the
     // just-generated record when it owns these bytes so persistence can upload
@@ -604,5 +766,5 @@ export class TieredAssetResolver implements AssetResolver {
   }
 }
 
-/** Kinds the M3.6a resolver can produce from a provider. */
-export const PROVIDER_KINDS: readonly AssetKind[] = ['svg'];
+/** Kinds the resolver can produce from a provider. */
+export const PROVIDER_KINDS: readonly AssetKind[] = ['svg', 'png', 'raster-cutout'];
