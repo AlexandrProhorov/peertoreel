@@ -23,6 +23,7 @@ import {
 export const IMPLEMENTED_COMPONENTS = [
   'parallax-city',
   'kinetic-typography',
+  'cartoon-character',
 ] as const;
 export type ImplementedComponentId = (typeof IMPLEMENTED_COMPONENTS)[number];
 
@@ -84,6 +85,11 @@ export const resolvedScenePropsSchema = z.discriminatedUnion('componentId', [
   z.object({
     componentId: z.literal('kinetic-typography'),
     params: COMPONENT_PARAMS_SCHEMAS['kinetic-typography'],
+    recipe: resolvedSceneRecipeSchema.nullable(),
+  }),
+  z.object({
+    componentId: z.literal('cartoon-character'),
+    params: COMPONENT_PARAMS_SCHEMAS['cartoon-character'],
     recipe: resolvedSceneRecipeSchema.nullable(),
   }),
 ]);

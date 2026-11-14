@@ -1,6 +1,7 @@
 import { AbsoluteFill, continueRender, delayRender } from 'remotion';
 import { useEffect, useState } from 'react';
 import type { StoryboardScene, StoryboardStyle } from '@peertoreel/contracts';
+import { CartoonCharacter } from '../components/CartoonCharacter.js';
 import { KineticTypography } from '../components/KineticTypography.js';
 import { ParallaxCity } from '../components/ParallaxCity.js';
 import { RecipeLayers } from '../components/RecipeLayers.js';
@@ -56,6 +57,14 @@ function BaseScene({
     case 'kinetic-typography':
       return (
         <KineticTypography
+          scene={scene}
+          style={style}
+          params={resolved.params}
+        />
+      );
+    case 'cartoon-character':
+      return (
+        <CartoonCharacter
           scene={scene}
           style={style}
           params={resolved.params}
