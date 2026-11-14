@@ -72,6 +72,38 @@ export const ctaCardParamsSchema = z.object({
 });
 export type CtaCardParams = z.infer<typeof ctaCardParamsSchema>;
 
+export const CARTOON_CHARACTER_EMOTIONS = [
+  'neutral',
+  'happy',
+  'surprised',
+  'angry',
+  'sad',
+] as const;
+export const CARTOON_CHARACTER_POSES = ['idle', 'wave'] as const;
+export const CARTOON_CHARACTER_ANCHORS = ['left', 'center', 'right'] as const;
+
+/**
+ * Procedural presenter (M3.6b.7.1). Colours are params, not style lookups: a
+ * component receives only `params`, and the style stays a background concern.
+ */
+export const cartoonCharacterParamsSchema = z.object({
+  preset: z.literal('host').default('host'),
+  emotion: z.enum(CARTOON_CHARACTER_EMOTIONS).default('neutral'),
+  pose: z.enum(CARTOON_CHARACTER_POSES).default('idle'),
+  anchor: z.enum(CARTOON_CHARACTER_ANCHORS).default('right'),
+  /** Clothes/body colour. */
+  accent: hexColorSchema.default('#F2A025'),
+  skin: hexColorSchema.default('#E8B98A'),
+  hair: hexColorSchema.default('#23405F'),
+  /** Eyes, brows and mouth colour. */
+  ink: hexColorSchema.default('#101820'),
+  /** Idle breathing amplitude multiplier, 0 disables the motion. */
+  bob: z.number().min(0).max(1).default(1),
+});
+export type CartoonCharacterParams = z.infer<
+  typeof cartoonCharacterParamsSchema
+>;
+
 export type ComponentParamsById = {
   'parallax-city': ParallaxCityParams;
   'kinetic-typography': KineticTypographyParams;
@@ -79,6 +111,7 @@ export type ComponentParamsById = {
   'image-parallax': ImageParallaxParams;
   'particle-field': ParticleFieldParams;
   'cta-card': CtaCardParams;
+  'cartoon-character': CartoonCharacterParams;
 };
 
 export type StoryboardComponentParams =
@@ -140,6 +173,11 @@ const COMPONENT_PARAMS: {
     schema: ctaCardParamsSchema,
     fieldSchemas: ctaCardParamsSchema.shape,
     defaults: ctaCardParamsSchema.parse({}),
+  },
+  'cartoon-character': {
+    schema: cartoonCharacterParamsSchema,
+    fieldSchemas: cartoonCharacterParamsSchema.shape,
+    defaults: cartoonCharacterParamsSchema.parse({}),
   },
 };
 
@@ -276,6 +314,7 @@ export const COMPONENT_PARAMS_DEFAULTS: {
   'image-parallax': COMPONENT_PARAMS['image-parallax'].defaults,
   'particle-field': COMPONENT_PARAMS['particle-field'].defaults,
   'cta-card': COMPONENT_PARAMS['cta-card'].defaults,
+  'cartoon-character': COMPONENT_PARAMS['cartoon-character'].defaults,
 };
 
 export const COMPONENT_PARAMS_SCHEMAS = {
@@ -285,4 +324,5 @@ export const COMPONENT_PARAMS_SCHEMAS = {
   'image-parallax': imageParallaxParamsSchema,
   'particle-field': particleFieldParamsSchema,
   'cta-card': ctaCardParamsSchema,
+  'cartoon-character': cartoonCharacterParamsSchema,
 } as const;

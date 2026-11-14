@@ -44,6 +44,7 @@ export const STORYBOARD_COMPONENT_IDS = [
   'image-parallax',
   'particle-field',
   'cta-card',
+  'cartoon-character',
 ] as const;
 export const storyboardComponentIdSchema = z.enum(STORYBOARD_COMPONENT_IDS);
 export type StoryboardComponentId = z.infer<
