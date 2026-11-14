@@ -1,73 +1,77 @@
 # Состояние проекта
 
-Обновлено: 2026-11-13 · Milestone: M3 (Animated Factory)
-База: `main` @ `c4e5b05` (Phase 0/1 workflow на месте).
-Активная работа: `feat/m3-animated-factory`; HEAD `34d48cd` + незакоммиченные изменения M3.6b.7.1.
-План: `docs/workspace/plans/2026-11-14-m3-6b-7-1-cartoon-character-rig-session.md` — выполнен.
-Рабочее дерево: изменено (M3.6b.7.1), коммит не сделан.
+Обновлено: 2026-11-14 · Milestone: M3 (Animated Factory)
+База: `main` @ `c4e5b05`.
+Активная работа: `feat/m3-animated-factory`; HEAD — срез M3.6b.8 (тег `m3.6b-acceptance`),
+дерево чистое.
+План: M3.6b.8 выполнен; следующий — веб-интеграция DeepSeek SVG (M3.6b.9).
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-14, M3.6b.7.1): contracts 172, providers 39, assets 82,
-  render-worker 118 (включая 6 тестов персонажа), worker 145 тестов.
+- `pnpm check` — зелёный (2026-11-14, после M3.6b.8): contracts 177, providers 40, assets 88,
+  render-worker 120, worker 145, web 140, api 74, db 21, storage 9.
+- `CharacterBlueprint` (`packages/contracts/src/character.ts`) — canvas 400×700, `view: 'front'`,
+  14 anchors, 6 bounds, `drawOrder`, 5 z-зон; golden-тест 10/10 (5 эмоций × 2 позы).
+- Пиксельный паритет M3.6b.8: сцена 0, отрендеренная кодом `4d50869` и новым, — один и тот же
+  MP4 (`8810B756…`).
+- `assets:prune --dry-run`: 24 сироты → удалены; повторный прогон — 27 объектов, 0 сирот.
+- Версии в ledger и манифесте: `promptVersion` (v3.1), `promptHash`, `blueprintVersion`, `styleId`.
 - `cartoon-character`: 5 эмоций (neutral/happy/surprised/angry/sad), позы idle/wave, `anchor`,
-  цвета в params; кадры ревью — `apps/render-worker/out/m3-6b-7/frames/`.
-- Визуальная оценка человеком — `Not verified` (кадры 0–4 просмотрены).
-- Raster-cutout (M3.6b.6): fake-провайдер отдаёт `24×24` PNG → `tier: provider`,
-  `kind: raster-cutout`, hash по обрезанным байтам; пустой cutout и непрозрачный фон → fallback.
-- Acceptance `wifi-wall` (2026-11-13, после фикса перспективы): 7 сцен, 6 subject-слотов,
-  5 generated (83%); `subject/wifi-router` и `subject/brick-wall-section` → `tier: provider`,
-  2 вызова, $0.005104. Промпты — в `provider_usage.meta` и манифесте.
-- Повторный прогон → `tier: cache`, `providerRequests: 0`, 0 новых строк `provider_usage`.
-- `--provider=none`, `DEEPSEEK_SVG_FORCE_FAILURE=unavailable|empty`, budget ($0.000001 на вызов)
-  → fallback/Tier 0, рендер завершён; empty — 2 строки по 0, budget — 1 строка $0.003684.
-- Ролик: 48.7 с, 1080×1920/30, h264 yuv420p + aac 48k; `audioGaps 0.051`.
-- Галерея: `apps/worker/out/m3-6b-5/gallery.html` (7 кадров + SVG роутера и стены).
-- Изометрия на роутере (первый прогон) — причина и фикс в записи сессии; ассет перегенерирован,
-  плоский фронт. Визуальная оценка человеком — `Not verified`.
+  цвета в params; кадры — `apps/render-worker/out/m3-6b-8/frames/`.
+- Визуальная оценка персонажа человеком — `Not verified` (кадры 0–4 в `out/m3-6b-7/frames`).
+- Raster-cutout: fake-провайдер отдаёт `24×24` PNG → `tier: provider`, `kind: raster-cutout`,
+  hash по обрезанным байтам; пустой cutout и непрозрачный фон → fallback.
+- Guard SVG: фикстура роутера с изометрией ловится (`top_face_polygon`,
+  `perspective_transform`), чистая геометрия проходит.
+- Acceptance `wifi-wall` (2026-11-13): 7 сцен, 5/6 generated, 2 вызова, $0.005104; кэш-повтор —
+  0 строк ledger; `--provider=none`/`unavailable`/`empty`/budget → Tier 0, рендер завершён.
+- Ролик `wifi-wall`: 48.7 с, 1080×1920/30, h264+aac, `audioGaps 0.051`.
+- Веб-генерация SVG — `Not verified`: кода интеграции нет, только план.
+- Runbook трёх приёмок — `docs/acceptance.md`.
 
 ## Где идёт работа
 
-- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6b.5, episode-слой (PR #5).
+- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6b.8, episode-слой (PR #5).
 
 ## Готово
 
+- M3.6b.8: `CharacterBlueprint` в contracts, рендер из blueprint без визуальных изменений,
+  `docs/acceptance.md`, версии в ledger/манифесте, `assets:prune` + удаление 24 сирот.
 - M3.6b.7.1: `cartoon-character` — процедурный ведущий (5 эмоций, idle/wave, anchor), чистая
   `characterLayers`, SVG-компонент, пример и кадры приёмки.
-- M3.6b.6: raster-cutout — `decodePng`/`trimToAlpha`/`encodePng` на `fast-png`, ветвление
-  резолвера по encoding, cutout-политика 8–75 %, hash по обрезанному PNG, persist PNG.
-- M3.6b.5.1: структурный guard SVG (`inspectSvgStructure`): верхняя грань над корпусом и любой
-  `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta`.
-- M3.6b.5: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`, ADR-0016 D10);
-  резолвер продолжает в fallback после ошибки провайдера и отдаёт реальные attempts/cost;
-  `ProviderBudgetError` → стоп-кран `provider_disabled_by_budget`; ledger пишет over-budget;
-  плоская проекция принудительно: правило провайдера + `sanitizeSubjectPrompt` + first-wins.
-- M3.6b.4: числовой PLAN и silhouette rules; `thinking` — дефолт, `max_tokens` 16000; A/B 9/9.
-- M3.6b.3: пресет `studio_flat_2d_v2` (дефолт), `recolor:starter`, пилот 30/30.
-- M3.6b.2: `DeepSeekSvgProvider` + `LlmJsonClient`, allowlist, ledger на attempt, `source: 'llm'`.
-- M3.6b.1: alias `key → hash`, metadata-refresh, ledger `provider_usage`.
+- M3.6b.6: raster-cutout — `fast-png` пайплайн, ветвление резолвера по encoding, cutout 8–75 %,
+  trim и hash по обрезанным байтам, persist PNG.
+- M3.6b.5.1: структурный guard SVG (верхняя грань, `transform`) → retry → fallback.
+- M3.6b.5: generated subjects (`subject/<slug>` + `fallbackIcon` + `prompt`), fallback после
+  ошибки провайдера, реальные attempts/cost, budget stop-crank, плоская проекция.
+- M3.6b.4–b.1: промпт v3.1, пресет v2, провайдер, alias и ledger.
 - До этого: M3.3 renderer, M3.4 recipes, M3.5/M3.5.1 episode, M3.6a/6a.1 asset library.
 
 ## В процессе
 
-- Ничего не в работе; изменения M3.6b.7.1 ждут коммита.
+- Ничего не в работе.
 
 ## Следующий шаг
 
-1. Коммит M3.6b.7.1.
-2. M3.6b.7.2: аксессуары, поза `point`, интеграция `cartoon-character` в рецепты и промпт
-   директора — план не создан.
-3. M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — план не создан.
+1. `docs/workspace/plans/2026-11-14-web-deepseek-visuals-session.md` (M3.6b.9): `episode_plan`
+   берёт subject-ассеты из резолвера + DeepSeek за `VISUALS_SOURCE`, persist, ledger, лимит
+   `ASSET_LLM_MAX_USD_PER_RUN=0.25`, fallback, UI-статусы; стоимость в UI — только USD.
+2. `docs/workspace/plans/2026-11-14-m3-6b-7-2-character-in-recipes-session.md`: персонаж как слой
+   рецепта и выбор эмоции директором.
+3. Дальше: аксессуары как контракт (7.3, z-зоны blueprint), semantic layer/части (7.4),
+   identity (7.5).
 
 ## Открытые решения и блокеры
 
-- ElevenLabs: квота исчерпана (290 кредитов при 409 нужных) — episode-прогоны на
-  `--tts google` до пополнения.
-- Тариф LLM — фиксированный off-peak в env; `thinking` — дефолт, `max_tokens` 16000.
-- Тени запрещены; `rx` у фонового `<rect>` запрещён (белые углы).
-- 12 старых S3-объектов (M3.6b.1) — сироты, `--prune` не сделан.
-- Дизайн-кит (`fallbackIcon`, `role`, promote) — M3.6c.
+- Персонаж MVP — только фронтальный вид; профиль/три четверти — отдельный срез.
+- Животные — `standalone_character`, не трансформация базы.
+- Vision-QC персонажа — после пилота генерации частей.
+- Веб-источник визуалов по умолчанию `pixabay` до приёмки `deepseek-svg`.
+- M3.6b.9: повтор стадии с кэшем — успех без вызова провайдера; force-перегенерация не входит.
+- ElevenLabs: квота исчерпана — episode-прогоны на `--tts google` до пополнения.
+- M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — позже.
+- Миграций схемы в M3.6b.8 нет.
 
 ## Не загружать на старте
 
