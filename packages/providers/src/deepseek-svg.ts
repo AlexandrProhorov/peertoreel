@@ -1,4 +1,5 @@
 import {
+  CHARACTER_BLUEPRINT_VERSION,
   InvalidAssetError,
   ProviderBudgetError,
   ProviderUnavailableError,
@@ -10,6 +11,7 @@ import {
   type LlmJsonUsage,
   type ProviderUsageSink,
 } from '@peertoreel/contracts';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { svgSize } from './mappers.js';
 import {
@@ -33,6 +35,12 @@ import {
 export const DEEPSEEK_SVG_PROVIDER_ID = 'deepseek-svg';
 export { ProviderBudgetError };
 export const DEEPSEEK_SVG_OPERATION = 'asset.svg.generate';
+/**
+ * Prompt generation is data: the version names the prompt family, the hash in
+ * the ledger pins the exact system text (palette included) that produced the
+ * asset. Bump the version when the rules change, not when the palette does.
+ */
+export const SVG_PROMPT_VERSION = 'v3.1';
 /** Tariffs are pinned to the official page on the date they were copied. */
 export const DEEPSEEK_SVG_PRICE_REF =
   'https://api-docs.deepseek.com/quick_start/pricing/ (2026-11-11)';
@@ -305,6 +313,10 @@ function deepseekLicense(): { name: string; commercialUse: boolean } {
   return { name: 'deepseek-api-terms', commercialUse: true };
 }
 
+function promptHashOf(system: string): string {
+  return createHash('sha256').update(system, 'utf8').digest('hex').slice(0, 16);
+}
+
 export function createDeepSeekSvgProvider(
   options: DeepSeekSvgProviderOptions = {},
 ): ImageProvider {
@@ -342,6 +354,7 @@ export function createDeepSeekSvgProvider(
     outcome: 'ok' | 'invalid' | 'over_budget',
     usage: LlmJsonUsage,
     costUsd: number,
+    promptHash: string,
     structureViolations: readonly string[] = [],
   ): Promise<void> => {
     if (usageWriter === null || rates === undefined) {
@@ -360,6 +373,12 @@ export function createDeepSeekSvgProvider(
         assetKey: request.key,
         kind: request.kind,
         styleId: request.styleId,
+        promptVersion: SVG_PROMPT_VERSION,
+        promptHash,
+        // Pipeline snapshot: which rig geometry was current when this spend
+        // happened. Rows stay traceable to a renderer version even when the
+        // blueprint moves on.
+        blueprintVersion: CHARACTER_BLUEPRINT_VERSION,
         attempt,
         outcome,
         prompt: request.prompt.slice(0, 600),
@@ -402,6 +421,7 @@ export function createDeepSeekSvgProvider(
       }
 
       const prompts = buildDeepSeekSvgPrompts(request);
+      const promptHash = promptHashOf(prompts.system);
       let lastReason = 'model returned no usable SVG';
       let totalCost = 0;
       let totalUnits = 0;
@@ -433,7 +453,14 @@ export function createDeepSeekSvgProvider(
         if (costUsd > maxUsdPerCall) {
           // The call already happened: record it before refusing the output, so
           // the ledger shows the real spend instead of hiding it.
-          await recordAttempt(request, attempt, 'over_budget', response.usage, costUsd);
+          await recordAttempt(
+            request,
+            attempt,
+            'over_budget',
+            response.usage,
+            costUsd,
+            promptHash,
+          );
 
           throw new ProviderBudgetError(
             DEEPSEEK_SVG_PROVIDER_ID,
@@ -462,6 +489,7 @@ export function createDeepSeekSvgProvider(
           reason === null ? 'ok' : 'invalid',
           response.usage,
           costUsd,
+          promptHash,
           violations.map((violation) => violation.code),
         );
 

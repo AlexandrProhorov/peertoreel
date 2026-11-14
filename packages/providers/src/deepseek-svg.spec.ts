@@ -1,4 +1,5 @@
 import {
+  CHARACTER_BLUEPRINT_VERSION,
   InvalidAssetError,
   ProviderUnavailableError,
   type ImageProviderRequest,
@@ -7,9 +8,11 @@ import {
   type LlmJsonResponse,
   type ProviderUsageEntry,
 } from '@peertoreel/contracts';
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ProviderBudgetError,
+  SVG_PROMPT_VERSION,
   buildDeepSeekSvgPrompts,
   createDeepSeekSvgProvider,
   validateSvgDocument,
@@ -185,6 +188,31 @@ describe('createDeepSeekSvgProvider', () => {
         completionTokens: 2000,
       },
     });
+  });
+
+  it('records prompt and blueprint versions in the ledger row', async () => {
+    const { client } = fakeClient([
+      { content: JSON.stringify({ svg: VALID_SVG }) },
+    ]);
+    const usage = collector();
+    const provider = createDeepSeekSvgProvider({
+      apiKey: 'key',
+      client,
+      rates: RATES,
+      usageWriter: usage,
+    });
+
+    await provider.generate(REQUEST);
+
+    const meta = usage.entries[0]?.meta;
+    const system = buildDeepSeekSvgPrompts(REQUEST).system;
+
+    expect(meta?.['promptVersion']).toBe(SVG_PROMPT_VERSION);
+    expect(meta?.['promptHash']).toBe(
+      createHash('sha256').update(system, 'utf8').digest('hex').slice(0, 16),
+    );
+    expect(meta?.['blueprintVersion']).toBe(CHARACTER_BLUEPRINT_VERSION);
+    expect(meta?.['styleId']).toBe(REQUEST.styleId);
   });
 
   it('retries once with a corrective prompt and records both attempts', async () => {
