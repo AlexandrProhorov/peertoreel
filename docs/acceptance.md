@@ -89,6 +89,10 @@ POST /api/v1/runs/<id>/stages/episode_plan
 GET  /api/v1/runs/<id>/storyboard
 ```
 
+Клиент обязан отправлять тело в UTF-8. Windows PowerShell 5.1 с
+`ContentType 'application/json'` кодирует кириллицу как Latin‑1 и превращает тему в `??????`:
+нужен `'application/json; charset=utf-8'` и `[Text.Encoding]::UTF8.GetBytes(...)` для тела.
+
 Ожидаемо:
 
 - `visuals.source = deepseek-svg`; у каждого subject есть `tier`, `costUsd` и коды
