@@ -1,5 +1,6 @@
 import {
   CARTOON_CHARACTER_BLUEPRINT,
+  type CartoonCharacterAccessory,
   type CartoonCharacterParams,
   type CharacterCurvePath,
   type CharacterMouthGeometry,
@@ -46,6 +47,8 @@ export type CharacterShape =
       readonly rx: number;
       readonly ry: number;
       readonly fill: string;
+      readonly stroke?: string | null;
+      readonly strokeWidth?: number;
     }
   | {
       readonly kind: 'circle';
@@ -54,6 +57,8 @@ export type CharacterShape =
       readonly cy: number;
       readonly r: number;
       readonly fill: string;
+      readonly stroke?: string | null;
+      readonly strokeWidth?: number;
     }
   | {
       readonly kind: 'path';
@@ -143,12 +148,134 @@ function curvePathData(path: CharacterCurvePath, y: (value: number) => number): 
   return parts.join(' ');
 }
 
+function accessoryShapes(
+  accessory: CartoonCharacterAccessory,
+  params: CartoonCharacterParams,
+  y: (value: number) => number,
+): CharacterShape[] {
+  const { accessories, face } = BLUEPRINT;
+
+  switch (accessory) {
+    case 'glasses':
+      return [
+        {
+          kind: 'ellipse',
+          id: 'glasses-left',
+          cx: face.eye.leftX,
+          cy: y(face.eye.cy),
+          rx: accessories.glasses.lensRadius,
+          ry: accessories.glasses.lensRadius,
+          fill: 'none',
+          stroke: params.ink,
+          strokeWidth: accessories.glasses.strokeWidth,
+        },
+        {
+          kind: 'ellipse',
+          id: 'glasses-right',
+          cx: face.eye.rightX,
+          cy: y(face.eye.cy),
+          rx: accessories.glasses.lensRadius,
+          ry: accessories.glasses.lensRadius,
+          fill: 'none',
+          stroke: params.ink,
+          strokeWidth: accessories.glasses.strokeWidth,
+        },
+        {
+          kind: 'path',
+          id: 'glasses-bridge',
+          d: `M ${accessories.glasses.bridgeFromX} ${y(accessories.glasses.bridgeY)} L ${accessories.glasses.bridgeToX} ${y(accessories.glasses.bridgeY)}`,
+          stroke: params.ink,
+          strokeWidth: accessories.glasses.strokeWidth,
+          fill: null,
+        },
+      ];
+    case 'hat': {
+      const { brim, crown } = accessories.hat;
+
+      return [
+        {
+          kind: 'rect',
+          id: 'hat-brim',
+          x: brim.x,
+          y: y(brim.y),
+          width: brim.width,
+          height: brim.height,
+          rx: brim.rx,
+          fill: params.accent,
+        },
+        {
+          kind: 'rect',
+          id: 'hat-crown',
+          x: crown.x,
+          y: y(crown.y),
+          width: crown.width,
+          height: crown.height,
+          rx: crown.rx,
+          fill: params.accent,
+        },
+      ];
+    }
+    case 'scarf': {
+      const { band, tail } = accessories.scarf;
+
+      return [
+        {
+          kind: 'rect',
+          id: 'scarf-band',
+          x: band.x,
+          y: y(band.y),
+          width: band.width,
+          height: band.height,
+          rx: band.rx,
+          // Ink, not accent: the torso is accent and the scarf would vanish.
+          fill: params.ink,
+        },
+        {
+          kind: 'rect',
+          id: 'scarf-tail',
+          x: tail.x,
+          y: y(tail.y),
+          width: tail.width,
+          height: tail.height,
+          rx: tail.rx,
+          fill: params.ink,
+        },
+      ];
+    }
+  }
+}
+
+/** Accessory → the base part it must be drawn after (blueprint z-zones). */
+const ACCESSORY_AFTER: Readonly<Record<CartoonCharacterAccessory, string>> = {
+  glasses: 'mouth',
+  hat: 'hair',
+  scarf: 'neck',
+};
+
+function insertAccessories(
+  shapes: CharacterShape[],
+  params: CartoonCharacterParams,
+  y: (value: number) => number,
+): void {
+  for (const accessory of params.accessories) {
+    const anchor = ACCESSORY_AFTER[accessory];
+    const index = shapes.findIndex((shape) => shape.id === anchor);
+
+    if (index < 0) {
+      throw new Error(
+        `Character accessory "${accessory}" needs base part "${anchor}"`,
+      );
+    }
+
+    shapes.splice(index + 1, 0, ...accessoryShapes(accessory, params, y));
+  }
+}
+
 function mouthShape(
   mouth: CharacterMouthGeometry,
   ink: string,
   y: (value: number) => number,
-): CharacterShape {
-  if (mouth.kind === 'ellipse') {
+): CharacterShape {  if (mouth.kind === 'ellipse') {
     return {
       kind: 'ellipse',
       id: 'mouth',
@@ -207,7 +334,9 @@ export function characterLayers(
         rightShoulder,
         wavePhase,
       )
-    : { x: arms.idleHandRight.x, y: y(arms.idleHandRight.y) };
+    : params.pose === 'point'
+      ? { x: arms.pointHandRight.x, y: y(arms.pointHandRight.y) }
+      : { x: arms.idleHandRight.x, y: y(arms.idleHandRight.y) };
 
   const arm = (
     id: string,
@@ -224,7 +353,7 @@ export function characterLayers(
 
   const browY = y(emotions.browY);
 
-  return [
+  const shapes: CharacterShape[] = [
     arm('arm-left', leftShoulder, leftHand),
     arm('arm-right', rightShoulder, rightHand),
     {
@@ -364,4 +493,8 @@ export function characterLayers(
     // M3.6b.8 is a pixel-identical refactor, so it keeps the accepted frames.
     mouthShape(face.mouths[emotions.mouth], params.ink, (value) => value),
   ];
+
+  insertAccessories(shapes, params, y);
+
+  return shapes;
 }

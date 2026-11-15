@@ -1,4 +1,5 @@
 import {
+  CARTOON_CHARACTER_ACCESSORIES,
   CARTOON_CHARACTER_ANCHORS,
   CARTOON_CHARACTER_EMOTIONS,
   CARTOON_CHARACTER_POSES,
@@ -59,6 +60,7 @@ const resolvedRecipeCharacterSchema = z.object({
   emotion: z.enum(CARTOON_CHARACTER_EMOTIONS),
   pose: z.enum(CARTOON_CHARACTER_POSES),
   anchor: z.enum(CARTOON_CHARACTER_ANCHORS),
+  accessories: z.array(z.enum(CARTOON_CHARACTER_ACCESSORIES)),
 });
 
 const resolvedRecipeLayerSchema = z.object({

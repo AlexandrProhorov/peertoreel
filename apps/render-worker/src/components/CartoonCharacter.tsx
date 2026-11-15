@@ -53,6 +53,8 @@ function shapeElement(shape: CharacterShape) {
         rx={shape.rx}
         ry={shape.ry}
         fill={shape.fill}
+        stroke={shape.stroke ?? undefined}
+        strokeWidth={shape.stroke === undefined || shape.stroke === null ? undefined : shape.strokeWidth}
       />
     );
   }
@@ -65,6 +67,8 @@ function shapeElement(shape: CharacterShape) {
         cy={shape.cy}
         r={shape.r}
         fill={shape.fill}
+        stroke={shape.stroke ?? undefined}
+        strokeWidth={shape.stroke === undefined || shape.stroke === null ? undefined : shape.strokeWidth}
       />
     );
   }

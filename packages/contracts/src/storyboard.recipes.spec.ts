@@ -187,7 +187,25 @@ describe('recipe slot parsing', () => {
       emotion: 'neutral',
       pose: 'idle',
       anchor: 'center',
+      accessories: [],
     });
+  });
+
+  it('parses accessories in a character slot and rejects duplicates', () => {
+    const parsed = parseRecipeSlots('cta', 'prop', {
+      action: 'ПОДПИШИСЬ',
+      character: { accessories: ['hat', 'glasses'] },
+    });
+    const duplicate = parseRecipeSlots('cta', 'prop', {
+      action: 'ПОДПИШИСЬ',
+      character: { accessories: ['hat', 'hat'] },
+    });
+
+    expect(parsed.slots.character).toMatchObject({
+      accessories: ['hat', 'glasses'],
+    });
+    expect(duplicate.slots.character).toBeNull();
+    expect(duplicate.diagnostics[0]?.path).toBe('character.accessories');
   });
 
   it('keeps an explicit character emotion and pose', () => {

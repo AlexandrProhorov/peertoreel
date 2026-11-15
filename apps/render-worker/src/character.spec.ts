@@ -163,8 +163,45 @@ describe('cartoon character geometry', () => {
     expect(shape(surprised, 'mouth').kind).toBe('ellipse');
   });
 
-  it('raises the right hand only in the wave pose', () => {
+  it('points the right hand to the side in the point pose', () => {
     const idle = characterLayers(params({ pose: 'idle' }), 0, FPS);
+    const point = characterLayers(params({ pose: 'point' }), 0, FPS);
+    const idleHand = shape(idle, 'hand-right');
+    const pointHand = shape(point, 'hand-right');
+
+    expect(idleHand.kind).toBe('circle');
+    expect(pointHand.kind).toBe('circle');
+
+    if (idleHand.kind === 'circle' && pointHand.kind === 'circle') {
+      expect(pointHand.cx).toBeGreaterThan(idleHand.cx);
+      expect(pointHand.cy).toBeLessThan(idleHand.cy);
+      expect(pointHand.cy).toBeLessThan(470);
+    }
+  });
+
+  it('adds accessories in blueprint z-zones and keeps base order without them', () => {
+    const base = characterLayers(params(), 0, FPS);
+    const dressed = characterLayers(
+      params({ accessories: ['glasses', 'scarf', 'hat'] }),
+      0,
+      FPS,
+    );
+    const ids = dressed.map((item) => item.id);
+    const baseIds = base.map((item) => item.id);
+
+    expect(ids).toEqual(
+      expect.arrayContaining(['glasses-left', 'glasses-bridge', 'scarf-band', 'hat-brim']),
+    );
+    expect(ids.indexOf('scarf-band')).toBeGreaterThan(ids.indexOf('neck'));
+    expect(ids.indexOf('scarf-band')).toBeLessThan(ids.indexOf('head'));
+    expect(ids.indexOf('hat-brim')).toBeGreaterThan(ids.indexOf('hair'));
+    expect(ids.indexOf('hat-brim')).toBeLessThan(ids.indexOf('eye-left'));
+    expect(ids.indexOf('glasses-left')).toBeGreaterThan(ids.indexOf('mouth'));
+    expect(baseIds).not.toContain('hat-brim');
+    expect(ids.filter((id) => baseIds.includes(id))).toEqual(baseIds);
+  });
+
+  it('raises the right hand only in the wave pose', () => {    const idle = characterLayers(params({ pose: 'idle' }), 0, FPS);
     const wave = characterLayers(params({ pose: 'wave' }), 0, FPS);
     const idleHand = shape(idle, 'hand-right');
     const waveHand = shape(wave, 'hand-right');

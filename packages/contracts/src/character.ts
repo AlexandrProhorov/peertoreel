@@ -24,8 +24,15 @@ export const CARTOON_CHARACTER_EMOTIONS = [
   'angry',
   'sad',
 ] as const;
-export const CARTOON_CHARACTER_POSES = ['idle', 'wave'] as const;
+export const CARTOON_CHARACTER_POSES = ['idle', 'wave', 'point'] as const;
 export const CARTOON_CHARACTER_ANCHORS = ['left', 'center', 'right'] as const;
+export const CARTOON_CHARACTER_ACCESSORIES = [
+  'glasses',
+  'scarf',
+  'hat',
+] as const;
+export type CartoonCharacterAccessory =
+  (typeof CARTOON_CHARACTER_ACCESSORIES)[number];
 
 export const CHARACTER_VIEWS = ['front'] as const;
 export type CharacterView = (typeof CHARACTER_VIEWS)[number];
@@ -196,8 +203,34 @@ export interface CharacterArms {
   readonly idleHandRight: CharacterPoint;
   /** Unrotated wave hand position; the renderer rotates it around the shoulder. */
   readonly waveHandRight: CharacterPoint;
+  /** Pointing hand: straight out to the side at shoulder height (M3.6b.7.3). */
+  readonly pointHandRight: CharacterPoint;
   /** Left-hand tilt applied in the wave pose (radians). */
   readonly waveLeftAngle: number;
+}
+
+/**
+ * Accessory geometry (M3.6b.7.3). Shapes are placed by the renderer into the
+ * blueprint's z-zones; the numbers live here so a rig edit cannot leave a hat
+ * floating over the old head.
+ */
+export interface CharacterAccessoryGeometry {
+  readonly glasses: {
+    /** Lens radius around each `eye-*` anchor. */
+    readonly lensRadius: number;
+    readonly strokeWidth: number;
+    readonly bridgeFromX: number;
+    readonly bridgeToX: number;
+    readonly bridgeY: number;
+  };
+  readonly hat: {
+    readonly brim: CharacterRoundedRect;
+    readonly crown: CharacterRoundedRect;
+  };
+  readonly scarf: {
+    readonly band: CharacterRoundedRect;
+    readonly tail: CharacterRoundedRect;
+  };
 }
 
 export interface CharacterBlueprint {
@@ -207,6 +240,7 @@ export interface CharacterBlueprint {
   readonly body: CharacterBody;
   readonly arms: CharacterArms;
   readonly face: CharacterFace;
+  readonly accessories: CharacterAccessoryGeometry;
   readonly anchors: Readonly<Record<CharacterAnchorId, CharacterPoint>>;
   readonly bounds: Readonly<Record<CharacterBoundsId, CharacterBounds>>;
   readonly drawOrder: readonly CharacterPartId[];
@@ -237,6 +271,7 @@ const arms: CharacterArms = {
   idleHandLeft: { x: 106, y: 586 },
   idleHandRight: { x: 294, y: 586 },
   waveHandRight: { x: 372, y: 364 },
+  pointHandRight: { x: 376, y: 432 },
   waveLeftAngle: -0.05,
 };
 const face: CharacterFace = {
@@ -287,8 +322,25 @@ const face: CharacterFace = {
   },
 };
 
-function handBounds(center: CharacterPoint): CharacterBounds {
-  const size = arms.handRadius * 2;
+const accessories: CharacterAccessoryGeometry = {
+  glasses: {
+    lensRadius: 30,
+    strokeWidth: 5,
+    bridgeFromX: 190,
+    bridgeToX: 210,
+    bridgeY: 244,
+  },
+  hat: {
+    brim: { x: 96, y: 112, width: 208, height: 18, rx: 9 },
+    crown: { x: 136, y: 62, width: 128, height: 54, rx: 16 },
+  },
+  scarf: {
+    band: { x: 150, y: 372, width: 100, height: 24, rx: 12 },
+    tail: { x: 214, y: 394, width: 26, height: 84, rx: 12 },
+  },
+};
+
+function handBounds(center: CharacterPoint): CharacterBounds {  const size = arms.handRadius * 2;
 
   return {
     x: center.x - arms.handRadius,
@@ -324,6 +376,7 @@ export const CARTOON_CHARACTER_BLUEPRINT: CharacterBlueprint = {
   },
   arms,
   face,
+  accessories,
   anchors: {
     'head-top': { x: head.cx, y: head.cy - head.ry },
     'head-left': { x: head.cx - head.rx, y: head.cy },

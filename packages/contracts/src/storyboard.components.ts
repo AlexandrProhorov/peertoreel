@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  CARTOON_CHARACTER_ACCESSORIES,
   CARTOON_CHARACTER_ANCHORS,
   CARTOON_CHARACTER_EMOTIONS,
   CARTOON_CHARACTER_POSES,
@@ -78,6 +79,7 @@ export const ctaCardParamsSchema = z.object({
 export type CtaCardParams = z.infer<typeof ctaCardParamsSchema>;
 
 export {
+  CARTOON_CHARACTER_ACCESSORIES,
   CARTOON_CHARACTER_ANCHORS,
   CARTOON_CHARACTER_EMOTIONS,
   CARTOON_CHARACTER_POSES,
@@ -100,6 +102,19 @@ export const cartoonCharacterParamsSchema = z.object({
   ink: hexColorSchema.default('#101820'),
   /** Idle breathing amplitude multiplier, 0 disables the motion. */
   bob: z.number().min(0).max(1).default(1),
+  /**
+   * Wearable accessories (M3.6b.7.3). Order is irrelevant: the blueprint's
+   * z-zones decide where each shape lands. Duplicates are rejected so a
+   * doubled hat cannot silently double a stroke.
+   */
+  accessories: z
+    .array(z.enum(CARTOON_CHARACTER_ACCESSORIES))
+    .max(CARTOON_CHARACTER_ACCESSORIES.length)
+    .default([])
+    .refine(
+      (items) => new Set(items).size === items.length,
+      'Accessories must not repeat',
+    ),
 });
 export type CartoonCharacterParams = z.infer<
   typeof cartoonCharacterParamsSchema

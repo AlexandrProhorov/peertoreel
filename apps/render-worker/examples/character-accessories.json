@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "peertoreel.storyboard.v1",
+  "runId": "7f3c1a52-2222-4a2b-8c3d-000000000073",
+  "style": {
+    "styleId": "flat_2d_motion",
+    "palette": {
+      "background": ["#0b1220", "#1b2a41"],
+      "accent": "#f2a025",
+      "text": "#ffffff",
+      "cold": "#35b4d8",
+      "danger": "#e2604a"
+    },
+    "typography": {
+      "heading": "Montserrat",
+      "body": "Inter",
+      "headingWeight": 900
+    },
+    "effects": ["vignette", "glow"]
+  },
+  "characters": [],
+  "audio": {
+    "wordTimingsKey": "runs/7f3c1a52-2222-4a2b-8c3d-000000000073/voiceover/word_timings.json",
+    "durationSec": 9
+  },
+  "scenes": [
+    {
+      "id": "accessory-fact",
+      "part": "hook",
+      "beatIndex": null,
+      "voiceover": { "text": "Вот на что смотрит ведущий", "startSec": 0, "endSec": 3 },
+      "durationSec": 3,
+      "description": "Ведущий в шляпе и очках указывает на каплю",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "fact-object",
+        "variant": "stage",
+        "slots": {
+          "subject": { "assetKey": "water-drop", "fallbackIcon": null, "prompt": null },
+          "fact": "ВОТ НА ЧТО СМОТРИМ",
+          "character": {
+            "emotion": "surprised",
+            "pose": "point",
+            "anchor": "center",
+            "accessories": ["hat", "glasses"]
+          }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ВОТ НА ЧТО СМОТРИМ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "accessory-beat",
+      "part": "beat",
+      "beatIndex": 0,
+      "voiceover": { "text": "Аксессуары помогают роли", "startSec": 3, "endSec": 6 },
+      "durationSec": 3,
+      "description": "Ведущий в очках и шарфе объясняет факт",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "fact-object",
+        "variant": "stage",
+        "slots": {
+          "subject": { "assetKey": "water-drop", "fallbackIcon": null, "prompt": null },
+          "fact": "АКСЕССУАРЫ ПОМОГАЮТ РОЛИ",
+          "character": {
+            "emotion": "neutral",
+            "pose": "idle",
+            "anchor": "center",
+            "accessories": ["glasses", "scarf"]
+          }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "АКСЕССУАРЫ ПОМОГАЮТ РОЛИ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "accessory-cta",
+      "part": "cta",
+      "beatIndex": null,
+      "voiceover": { "text": "Подпишись на канал", "startSec": 6, "endSec": 9 },
+      "durationSec": 3,
+      "description": "Ведущий в шарфе машет рукой",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "cta",
+        "variant": "prop",
+        "slots": {
+          "action": "ПОДПИШИСЬ",
+          "subtitle": "НОВОЕ КАЖДЫЙ ДЕНЬ",
+          "character": {
+            "emotion": "happy",
+            "pose": "wave",
+            "anchor": "center",
+            "accessories": ["scarf"]
+          }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ПОДПИШИСЬ" }
+      },
+      "version": 1
+    }
+  ]
+}

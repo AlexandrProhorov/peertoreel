@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  CARTOON_CHARACTER_ACCESSORIES,
   CARTOON_CHARACTER_ANCHORS,
   CARTOON_CHARACTER_EMOTIONS,
   CARTOON_CHARACTER_POSES,
@@ -230,6 +231,14 @@ export const recipeCharacterSlotSchema = z.object({
   emotion: z.enum(CARTOON_CHARACTER_EMOTIONS).default('neutral'),
   pose: z.enum(CARTOON_CHARACTER_POSES).default('idle'),
   anchor: z.enum(CARTOON_CHARACTER_ANCHORS).default('center'),
+  accessories: z
+    .array(z.enum(CARTOON_CHARACTER_ACCESSORIES))
+    .max(CARTOON_CHARACTER_ACCESSORIES.length)
+    .default([])
+    .refine(
+      (items) => new Set(items).size === items.length,
+      'Accessories must not repeat',
+    ),
 });
 export type RecipeCharacter = z.infer<typeof recipeCharacterSlotSchema>;
 

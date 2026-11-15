@@ -69,6 +69,7 @@ function RecipeCharacterView({
     emotion: character.emotion,
     pose: character.pose,
     anchor: character.anchor,
+    accessories: character.accessories,
     accent: style.palette.accent,
   });
 

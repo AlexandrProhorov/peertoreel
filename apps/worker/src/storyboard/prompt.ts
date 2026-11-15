@@ -32,7 +32,7 @@ function slotShape(kind: RecipeSlotKind): string {
     case 'steps':
       return '[{"label":"...","detail":"..."}] (2-4 шага)';
     case 'character':
-      return '{"preset":"host","emotion":"neutral|happy|surprised|angry|sad","pose":"idle|wave","anchor":"left|center|right"}';
+      return '{"preset":"host","emotion":"neutral|happy|surprised|angry|sad","pose":"idle|wave|point","anchor":"left|center|right","accessories":["glasses"|"scarf"|"hat"]}';
   }
 }
 
@@ -87,7 +87,8 @@ export function storyboardSystemPrompt(): string {
     '- Для сравнений используй metric (fraction 0..1), для процессов — steps (2–4 шага).',
     '- Персонаж: слот character необязателен и допустим только там, где он есть в каталоге; максимум один персонаж на сцену.',
     '- Эмоцию выбирай по роли сцены: hook — surprised, cta — happy, объяснение — neutral/angry/sad по смыслу; не держи одну эмоцию дольше двух сцен подряд.',
-    '- Позу wave ставь только в приветствии или cta; в остальных сценах — idle.',
+    '- Позу wave ставь только в приветствии или cta; point — только когда ведущий указывает на предмет; в остальных сценах — idle.',
+    '- Аксессуары (glasses, scarf, hat) необязательны: максимум два на сцену, без повторов; не добавляй их, если они не помогают смыслу.',
     '- Не проси нарисовать схему с подписями: подписи и числа рисует Remotion из слотов.',
     '- id сцены — уникальный латинский slug (например, "wet-nose-hook").',
   ].join('\n');
