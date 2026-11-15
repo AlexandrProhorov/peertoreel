@@ -1,9 +1,15 @@
 import {
+  InvalidRecipeSlotError,
   getRecipeVariant,
+  hasCharacterSlotValue,
+  resolveCharacterPlan,
   storyboardSchema,
   type DerivedWord,
+  type JsonObject,
+  type RecipeVariant,
   type Storyboard,
   type StoryboardDraft,
+  type StoryboardDraftScene,
   type StoryboardStyle,
 } from '@peertoreel/contracts';
 
@@ -11,6 +17,19 @@ export class StoryboardTimingError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'StoryboardTimingError';
+  }
+}
+
+export class StoryboardCharacterPlanError extends Error {
+  constructor(
+    readonly sceneId: string,
+    readonly recipeId: string,
+    readonly variant: string,
+  ) {
+    super(
+      `Scene "${sceneId}" sets a characterPlan but recipe "${recipeId}/${variant}" has no character slot to fill`,
+    );
+    this.name = 'StoryboardCharacterPlanError';
   }
 }
 
@@ -32,6 +51,48 @@ function roundSec(value: number): number {
 
 function fallbackText(text: string): string {
   return text.length <= 160 ? text : `${text.slice(0, 157).trimEnd()}…`;
+}
+
+/**
+ * A character plan becomes the recipe's `character` slot; the emotion and pose
+ * come from the scene part, so the draft never carries them. A recipe variant
+ * that has no character layer cannot host a presenter: fail with the scene and
+ * recipe ids instead of dropping the plan silently.
+ */
+function mergeCharacterPlan(
+  scene: StoryboardDraftScene,
+  variant: RecipeVariant,
+): JsonObject {
+  if (scene.characterPlan === undefined) {
+    return scene.slots;
+  }
+
+  if (hasCharacterSlotValue(scene.slots)) {
+    throw new InvalidRecipeSlotError(
+      scene.recipeId,
+      'character',
+      'invalid_value',
+      scene.slots.character ?? null,
+      'characterPlan',
+    );
+  }
+
+  const hasCharacterLayer = variant.layers.some(
+    (layer) => layer.kind === 'character' && layer.slot === 'character',
+  );
+
+  if (!hasCharacterLayer) {
+    throw new StoryboardCharacterPlanError(
+      scene.id,
+      scene.recipeId,
+      scene.variant,
+    );
+  }
+
+  return {
+    ...scene.slots,
+    character: resolveCharacterPlan(scene.characterPlan, scene.part),
+  };
 }
 
 /**
@@ -115,6 +176,7 @@ export function buildStoryboardFromDraft({
     const endSec = ends[index] as number;
     const durationSec = roundSec(endSec - startSec);
     const isLast = index === draft.scenes.length - 1;
+    const slots = mergeCharacterPlan(scene, variant);
     const transition =
       isLast || durationSec < 0.6
         ? { type: 'cut' as const, durationSec: 0 }
@@ -150,7 +212,7 @@ export function buildStoryboardFromDraft({
         type: 'recipe' as const,
         recipeId: scene.recipeId,
         variant: scene.variant,
-        slots: scene.slots,
+        slots,
       },
       fallback: {
         type: 'programmatic' as const,

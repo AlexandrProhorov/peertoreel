@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import {
-  CARTOON_CHARACTER_ACCESSORIES,
   CARTOON_CHARACTER_ANCHORS,
   CARTOON_CHARACTER_EMOTIONS,
   CARTOON_CHARACTER_POSES,
+  characterAccessoriesSchema,
 } from './character.js';
 import { jsonObjectSchema, type JsonObject, type JsonValue } from './json.js';
 import type { ComponentParamDiagnostic } from './storyboard.components.js';
@@ -223,22 +223,16 @@ export interface RecipeMetric {
 
 /**
  * Presenter slot value (M3.6b.7.2). Reuses `cartoon-character` enums; the
- * recipe places the layer, the director picks emotion and pose. `preset` is
- * the only entry until the preset catalog lands (M3.6c).
+ * recipe places the layer. From M3.6b.7.4 the director no longer fills this
+ * slot directly: `resolveCharacterPlan` derives it from a `CharacterPlan`
+ * and the scene part.
  */
 export const recipeCharacterSlotSchema = z.object({
   preset: z.literal('host').default('host'),
   emotion: z.enum(CARTOON_CHARACTER_EMOTIONS).default('neutral'),
   pose: z.enum(CARTOON_CHARACTER_POSES).default('idle'),
   anchor: z.enum(CARTOON_CHARACTER_ANCHORS).default('center'),
-  accessories: z
-    .array(z.enum(CARTOON_CHARACTER_ACCESSORIES))
-    .max(CARTOON_CHARACTER_ACCESSORIES.length)
-    .default([])
-    .refine(
-      (items) => new Set(items).size === items.length,
-      'Accessories must not repeat',
-    ),
+  accessories: characterAccessoriesSchema,
 });
 export type RecipeCharacter = z.infer<typeof recipeCharacterSlotSchema>;
 

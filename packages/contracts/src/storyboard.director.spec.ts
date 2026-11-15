@@ -176,4 +176,45 @@ describe('storyboard director draft', () => {
 
     expect(issuePaths(value)).toContain('scenes.2.text');
   });
+
+  it('accepts a character plan on a scene', () => {
+    const value = clone();
+    value.scenes[0]!.characterPlan = {
+      entity: 'ведущий-биолог',
+      strategy: 'transformation',
+      accessories: ['glasses'],
+    };
+
+    expect(storyboardDraftSchema.safeParse(value).success).toBe(true);
+  });
+
+  it('rejects a scene that sets both characterPlan and slots.character', () => {
+    const value = clone();
+    value.scenes[1]!.characterPlan = {
+      entity: 'ведущий-биолог',
+      strategy: 'transformation',
+      accessories: [],
+    };
+    value.scenes[1]!.slots.character = {
+      emotion: 'happy',
+      pose: 'wave',
+      anchor: 'center',
+      accessories: [],
+    };
+
+    expect(issuePaths(value)).toContain('scenes.1.characterPlan');
+  });
+
+  it('rejects duplicate accessories in a plan', () => {
+    const value = clone();
+    value.scenes[0]!.characterPlan = {
+      entity: 'ведущий',
+      strategy: 'transformation',
+      accessories: ['hat', 'hat'],
+    };
+
+    expect(
+      issuePaths(value).some((path) => path.startsWith('scenes.0.characterPlan')),
+    ).toBe(true);
+  });
 });

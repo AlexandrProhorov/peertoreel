@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARTOON_CHARACTER_BLUEPRINT,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
   CHARACTER_ANCHOR_IDS,
   CHARACTER_BOUNDS_IDS,
   CHARACTER_BLUEPRINT_VERSION,
   CHARACTER_CANVAS,
   CHARACTER_LAYER_IDS,
   CHARACTER_PART_IDS,
+  CHARACTER_ROLE_EXPRESSION,
+  UnsupportedCharacterStrategyError,
+  characterPlanSchema,
+  characterRoleForPart,
+  resolveCharacterPlan,
+  type CartoonCharacterAccessory,
   type CharacterBounds,
   type CharacterPoint,
 } from './character.js';
+import { SCENE_PARTS } from './scene-part.js';
+import { recipeCharacterSlotSchema } from './storyboard.recipes.js';
 
 const { canvas, body, arms, anchors, bounds } = CARTOON_CHARACTER_BLUEPRINT;
 
@@ -108,5 +118,87 @@ describe('character blueprint', () => {
     expect(byId.get('over-hair')).toBe('hair');
     expect(byId.get('above-face')).toBe('mouth');
     expect(byId.get('over-body')).toBe('torso');
+  });
+});
+
+describe('character plan', () => {
+  it('accepts a plan without role, emotion or pose', () => {
+    const plan = characterPlanSchema.parse({
+      entity: 'ведущий-биолог',
+      strategy: 'transformation',
+      accessories: ['glasses'],
+    });
+
+    expect(plan).toEqual({
+      entity: 'ведущий-биолог',
+      strategy: 'transformation',
+      accessories: ['glasses'],
+    });
+    expect(
+      characterPlanSchema.parse({ entity: 'ведущий', role: 'hook' }),
+    ).not.toHaveProperty('role');
+  });
+
+  it('rejects an empty entity and duplicated accessories', () => {
+    expect(characterPlanSchema.safeParse({ entity: '   ' }).success).toBe(
+      false,
+    );
+    expect(
+      characterPlanSchema.safeParse({ entity: 'ведущий', accessories: ['hat', 'hat'] })
+        .success,
+    ).toBe(false);
+  });
+
+  it('maps every scene part to one role and expression', () => {
+    expect(Object.keys(CHARACTER_ROLE_EXPRESSION).sort()).toEqual(
+      [...SCENE_PARTS].sort(),
+    );
+
+    for (const part of SCENE_PARTS) {
+      const expression = CHARACTER_ROLE_EXPRESSION[part];
+
+      expect(characterRoleForPart(part)).toBe(expression.role);
+      expect(CARTOON_CHARACTER_EMOTIONS).toContain(expression.emotion);
+      expect(CARTOON_CHARACTER_POSES).toContain(expression.pose);
+    }
+
+    expect(characterRoleForPart('hook')).toBe('hook');
+    expect(characterRoleForPart('beat')).toBe('explain');
+    expect(characterRoleForPart('cta')).toBe('cta');
+  });
+
+  it('resolves a transformation plan into host slot parameters', () => {
+    const resolved = resolveCharacterPlan(
+      { entity: 'ведущий', strategy: 'transformation', accessories: ['hat'] },
+      'cta',
+    );
+
+    expect(resolved).toEqual({
+      preset: 'host',
+      emotion: 'happy',
+      pose: 'wave',
+      anchor: 'center',
+      accessories: ['hat'],
+    });
+    expect(recipeCharacterSlotSchema.parse(resolved)).toEqual(resolved);
+  });
+
+  it('does not share the accessories array with the plan', () => {
+    const accessories: CartoonCharacterAccessory[] = ['scarf'];
+    const resolved = resolveCharacterPlan(
+      { entity: 'ведущий', strategy: 'transformation', accessories },
+      'beat',
+    );
+
+    expect(resolved.accessories).not.toBe(accessories);
+  });
+
+  it('rejects a strategy the renderer cannot draw', () => {
+    expect(() =>
+      resolveCharacterPlan(
+        { entity: 'кот', strategy: 'standalone_character', accessories: [] },
+        'hook',
+      ),
+    ).toThrow(UnsupportedCharacterStrategyError);
   });
 });

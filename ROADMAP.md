@@ -144,7 +144,11 @@ production hardening. Причина — не строить очередь и a
 | M3.6b.5.1 | Структурный guard SVG: верхняя грань над корпусом и любой `transform` → invalid attempt → corrective retry → fallback; коды в `provider_usage.meta` | агент | DONE |
 | M3.6b.6 | Raster-cutout: PNG-декодер `fast-png`, trim по alpha, cutout-политика 8–75 %, ветвление резолвера по encoding, persist PNG | агент | DONE |
 | M3.6b.7.1 | `cartoon-character` рига: 5 эмоций, позы idle/wave, anchor, цвета в params, чистая `characterLayers`, SVG-компонент и кадры приёмки | агент | DONE |
-| M3.6b | Остаток M3.6: аксессуары персонажа, `point`, интеграция в рецепты | агент | TODO |
+| M3.6b.7.2 | Персонаж в рецептах: слот `character`, слой в hook-hero/fact-object/cta, эмоции директором, общий `CharacterSvg` | агент | DONE |
+| M3.6b.7.3 | Аксессуары `glasses`/`scarf`/`hat` и поза `point` на z-зонах blueprint; golden без аксессуаров не изменился | агент | DONE |
+| M3.6b.7.4 | Semantic layer: `CharacterPlan` (entity/strategy/accessories), роль из `scene.part`, resolver в слот `character`, demo `storyboard:from-plan` | агент | DONE |
+| M3.6b.7.4.1 | Части персонажа (head/torso/hands) через `ImageProvider` вместо процедурных примитивов | агент | TODO |
+| M3.6b.7.5 | Identity персонажа и animal-риг (`standalone_character`) | агент | TODO |
 | M3.7 | Production hardening: `scene_clip`, per-scene regeneration, `scene-render` queue, vision QC, review UI, cost | агент | TODO |
 
 **M3.1 закрыт 2026-11-09.** Добавлены `packages/contracts/src/json.ts`,

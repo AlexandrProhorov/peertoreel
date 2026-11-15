@@ -10,51 +10,40 @@ z-зоны blueprint; внешний вид без аксессуаров не �
 
 ## Результат
 
-- `CARTOON_CHARACTER_ACCESSORIES` и поле `accessories` в `cartoonCharacterParamsSchema` и в слоте
-  рецепта `character`: максимум три, дубликаты отвергаются (field-level `invalid_value`).
-- `CARTOON_CHARACTER_POSES += 'point'`; правая рука вытянута в сторону на уровне плеча
-  (`pointHandRight` в blueprint).
-- Геометрия шляпы, очков и шарфа — в `CharacterAccessoryGeometry` blueprint; цвета: шляпа —
-  `accent`, шарф и оправа — `ink`.
-- `characterLayers` вставляет фигуры после базовых частей по `ACCESSORY_AFTER`: шарф после `neck`,
-  шляпа после `hair`, очки после `mouth`. Без аксессуаров набор фигур прежний (golden 10/10).
-- `CharacterShape` ellipse/circle получили необязательный stroke для оправы; SVG-маппинг обновлён.
+- `accessories` в params и в слоте рецепта `character`: три значения, дефолт `[]`, дубликаты —
+  `invalid_value` + дефолт.
+- `point`: правая рука вытянута в сторону на уровне плеча (`pointHandRight` в blueprint).
+- Геометрия шляпы/очков/шарфа — в `CharacterAccessoryGeometry`; цвета: шляпа — `accent`, шарф и
+  оправа — `ink`.
+- Вставка по базовым частям: шарф после `neck`, шляпа после `hair`, очки после `mouth`. Без
+  аксессуаров набор фигур прежний (golden 10/10).
+- `CharacterShape` ellipse/circle получили необязательный `stroke` для оправы.
 - Промпт директора: `point` только для указания, аксессуары — максимум два без повторов.
-- Приёмка: `examples/character-accessories.json` → 3 сцены, 1080×1920/30, кадры в
-  `out/m3-6b-7/accessories/frames/`: point+hat+glasses, glasses+scarf, wave+scarf.
+- Приёмка: `examples/character-accessories.json` → 3 сцены 1080×1920/30, кадры в
+  `out/m3-6b-7/accessories/frames/`.
 
 ## Изменённые файлы
 
-- `packages/contracts/src/character.ts` — accessories, point, геометрия.
-- `packages/contracts/src/storyboard.components.ts`, `.spec.ts` — поле и тесты.
-- `packages/contracts/src/storyboard.recipes.ts`, `.spec.ts` — слот с аксессуарами.
-- `apps/render-worker/src/character.ts`, `character.spec.ts` — вставка фигур, point.
-- `apps/render-worker/src/components/CartoonCharacter.tsx` — stroke у ellipse/circle.
-- `apps/render-worker/src/components/RecipeLayers.tsx` — accessories в params.
-- `apps/render-worker/src/mapping.ts` — accessories в схеме слоя.
-- `apps/worker/src/storyboard/prompt.ts` — правила.
-- `apps/render-worker/examples/character-accessories.json` — пример приёмки.
+- `packages/contracts/src/character.ts`, `storyboard.components.ts`, `storyboard.recipes.ts` (+ спеки).
+- `apps/render-worker/src/character.ts`, `components/CartoonCharacter.tsx`, `RecipeLayers.tsx`, `mapping.ts`.
+- `apps/worker/src/storyboard/prompt.ts`.
+- `apps/render-worker/examples/character-accessories.json`.
 
 ## Решения
 
-- Аксессуары — часть params/слота, а не отдельные компоненты: одна геометрия, один маппинг.
-- Z-порядок задаёт blueprint через `ACCESSORY_AFTER`, а не порядок вызовов в JSX.
-- Шарф — `ink`, потому что `accent` совпадает с торсом и аксессуар исчезает.
-- Дубликаты аксессуаров — ошибка схемы, а не тихая дедупликация.
-- Широкая манжета шарфа опущена ниже подбородка (`y=372`): выше её целиком закрывает голова.
+- Аксессуар — часть params/слота, не отдельный компонент: одна геометрия, один SVG-маппинг.
+- Z-порядок задаёт blueprint (`ACCESSORY_AFTER`), а не порядок JSX.
+- Шарф — `ink`: `accent` совпадает с торсом, аксессуар исчезает.
+- Дубликаты отвергаются схемой, а не дедуплицируются молча.
+- Полоса шарфа опущена ниже подбородка (`y=372`): выше её закрывает голова.
 
 ## Отклонения от плана
 
-- Шарф в первой версии был акцентным и невидимым; цвет и геометрию пришлось поправить после
-  просмотра кадра, а не до кода.
+- Цвет и геометрию шарфа поправили после просмотра кадра, а не до кода.
 - Пример приёмки расширен до трёх сцен: `storyboardSchema` требует минимум три.
 
 ## Не проверено
 
-- Ролик целиком (Remotion + FFmpeg + озвучка) с аксессуарами — `Not verified`.
-- Живой прогон директора: правила аксессуаров в промпте, но модель на теме не запускалась.
-
-## Блокеры и следующий шаг
-
-- Блокеров нет.
-- Дальше: 7.4 — semantic layer и части персонажа.
+- Полный ролик (Remotion + FFmpeg + озвучка) с аксессуарами — `Not verified`.
+- Живой прогон директора с аксессуарами — `Not verified`.
+- Блокеров нет. Дальше: 7.4 — semantic layer и части персонажа.

@@ -13,6 +13,7 @@
     "test": "vitest run",
     "tiktok:spike": "tsx src/tiktok/tiktok-spike.ts",
     "storyboard:episode": "tsx src/storyboard/episode-spike.ts",
+    "storyboard:from-plan": "tsx src/storyboard/from-plan.ts",
     "assets:import": "tsx src/assets/import.ts",
     "assets:prune": "tsx src/assets/prune.ts"
   },

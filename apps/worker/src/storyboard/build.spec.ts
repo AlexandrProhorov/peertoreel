@@ -1,4 +1,5 @@
 import {
+  InvalidRecipeSlotError,
   getRecipeVariant,
   storyboardSchema,
   type DerivedWord,
@@ -7,6 +8,7 @@ import {
 } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  StoryboardCharacterPlanError,
   StoryboardTimingError,
   buildStoryboardFromDraft,
 } from './build.js';
@@ -234,5 +236,126 @@ describe('storyboard build from director draft', () => {
       secondStart,
       3,
     );
+  });
+});
+
+function recipeSlots(storyboard: ReturnType<typeof build>, index: number) {
+  const scene = storyboard.scenes[index]!;
+
+  if (scene.implementation.type !== 'recipe') {
+    throw new Error('Expected a recipe scene');
+  }
+
+  return scene.implementation.slots;
+}
+
+describe('storyboard character plan', () => {
+  function planned(): StoryboardDraft {
+    const value = structuredClone(draft());
+
+    value.scenes[0]!.variant = 'ghost-question';
+    value.scenes[0]!.characterPlan = {
+      entity: 'ведущий-биолог',
+      strategy: 'transformation',
+      accessories: ['glasses'],
+    };
+    value.scenes[1]!.characterPlan = {
+      entity: 'тот же ведущий',
+      strategy: 'transformation',
+      accessories: [],
+    };
+    value.scenes[4]!.variant = 'prop';
+    value.scenes[4]!.characterPlan = {
+      entity: 'тот же ведущий',
+      strategy: 'transformation',
+      accessories: ['scarf'],
+    };
+
+    return value;
+  }
+
+  it('derives emotion and pose from the scene part, not from the plan', () => {
+    const storyboard = build(planned());
+
+    expect(recipeSlots(storyboard, 0)).toMatchObject({
+      character: {
+        preset: 'host',
+        emotion: 'surprised',
+        pose: 'idle',
+        anchor: 'center',
+        accessories: ['glasses'],
+      },
+    });
+    expect(recipeSlots(storyboard, 1)).toMatchObject({
+      character: { emotion: 'neutral', pose: 'idle', accessories: [] },
+    });
+    expect(recipeSlots(storyboard, 4)).toMatchObject({
+      character: {
+        emotion: 'happy',
+        pose: 'wave',
+        anchor: 'center',
+        accessories: ['scarf'],
+      },
+    });
+    expect(storyboardSchema.safeParse(storyboard).success).toBe(true);
+  });
+
+  it('is deterministic for the same plan and part', () => {
+    const first = build(planned());
+    const second = build(planned());
+
+    expect(JSON.stringify(recipeSlots(first, 0))).toBe(
+      JSON.stringify(recipeSlots(second, 0)),
+    );
+  });
+
+  it('leaves scenes without a plan untouched', () => {
+    const storyboard = build(planned());
+
+    expect(recipeSlots(storyboard, 2)).not.toHaveProperty('character');
+  });
+
+  it('fails when the variant has no character layer', () => {
+    const value = structuredClone(draft());
+
+    value.scenes[0]!.characterPlan = {
+      entity: 'ведущий',
+      strategy: 'transformation',
+      accessories: [],
+    };
+
+    expect(() => build(value)).toThrow(StoryboardCharacterPlanError);
+    expect(() => build(value)).toThrow(/hook-hero/);
+    expect(() => build(value)).toThrow(/subject-lead/);
+  });
+
+  it('fails when the plan and slots.character are both set', () => {
+    const value = structuredClone(draft());
+
+    value.scenes[1]!.characterPlan = {
+      entity: 'ведущий',
+      strategy: 'transformation',
+      accessories: [],
+    };
+    value.scenes[1]!.slots.character = {
+      emotion: 'happy',
+      pose: 'wave',
+      anchor: 'center',
+      accessories: [],
+    };
+
+    expect(() => build(value)).toThrow(InvalidRecipeSlotError);
+  });
+
+  it('fails for a strategy the renderer cannot draw', () => {
+    const value = planned();
+
+    value.scenes[0]!.characterPlan = {
+      entity: 'кот',
+      strategy: 'standalone_character',
+      accessories: [],
+    };
+
+    expect(() => build(value)).toThrow(/standalone_character/);
   });
 });

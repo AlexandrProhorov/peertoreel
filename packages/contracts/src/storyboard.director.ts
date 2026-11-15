@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { jsonObjectSchema } from './json.js';
+import { characterPlanSchema } from './character.js';
+import { jsonObjectSchema, type JsonObject } from './json.js';
 import { SCENE_PARTS } from './scene-part.js';
 import {
   InvalidRecipeSlotError,
@@ -24,6 +25,11 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
 }
 
+/** A slot set to `null`/absent means "no presenter", not an empty override. */
+export function hasCharacterSlotValue(slots: JsonObject): boolean {
+  return slots.character !== undefined && slots.character !== null;
+}
+
 export const storyboardDraftSceneSchema = z
   .object({
     /** Latin slug, unique within the episode. */
@@ -40,6 +46,11 @@ export const storyboardDraftSceneSchema = z
     recipeId: z.enum(STORYBOARD_RECIPE_IDS),
     variant: z.string().min(1).max(80),
     slots: jsonObjectSchema,
+    /**
+     * Presenter plan (M3.6b.7.4). Mutually exclusive with `slots.character`:
+     * two sources of truth would render different frames for the same draft.
+     */
+    characterPlan: characterPlanSchema.optional(),
   })
   .superRefine((scene, ctx) => {
     const words = countWords(scene.text);
@@ -49,6 +60,15 @@ export const storyboardDraftSceneSchema = z
         code: 'custom',
         path: ['text'],
         message: `Scene text must contain ${MIN_SCENE_WORDS}..${MAX_SCENE_WORDS} words, received ${words}`,
+      });
+    }
+
+    if (scene.characterPlan !== undefined && hasCharacterSlotValue(scene.slots)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['characterPlan'],
+        message:
+          'Scene must not set both characterPlan and slots.character; keep the plan and let the builder fill the slot',
       });
     }
   });

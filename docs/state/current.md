@@ -2,32 +2,22 @@
 
 Обновлено: 2026-11-15 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05`.
-Активная работа: `feat/m3-animated-factory`; HEAD — срез M3.6b.7.3, дерево чистое.
-План: M3.6b.7.3 выполнен; следующий — semantic layer и части персонажа (M3.6b.7.4).
+Активная работа: `feat/m3-animated-factory`; M3.6b.7.4 закоммичен, дерево чистое.
+План: M3.6b.7.4 выполнен; следующий — части персонажа (7.4.1), затем identity (7.5).
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-15, после M3.6b.7.3): contracts 185, providers 40, assets 88,
-  render-worker 124, worker 158, web 142, api 74, db 21, storage 9.
-- Аксессуары (`glasses`, `scarf`, `hat`) и поза `point`: golden-сигнатура без аксессуаров не
-  изменилась (10/10), кадры — `apps/render-worker/out/m3-6b-7/accessories/frames/`.
-- `character-accessories.json`: 3 сцены, 1080×1920/30, h264; шляпа+очки+point, шарф+wave.
-- Слот `character` валидируется как остальные: дефолты, `invalid_value`, отсутствие слота —
-  сцена валидна; слой пропускается.
-- `VISUALS_SOURCE=deepseek-svg` через веб-стадию: 5 episode-прогонов, 2 generated subject
-  (`subject/dog-nose`, `subject/dog-snout`), 3 строки `provider_usage` (`run_id`, `source=worker`),
-  $0.008464; три прогона — кэш (`providerRequests 0`, новых строк нет).
-- Бюджет прогона `ASSET_LLM_MAX_USD_PER_RUN=0.25` не достигнут; остановка по бюджету проверена
-  юнит-тестом, не в живом прогоне.
-- `docs/acceptance.md` — три M3.6 приёмки + раздел deepseek-svg.
-- `CharacterBlueprint` (M3.6b.8): golden 10/10, пиксельный паритет подтверждён одинаковым MP4.
-- `assets:prune`: 24 сироты удалены; 27 объектов, 0 сирот.
-- `cartoon-character`: 5 эмоций, idle/wave, кадры — `apps/render-worker/out/m3-6b-8/frames/`.
-- Визуальная оценка персонажа и превью эпизода в браузере человеком — `Not verified`.
-- Raster-cutout: PNG 24×24 → `tier: provider`, `kind: raster-cutout`, hash по обрезанным байтам.
-- Guard SVG: изометрия ловится (`top_face_polygon`, `perspective_transform`).
-- Ролик `wifi-wall` (2026-11-13): 48.7 с, 1080×1920/30, h264+aac, `audioGaps 0.051`.
+- `pnpm check` — зелёный (2026-11-15, после 7.4): contracts 194, providers 40, assets 88,
+  render-worker 124, worker 165, web 142, api 74, db 21, storage 9, tiktok 30.
+- Semantic layer (7.4): `storyboard:from-plan` → 5 сцен 1080×1920/30, h264, 25.8 s; кадры —
+  `apps/render-worker/out/m3-6b-7/semantic/frames/`.
+- Аксессуары и `point`: golden без аксессуаров 10/10; кадры —
+  `apps/render-worker/out/m3-6b-7/accessories/frames/`.
+- `character-accessories.json`: 3 сцены, 1080×1920/30, h264 (hat+glasses+point, scarf+wave).
+- `character-recipes.json` (7.2): 3 сцены, 1080×1920/30; кадры в `out/m3-6b-7/recipes/frames/`.
+- DeepSeek-приёмка (7.9): 2 generated subject, 3 строки ledger, $0.008464; 3 прогона — кэш.
+- Визуальная оценка человеком и полный ролик с персонажем/аксессуарами — `Not verified`.
 
 ## Где идёт работа
 
@@ -36,21 +26,14 @@
 
 ## Готово
 
-- M3.6b.7.3: аксессуары `glasses`/`scarf`/`hat` и поза `point`; геометрия в blueprint,
-  z-порядок через базовые части, цвета из params, правила в промпте директора.
-- M3.6b.7.2: слот рецепта `character` (preset/emotion/pose/anchor), слой в hook-hero,
-  fact-object и cta, рендер тем же `CharacterSvg`, правила эмоций в промпте директора.
-- M3.6b.9: `VISUALS_SOURCE` (`pixabay` по умолчанию), resolver + DeepSeek SVG в `episode_plan`,
-  persist в библиотеку, ledger с `run_id`, лимит на прогон, деградация слотов в Tier 0,
-  решения по каждому subject (`subjects[]`) и UI-статусы; Pixabay-путь сохранён.
-- M3.6b.8: `CharacterBlueprint`, рендер из blueprint без визуальных изменений,
-  `docs/acceptance.md`, версии в ledger/манифесте, `assets:prune`.
-- M3.6b.7.1: `cartoon-character` — 5 эмоций, idle/wave, anchor, чистые `characterLayers`.
-- M3.6b.6: raster-cutout — `fast-png`, trim/hash по обрезанным байтам, persist PNG.
-- M3.6b.5.1: структурный guard SVG → retry → fallback.
-- M3.6b.5: generated subjects, fallback, реальные attempts/cost, budget stop-crank.
-- M3.6b.4–b.1: промпт v3.1, пресет v2, провайдер, alias и ledger.
-- До этого: M3.3 renderer, M3.4 recipes, M3.5/M3.5.1 episode, M3.6a/6a.1 asset library.
+- M3.6b.7.4: `CharacterPlan` (entity/strategy/accessories), роль из `scene.part`, слияние плана
+  со слотом, demo `storyboard:from-plan`.
+- M3.6b.7.3: аксессуары `glasses`/`scarf`/`hat`, поза `point`, геометрия в blueprint, z-порядок.
+- M3.6b.7.2: слот `character` в hook-hero/fact-object/cta, общий `CharacterSvg`, эмоции директора.
+- M3.6b.7.1: `cartoon-character` — 5 эмоций, idle/wave, anchor, кадры приёмки.
+- M3.6b.9: `VISUALS_SOURCE`, resolver + DeepSeek SVG в `episode_plan`, ledger, бюджет, UI-статусы.
+- M3.6b.8: `CharacterBlueprint`, golden-паритет, `docs/acceptance.md`, `assets:prune`.
+- До этого: M3.6b.1–b.6, M3.5/M3.5.1, M3.4, M3.3, M3.6a.
 
 ## В процессе
 
@@ -58,38 +41,28 @@
 
 ## Следующий шаг
 
-1. M3.6b.7.4 (план ещё не создан): semantic layer и части персонажа — visual-plan сущностей →
-   детерминированный contract builder по `CharacterBlueprint` → генерация частей → композиция.
-2. Дальше: identity (7.5).
+1. M3.6b.7.4.1 — части персонажа (head/torso/hands) через `ImageProvider`, вместо процедурных
+   примитивов; план 7.4 уже отделяет семантику от геометрии.
+2. Дальше: identity и animal-риг (7.5), дизайн-кит M3.6c.
 3. Галерея ассетов и регенерация одного слота — отдельный веб-срез.
 
-## Открытые решения и блокеры
+## Открытые решения
 
-- Веб-источник визуалов по умолчанию `pixabay` до приёмки `deepseek-svg`; откат — одна
-  переменная окружения.
+- Источник визуалов по умолчанию `pixabay`; откат DeepSeek — одна переменная окружения.
 - Стоимость в UI — только USD; рублёвая оценка запрещена (нет фиксированного курса).
-- Повтор стадии с кэшем — успех без вызова провайдера; force-перегенерация не входит.
-- Персонаж MVP — только фронтальный вид; профиль/три четверти — отдельный срез.
 - Один персонаж на сцену; диалог двух — отдельный контракт `characters[]`.
-- В рецепте позицию и размер задаёт layout слоя; `anchor` в слоте принимается ради
-  совместимости с `cartoon-character`, но рецепт его не использует.
-- Цвета аксессуаров: шляпа — `accent`, шарф и оправа — `ink` (акцентный шарф сливается с торсом);
-  дубликаты аксессуаров отвергаются схемой.
-- Животные — `standalone_character`, не трансформация базы.
-- Vision-QC персонажа — после пилота генерации частей.
-- ElevenLabs: квота исчерпана — episode-прогоны на `--tts google` до пополнения.
-- M3.6c дизайн-кит (`fallbackIcon`-промоушен, `role`, promote) — позже.
+- Цвета аксессуаров: шляпа — `accent`, шарф и оправа — `ink`; дубликаты отвергаются схемой.
+- Роль персонажа не приходит от модели: она выводится из `scene.part` (`hook`/`beat`/`cta`),
+  эмоция и поза задаются жёсткой таблицей.
+- ElevenLabs: квота исчерпана — episode-прогоны на `--tts google`.
 
 ## Не загружать на старте
 
 - `SESSION_LOG.md` — только индекс; запись из `docs/sessions/` — по ссылке.
-- `ROADMAP.md`, `ARCHITECTURE.md`, `docs/adr/*`, `docs/workspace/research/*`.
-- `docs/workspace/plans/*` — только активный план.
+- `ROADMAP.md`, `ARCHITECTURE.md`, `docs/adr/*`, `docs/workspace/research/*`, неактивные планы.
 - `node_modules`, `dist`, `apps/*/dist`, `apps/worker/out`, `pnpm-lock.yaml`.
 
 ## Актуальность
 
-- Исторические факты (решения, миграции) не перепроверять без причины.
-- Изменяемые факты: ветка, HEAD, Git status, проверки. Если HEAD отличается — карточка
-  потенциально устарела.
+- Исторические факты не перепроверять без причины; изменяемые — ветка, HEAD, Git status, проверки.
 - `Not verified` означает, что проверка не запускалась; это не «зелёный».

@@ -32,7 +32,7 @@ function slotShape(kind: RecipeSlotKind): string {
     case 'steps':
       return '[{"label":"...","detail":"..."}] (2-4 шага)';
     case 'character':
-      return '{"preset":"host","emotion":"neutral|happy|surprised|angry|sad","pose":"idle|wave|point","anchor":"left|center|right","accessories":["glasses"|"scarf"|"hat"]}';
+      return 'слот не заполняй: ведущего задавай полем characterPlan сцены {"entity":"...","strategy":"transformation","accessories":["glasses"|"scarf"|"hat"]}';
   }
 }
 
@@ -71,7 +71,7 @@ export function storyboardSystemPrompt(): string {
     'Ты режиссёр вертикальных научно-популярных роликов (1080x1920, 30 fps) для Peer to Reel.',
     'Ты не пишешь код, не назначаешь тайминги и не придумываешь ассеты.',
     'Ты возвращаешь ТОЛЬКО один JSON-объект без markdown и пояснений:',
-    '{"title":"...","scenes":[{"id":"latin-slug","part":"hook|beat|cta","text":"...","description":"...","recipeId":"...","variant":"...","slots":{...}}]}',
+    '{"title":"...","scenes":[{"id":"latin-slug","part":"hook|beat|cta","text":"...","description":"...","recipeId":"...","variant":"...","slots":{...},"characterPlan":{"entity":"...","strategy":"transformation","accessories":["glasses"|"scarf"|"hat"]}}]}',
     '',
     'Правила:',
     '- 5–7 сцен: первая strict hook, последняя strict cta, между ними только beat.',
@@ -85,10 +85,11 @@ export function storyboardSystemPrompt(): string {
     '- recipeId, variant и slots бери только из каталога. Неизвестный стартовый ключ в fallbackIcon — ошибка.',
     '- Никаких выдуманных полей, путей и URL.',
     '- Для сравнений используй metric (fraction 0..1), для процессов — steps (2–4 шага).',
-    '- Персонаж: слот character необязателен и допустим только там, где он есть в каталоге; максимум один персонаж на сцену.',
-    '- Эмоцию выбирай по роли сцены: hook — surprised, cta — happy, объяснение — neutral/angry/sad по смыслу; не держи одну эмоцию дольше двух сцен подряд.',
-    '- Позу wave ставь только в приветствии или cta; point — только когда ведущий указывает на предмет; в остальных сценах — idle.',
-    '- Аксессуары (glasses, scarf, hat) необязательны: максимум два на сцену, без повторов; не добавляй их, если они не помогают смыслу.',
+    '- Персонаж: только там, где в каталоге у рецепта есть слот character, и максимум один персонаж на сцену. Вместо слота возвращай поле сцены characterPlan {"entity":"кто это","strategy":"transformation","accessories":[...]}; слот character заполнять нельзя — его собирает код.',
+    '- characterPlan.entity — кто ведёт сцену, одной короткой фразой (1–80 символов): роль, профессия или типаж. Без внешности, одежды, цветов и координат.',
+    '- Эмоцию, позу, anchor, координаты и названия частей тела не указывай: их жёстко задаёт часть сцены (hook — surprised/idle, beat — neutral/idle, cta — happy/wave).',
+    '- strategy всегда "transformation": standalone_character не поддерживается рендерером и будет отклонён.',
+    '- Аксессуары (glasses, scarf, hat) в characterPlan необязательны: максимум два, без повторов; не добавляй их, если они не помогают смыслу.',
     '- Не проси нарисовать схему с подписями: подписи и числа рисует Remotion из слотов.',
     '- id сцены — уникальный латинский slug (например, "wet-nose-hook").',
   ].join('\n');

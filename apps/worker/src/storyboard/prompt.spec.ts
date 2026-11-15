@@ -44,7 +44,10 @@ describe('storyboard director prompt', () => {
     expect(shapes.some((shape) => shape.includes('fraction'))).toBe(true);
     expect(shapes.some((shape) => shape.includes('label'))).toBe(true);
     expect(
-      shapes.some((shape) => shape.includes('"emotion"') && shape.includes('"pose"')),
+      shapes.some(
+        (shape) =>
+          shape.includes('characterPlan') && shape.includes('не заполняй'),
+      ),
     ).toBe(true);
   });
 
@@ -78,5 +81,15 @@ describe('storyboard director prompt', () => {
     expect(prompt).toContain('character');
     expect(prompt).toContain('surprised');
     expect(prompt).toContain('максимум один персонаж');
+  });
+
+  it('asks for a character plan and forbids model-chosen expression', () => {
+    const prompt = storyboardSystemPrompt();
+
+    expect(prompt).toContain('characterPlan');
+    expect(prompt).toContain('"entity"');
+    expect(prompt).toContain('"strategy"');
+    expect(prompt).toContain('Эмоцию, позу, anchor');
+    expect(prompt).toContain('standalone_character не поддерживается');
   });
 });

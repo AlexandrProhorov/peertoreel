@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import type { ScenePart } from './scene-part.js';
+
 /**
  * Procedural presenter blueprint (M3.6b.8).
  *
@@ -33,6 +36,22 @@ export const CARTOON_CHARACTER_ACCESSORIES = [
 ] as const;
 export type CartoonCharacterAccessory =
   (typeof CARTOON_CHARACTER_ACCESSORIES)[number];
+export type CartoonCharacterEmotion =
+  (typeof CARTOON_CHARACTER_EMOTIONS)[number];
+export type CartoonCharacterPose = (typeof CARTOON_CHARACTER_POSES)[number];
+
+/**
+ * One list and one rule for both the slot and the semantic plan (M3.6b.7.4):
+ * duplicates are rejected at the schema boundary, not deduplicated silently.
+ */
+export const characterAccessoriesSchema = z
+  .array(z.enum(CARTOON_CHARACTER_ACCESSORIES))
+  .max(CARTOON_CHARACTER_ACCESSORIES.length)
+  .default([])
+  .refine(
+    (items) => new Set(items).size === items.length,
+    'Accessories must not repeat',
+  );
 
 export const CHARACTER_VIEWS = ['front'] as const;
 export type CharacterView = (typeof CHARACTER_VIEWS)[number];
@@ -442,3 +461,100 @@ export const CARTOON_CHARACTER_BLUEPRINT: CharacterBlueprint = {
     { id: 'above-face', insertAfter: 'mouth' },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// Semantic layer (M3.6b.7.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * How the presenter joins the episode. Only `transformation` has a rig today;
+ * `standalone_character` is declared so the contract is stable, and the
+ * builder rejects it explicitly until the animal rig lands (M3.6b.7.5).
+ */
+export const CHARACTER_STRATEGIES = [
+  'transformation',
+  'standalone_character',
+] as const;
+export type CharacterStrategy = (typeof CHARACTER_STRATEGIES)[number];
+
+export const CHARACTER_ROLES = ['hook', 'explain', 'cta'] as const;
+export type CharacterRole = (typeof CHARACTER_ROLES)[number];
+
+/**
+ * What the director may say about the presenter. No emotion, pose, anchor,
+ * coordinates or part names: the role comes from the validated scene part
+ * (`hook`/`beat`/`cta`), never from the model.
+ */
+export const characterPlanSchema = z.object({
+  /** Who the presenter is, in one phrase. */
+  entity: z.string().trim().min(1).max(80),
+  strategy: z.enum(CHARACTER_STRATEGIES).default('transformation'),
+  accessories: characterAccessoriesSchema,
+});
+export type CharacterPlan = z.infer<typeof characterPlanSchema>;
+
+/**
+ * Scene part → role → expression. One table, so `hook` can never render as a
+ * happy wave while `cta` renders surprised.
+ */
+export const CHARACTER_ROLE_EXPRESSION: Readonly<
+  Record<
+    ScenePart,
+    {
+      readonly role: CharacterRole;
+      readonly emotion: CartoonCharacterEmotion;
+      readonly pose: CartoonCharacterPose;
+    }
+  >
+> = {
+  hook: { role: 'hook', emotion: 'surprised', pose: 'idle' },
+  beat: { role: 'explain', emotion: 'neutral', pose: 'idle' },
+  cta: { role: 'cta', emotion: 'happy', pose: 'wave' },
+};
+
+/** The only way to obtain a role; the model never supplies one. */
+export function characterRoleForPart(part: ScenePart): CharacterRole {
+  return CHARACTER_ROLE_EXPRESSION[part].role;
+}
+
+/** Slot parameters produced from a plan; structurally a `RecipeCharacter`. */
+export type ResolvedCharacterPlan = {
+  readonly preset: 'host';
+  readonly emotion: CartoonCharacterEmotion;
+  readonly pose: CartoonCharacterPose;
+  readonly anchor: 'center';
+  readonly accessories: CartoonCharacterAccessory[];
+};
+
+export class UnsupportedCharacterStrategyError extends Error {
+  constructor(readonly strategy: CharacterStrategy) {
+    super(
+      `Character strategy "${strategy}" is not supported by the renderer yet; ` +
+        'only "transformation" has a rig (standalone characters land in M3.6b.7.5)',
+    );
+    this.name = 'UnsupportedCharacterStrategyError';
+  }
+}
+
+/**
+ * Deterministic plan → slot parameters. `part` is the validated scene part, so
+ * the expression is a function of the storyboard, not of model output.
+ */
+export function resolveCharacterPlan(
+  plan: CharacterPlan,
+  part: ScenePart,
+): ResolvedCharacterPlan {
+  if (plan.strategy !== 'transformation') {
+    throw new UnsupportedCharacterStrategyError(plan.strategy);
+  }
+
+  const expression = CHARACTER_ROLE_EXPRESSION[part];
+
+  return {
+    preset: 'host',
+    emotion: expression.emotion,
+    pose: expression.pose,
+    anchor: 'center',
+    accessories: [...plan.accessories],
+  };
+}
