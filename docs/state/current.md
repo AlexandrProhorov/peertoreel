@@ -2,16 +2,17 @@
 
 Обновлено: 2026-11-15 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05`.
-Активная работа: `feat/m3-animated-factory`; HEAD — срез M3.6b.7.2, дерево чистое.
-План: M3.6b.7.2 выполнен; следующий — аксессуары и поза point (M3.6b.7.3).
+Активная работа: `feat/m3-animated-factory`; HEAD — срез M3.6b.7.3, дерево чистое.
+План: M3.6b.7.3 выполнен; следующий — semantic layer и части персонажа (M3.6b.7.4).
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-15, после M3.6b.7.2): contracts 182, providers 40, assets 88,
-  render-worker 122, worker 158, web 142, api 74, db 21, storage 9.
-- `character-recipes.json`: 3 сцены (hook-hero/ghost-question, fact-object/stage, cta/prop),
-  1080×1920/30, h264; кадры — `apps/render-worker/out/m3-6b-7/recipes/frames/`.
+- `pnpm check` — зелёный (2026-11-15, после M3.6b.7.3): contracts 185, providers 40, assets 88,
+  render-worker 124, worker 158, web 142, api 74, db 21, storage 9.
+- Аксессуары (`glasses`, `scarf`, `hat`) и поза `point`: golden-сигнатура без аксессуаров не
+  изменилась (10/10), кадры — `apps/render-worker/out/m3-6b-7/accessories/frames/`.
+- `character-accessories.json`: 3 сцены, 1080×1920/30, h264; шляпа+очки+point, шарф+wave.
 - Слот `character` валидируется как остальные: дефолты, `invalid_value`, отсутствие слота —
   сцена валидна; слой пропускается.
 - `VISUALS_SOURCE=deepseek-svg` через веб-стадию: 5 episode-прогонов, 2 generated subject
@@ -30,11 +31,13 @@
 
 ## Где идёт работа
 
-- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6b.9, M3.6b.7.2, episode-слой
-  (PR #5).
+- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6b.9, M3.6b.7.2–7.3,
+  episode-слой (PR #5).
 
 ## Готово
 
+- M3.6b.7.3: аксессуары `glasses`/`scarf`/`hat` и поза `point`; геометрия в blueprint,
+  z-порядок через базовые части, цвета из params, правила в промпте директора.
 - M3.6b.7.2: слот рецепта `character` (preset/emotion/pose/anchor), слой в hook-hero,
   fact-object и cta, рендер тем же `CharacterSvg`, правила эмоций в промпте директора.
 - M3.6b.9: `VISUALS_SOURCE` (`pixabay` по умолчанию), resolver + DeepSeek SVG в `episode_plan`,
@@ -55,9 +58,9 @@
 
 ## Следующий шаг
 
-1. `docs/workspace/plans/2026-11-14-m3-6b-7-3-accessories-session.md` (план ещё не создан):
-   аксессуары (`glasses`, `scarf`, `hat`) и поза `point`; z-зоны blueprint уже готовы.
-2. Дальше: semantic layer/части (7.4), identity (7.5).
+1. M3.6b.7.4 (план ещё не создан): semantic layer и части персонажа — visual-plan сущностей →
+   детерминированный contract builder по `CharacterBlueprint` → генерация частей → композиция.
+2. Дальше: identity (7.5).
 3. Галерея ассетов и регенерация одного слота — отдельный веб-срез.
 
 ## Открытые решения и блокеры
@@ -70,6 +73,8 @@
 - Один персонаж на сцену; диалог двух — отдельный контракт `characters[]`.
 - В рецепте позицию и размер задаёт layout слоя; `anchor` в слоте принимается ради
   совместимости с `cartoon-character`, но рецепт его не использует.
+- Цвета аксессуаров: шляпа — `accent`, шарф и оправа — `ink` (акцентный шарф сливается с торсом);
+  дубликаты аксессуаров отвергаются схемой.
 - Животные — `standalone_character`, не трансформация базы.
 - Vision-QC персонажа — после пилота генерации частей.
 - ElevenLabs: квота исчерпана — episode-прогоны на `--tts google` до пополнения.
