@@ -3,8 +3,19 @@ import { Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import type { EpisodeVisual, StoryboardScene } from '@peertoreel/contracts';
-import { scenePartLabel, sceneRecipeLabel } from '../../data-access/episode-preview';
+import type {
+  EpisodeSubjectDecision,
+  EpisodeVisual,
+  StoryboardScene,
+} from '@peertoreel/contracts';
+import {
+  assetTierLabel,
+  diagnosticCodes,
+  formatCostUsd,
+  scenePartLabel,
+  sceneRecipeLabel,
+  visualSourceLabel,
+} from '../../data-access/episode-preview';
 import { EpisodeStore } from '../../data-access/episode-store.service';
 
 /**
@@ -36,11 +47,30 @@ export class EpisodePreviewComponent {
 
     return byScene;
   });
+  protected readonly decisions = computed(() => {
+    const byScene = new Map<string, EpisodeSubjectDecision[]>();
+
+    for (const decision of this.store.storyboard()?.visuals.subjects ?? []) {
+      const decisions = byScene.get(decision.sceneId) ?? [];
+      decisions.push(decision);
+      byScene.set(decision.sceneId, decisions);
+    }
+
+    return byScene;
+  });
 
   protected readonly partLabel = scenePartLabel;
   protected readonly recipeLabel = sceneRecipeLabel;
+  protected readonly sourceLabel = visualSourceLabel;
+  protected readonly tierLabel = assetTierLabel;
+  protected readonly costLabel = formatCostUsd;
+  protected readonly codes = diagnosticCodes;
 
   protected imagesForScene(sceneId: string): EpisodeVisual[] {
     return this.images().get(sceneId) ?? [];
+  }
+
+  protected decisionsForScene(sceneId: string): EpisodeSubjectDecision[] {
+    return this.decisions().get(sceneId) ?? [];
   }
 }

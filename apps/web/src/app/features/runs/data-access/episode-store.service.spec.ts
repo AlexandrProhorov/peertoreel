@@ -15,10 +15,14 @@ const otherRunId = '22222222-2222-4222-8222-222222222222';
 const response: RunStoryboardResponse = {
   storyboard: storyboardFixture15Deg,
   visuals: {
+    source: 'pixabay',
     images: [],
+    subjects: [],
     providerRequests: 2,
     cacheHits: 1,
     skipped: 3,
+    costUsd: 0,
+    providerDisabledByBudget: false,
   },
   manifest: {
     kind: 'm3.5.1-episode',

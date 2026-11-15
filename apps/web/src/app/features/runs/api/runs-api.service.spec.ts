@@ -241,10 +241,14 @@ describe('RunsApiService', () => {
     const response = {
       storyboard: storyboardFixture15Deg,
       visuals: {
+        source: 'pixabay',
         images: [],
+        subjects: [],
         providerRequests: 2,
         cacheHits: 1,
         skipped: 3,
+        costUsd: 0,
+        providerDisabledByBudget: false,
       },
       manifest: {
         kind: 'm3.5.1-episode',

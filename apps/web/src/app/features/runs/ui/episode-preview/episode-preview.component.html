@@ -10,8 +10,12 @@
         @if (store.storyboard(); as preview) {
           <p class="episode__hint">
             {{ preview.storyboard.scenes.length }} сцен ·
-            {{ preview.visuals.images.length }} картинок Pixabay ·
+            {{ preview.visuals.images.length }} изображений ·
+            источник: {{ sourceLabel(preview.visuals.source) }} ·
             Tier 0: {{ preview.visuals.skipped }}
+            @if (preview.visuals.costUsd !== null) {
+              · {{ costLabel(preview.visuals.costUsd) }}
+            }
           </p>
         }
       </div>
@@ -61,7 +65,23 @@
 
               @if (imagesForScene(scene.id)[0]; as image) {
                 <p class="episode__hint">
-                  Pixabay · {{ image.author }} · запрос «{{ image.query }}»
+                  {{ sourceLabel(image.source) }} ·
+                  @if (image.author !== null) {
+                    {{ image.author }} ·
+                  }
+                  @if (image.query !== null) {
+                    запрос «{{ image.query }}»
+                  }
+                </p>
+              }
+
+              @for (decision of decisionsForScene(scene.id); track decision.reference) {
+                <p class="episode__hint">
+                  {{ sourceLabel(decision.source) }} · {{ tierLabel(decision.tier) }} ·
+                  {{ costLabel(decision.costUsd) }}
+                  @if (decision.diagnostics.length > 0) {
+                    · {{ codes(decision.diagnostics) }}
+                  }
                 </p>
               }
             </div>
