@@ -1,6 +1,6 @@
 # Приёмка визуальных срезов M3.6
 
-Обновлено: 2026-11-14 · ветка `feat/m3-animated-factory`.
+Обновлено: 2026-11-15 · ветка `feat/m3-animated-factory`.
 Три ручных прогона ниже отвечают на вопрос «срез работает end-to-end», а не заменяют
 юнит-тесты. `Not verified` означает, что проверку не запускали, — это не «зелёный».
 
@@ -72,8 +72,48 @@ ffmpeg -y -i out/m3-6b-8/scene-0.mp4 -vf "select='eq(n,0)'" -vframes 1 out/m3-6b
 Что смотреть глазами: рот совпадает с лицом (исторически он не следует за дыханием — так
 принято в 7.1), брови симметричны, кисти не выходят за холст.
 
-## Гигиена хранилища
+## 4. deepseek-svg через веб-стадию (M3.6b.9)
 
+Источник по умолчанию — `pixabay`. DeepSeek включается одной переменной окружения
+воркера; веб-ключи не видит.
+
+```bash
+$env:VISUALS_SOURCE='deepseek-svg'; $env:ASSET_LLM_MAX_USD_PER_RUN='0.25'
+pnpm --filter @peertoreel/worker dev          # процесс 1
+pnpm --filter @peertoreel/api dev             # процесс 2
+
+# логин → создать episode-run → запустить стадию → дождаться SCRIPT_READY
+POST /api/v1/auth/login            {"email": "...", "password": "..."}
+POST /api/v1/runs                  {"topic": "Почему небо голубое", "mode": "episode"}
+POST /api/v1/runs/<id>/stages/episode_plan
+GET  /api/v1/runs/<id>/storyboard
+```
+
+Ожидаемо:
+
+- `visuals.source = deepseek-svg`; у каждого subject есть `tier`, `costUsd` и коды
+  диагностик (`provider_generated`, `cache_hit`, `starter_hit`, `provider_failed`,
+  `provider_disabled_by_budget`);
+- `provider_usage`: `run_id` заполнен, `source = worker`, `operation = asset.svg.generate`,
+  стоимость = токены × тариф;
+- повтор темы или слота читает кэш: `providerRequests: 0`, `cacheHits > 0`, новых строк ledger нет;
+- starter-ключи остаются на Tier 0 и провайдера не вызывают;
+- провайдер недоступен/бюджет исчерпан → слот на Tier 0, run доходит до `SCRIPT_READY`.
+
+Результат приёмки 2026-11-15:
+
+- `Почему лёд скользкий` → 1 generated subject (`subject/dog-nose`), $0.006706, 2 строки ledger
+  (успех после корректирующего retry);
+- `Почему небо голубое` → `subject/dog-snout`, $0.001758, 1 строка ledger;
+- `Почему Wi-Fi не проходит через стены`, «микроволновка», «закладывает уши» → кэш:
+  `providerRequests 0`, `cacheHits 1`, новых строк ledger нет;
+- суммарно за приёмку — 3 строки ledger, $0.008464; бюджет $0.25 не достигнут
+  (остановка по бюджету проверена юнит-тестом).
+
+Что смотреть глазами: силуэт фронтальный, без подписей и изогнутых перспектив; `dataUri` не
+превышает 2 МБ. Превью в браузере на этой приёмке не открывалось — `Not verified`.
+
+## Гигиена хранилища
 ```bash
 pnpm --filter @peertoreel/worker assets:prune            # dry-run, по умолчанию
 pnpm --filter @peertoreel/worker assets:prune -- --delete
