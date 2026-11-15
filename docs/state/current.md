@@ -2,14 +2,18 @@
 
 Обновлено: 2026-11-15 · Milestone: M3 (Animated Factory)
 База: `main` @ `c4e5b05`.
-Активная работа: `feat/m3-animated-factory`; HEAD — срез M3.6b.9, дерево чистое.
-План: M3.6b.9 выполнен; следующий — персонаж в рецептах (M3.6b.7.2).
+Активная работа: `feat/m3-animated-factory`; HEAD — срез M3.6b.7.2, дерево чистое.
+План: M3.6b.7.2 выполнен; следующий — аксессуары и поза point (M3.6b.7.3).
 Направление: DeepSeek SVG за портом `ImageProvider`; Recraft/FLUX parked.
 
 ## Проверки
 
-- `pnpm check` — зелёный (2026-11-15, после M3.6b.9): contracts 179, providers 40, assets 88,
-  render-worker 120, worker 158, web 142, api 74, db 21, storage 9.
+- `pnpm check` — зелёный (2026-11-15, после M3.6b.7.2): contracts 182, providers 40, assets 88,
+  render-worker 122, worker 158, web 142, api 74, db 21, storage 9.
+- `character-recipes.json`: 3 сцены (hook-hero/ghost-question, fact-object/stage, cta/prop),
+  1080×1920/30, h264; кадры — `apps/render-worker/out/m3-6b-7/recipes/frames/`.
+- Слот `character` валидируется как остальные: дефолты, `invalid_value`, отсутствие слота —
+  сцена валидна; слой пропускается.
 - `VISUALS_SOURCE=deepseek-svg` через веб-стадию: 5 episode-прогонов, 2 generated subject
   (`subject/dog-nose`, `subject/dog-snout`), 3 строки `provider_usage` (`run_id`, `source=worker`),
   $0.008464; три прогона — кэш (`providerRequests 0`, новых строк нет).
@@ -26,10 +30,13 @@
 
 ## Где идёт работа
 
-- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6b.9, episode-слой (PR #5).
+- `feat/m3-animated-factory` — вся функциональность M3: M3.3–M3.6b.9, M3.6b.7.2, episode-слой
+  (PR #5).
 
 ## Готово
 
+- M3.6b.7.2: слот рецепта `character` (preset/emotion/pose/anchor), слой в hook-hero,
+  fact-object и cta, рендер тем же `CharacterSvg`, правила эмоций в промпте директора.
 - M3.6b.9: `VISUALS_SOURCE` (`pixabay` по умолчанию), resolver + DeepSeek SVG в `episode_plan`,
   persist в библиотеку, ledger с `run_id`, лимит на прогон, деградация слотов в Tier 0,
   решения по каждому subject (`subjects[]`) и UI-статусы; Pixabay-путь сохранён.
@@ -48,10 +55,9 @@
 
 ## Следующий шаг
 
-1. `docs/workspace/plans/2026-11-14-m3-6b-7-2-character-in-recipes-session.md`: персонаж как слой
-   рецепта и выбор эмоции директором.
-2. Дальше: аксессуары как контракт (7.3, z-зоны blueprint), semantic layer/части (7.4),
-   identity (7.5).
+1. `docs/workspace/plans/2026-11-14-m3-6b-7-3-accessories-session.md` (план ещё не создан):
+   аксессуары (`glasses`, `scarf`, `hat`) и поза `point`; z-зоны blueprint уже готовы.
+2. Дальше: semantic layer/части (7.4), identity (7.5).
 3. Галерея ассетов и регенерация одного слота — отдельный веб-срез.
 
 ## Открытые решения и блокеры
@@ -61,6 +67,9 @@
 - Стоимость в UI — только USD; рублёвая оценка запрещена (нет фиксированного курса).
 - Повтор стадии с кэшем — успех без вызова провайдера; force-перегенерация не входит.
 - Персонаж MVP — только фронтальный вид; профиль/три четверти — отдельный срез.
+- Один персонаж на сцену; диалог двух — отдельный контракт `characters[]`.
+- В рецепте позицию и размер задаёт layout слоя; `anchor` в слоте принимается ради
+  совместимости с `cartoon-character`, но рецепт его не использует.
 - Животные — `standalone_character`, не трансформация базы.
 - Vision-QC персонажа — после пилота генерации частей.
 - ElevenLabs: квота исчерпана — episode-прогоны на `--tts google` до пополнения.

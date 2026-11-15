@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-15 | M3.6b.7.2: персонаж как слой рецепта и эмоции директора | [2026-11-15-02](docs/sessions/2026-11/2026-11-15-02-m3-6b-7-2-character-in-recipes.md) |
 | 2026-11-15 | M3.6b.9: DeepSeek SVG в `episode_plan` через веб-стадию | [2026-11-15-01](docs/sessions/2026-11/2026-11-15-01-m3-6b-9-web-deepseek-visuals.md) |
 | 2026-11-14 | M3.6b.8: freeze — `CharacterBlueprint`, acceptance, prune | [2026-11-14-05](docs/sessions/2026-11/2026-11-14-05-m3-6b-8-freeze-blueprint-acceptance-prune.md) |
 | 2026-11-14 | Архитектура персонажа и планы веб-интеграции | [2026-11-14-04](docs/sessions/2026-11/2026-11-14-04-arhitektura-personazha-i-plany-veb-integratsii.md) |
