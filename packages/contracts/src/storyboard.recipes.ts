@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  CARTOON_CHARACTER_ANCHORS,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
+} from './character.js';
 import { jsonObjectSchema, type JsonObject, type JsonValue } from './json.js';
 import type { ComponentParamDiagnostic } from './storyboard.components.js';
 import type {
@@ -124,7 +129,13 @@ export function isStarterAssetKey(value: string): value is StarterAssetKey {
 // Slots
 // ---------------------------------------------------------------------------
 
-export const RECIPE_SLOT_KINDS = ['text', 'steps', 'subject', 'metric'] as const;
+export const RECIPE_SLOT_KINDS = [
+  'text',
+  'steps',
+  'subject',
+  'metric',
+  'character',
+] as const;
 export type RecipeSlotKind = (typeof RECIPE_SLOT_KINDS)[number];
 
 export interface RecipeStep {
@@ -209,11 +220,25 @@ export interface RecipeMetric {
   readonly fraction: number;
 }
 
+/**
+ * Presenter slot value (M3.6b.7.2). Reuses `cartoon-character` enums; the
+ * recipe places the layer, the director picks emotion and pose. `preset` is
+ * the only entry until the preset catalog lands (M3.6c).
+ */
+export const recipeCharacterSlotSchema = z.object({
+  preset: z.literal('host').default('host'),
+  emotion: z.enum(CARTOON_CHARACTER_EMOTIONS).default('neutral'),
+  pose: z.enum(CARTOON_CHARACTER_POSES).default('idle'),
+  anchor: z.enum(CARTOON_CHARACTER_ANCHORS).default('center'),
+});
+export type RecipeCharacter = z.infer<typeof recipeCharacterSlotSchema>;
+
 export type RecipeSlotValue =
   | string
   | readonly RecipeStep[]
   | RecipeSubject
   | RecipeMetric
+  | RecipeCharacter
   | null;
 
 export type RecipeSlots = Readonly<Record<string, RecipeSlotValue>>;
@@ -243,7 +268,8 @@ type RecipeSlotSchema =
   | typeof recipeTextSlotSchema
   | typeof recipeStepsSlotSchema
   | typeof recipeSubjectSlotSchema
-  | typeof recipeMetricSlotSchema;
+  | typeof recipeMetricSlotSchema
+  | typeof recipeCharacterSlotSchema;
 
 export interface RecipeSlotSpec {
   readonly name: string;
@@ -403,6 +429,17 @@ function metricSlot(name: string): RecipeSlotSpec {
   };
 }
 
+/** Optional presenter slot: absent means the scene renders without a host. */
+function characterSlot(name: string): RecipeSlotSpec {
+  return {
+    name,
+    kind: 'character',
+    required: false,
+    defaultValue: null,
+    schema: recipeCharacterSlotSchema,
+  };
+}
+
 function textLayer(
   id: string,
   slot: string,
@@ -512,6 +549,31 @@ function chartLayer(
   };
 }
 
+/**
+ * Presenter layer bound to a `character` slot. `content` stays null: the
+ * presenter comes from the slot, not from a static preset name.
+ */
+function characterLayer(
+  id: string,
+  slot: string,
+  anchor: RecipeLayerAnchor,
+  size: RecipeLayerSize,
+  from = 0.12,
+  to = 1,
+): RecipeLayerTemplate {
+  return {
+    id,
+    kind: 'character',
+    slot,
+    content: null,
+    chart: null,
+    chartSlots: {},
+    layout: { anchor, size, tone: 'text' },
+    from,
+    to,
+  };
+}
+
 const HOOK_LAYERS: readonly RecipeLayerKind[] = [
   'text',
   'pill',
@@ -519,6 +581,7 @@ const HOOK_LAYERS: readonly RecipeLayerKind[] = [
   'subject',
   'particles',
   'light',
+  'character',
 ];
 const FACT_LAYERS: readonly RecipeLayerKind[] = [
   'text',
@@ -529,6 +592,7 @@ const FACT_LAYERS: readonly RecipeLayerKind[] = [
   'particles',
   'light',
   'overlay',
+  'character',
 ];
 const COMPARISON_LAYERS: readonly RecipeLayerKind[] = [
   'text',
@@ -553,6 +617,7 @@ const CTA_LAYERS: readonly RecipeLayerKind[] = [
   'particles',
   'light',
   'overlay',
+  'character',
 ];
 
 export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
@@ -561,12 +626,13 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
     purpose:
       'Open with a question or a promise: one dominant subject or headline that earns the next five seconds.',
     requiredSlots: ['title'],
-    optionalSlots: ['kicker', 'highlight', 'subject'],
+    optionalSlots: ['kicker', 'highlight', 'subject', 'character'],
     slotSpecs: [
       textSlot('title', true),
       textSlot('kicker', false),
       textSlot('highlight', false),
       subjectSlot('subject', false),
+      characterSlot('character'),
     ],
     allowedLayers: HOOK_LAYERS,
     variants: [
@@ -604,6 +670,7 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
         },
         cameraHint: { shot: 'medium', movement: 'zoom_in', speed: 0.12 },
         layers: [
+          characterLayer('host', 'character', 'bottom-left', 'md', 0.18),
           textLayer('question', 'title', 'upper-center', 'hero', 'text', 0.02),
           subjectLayer('hero', 'subject', 'bottom-right', 'lg', 0.22),
           chipLayer('kicker', 'kicker', 'top-left', 'accent'),
@@ -617,12 +684,13 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
     purpose:
       'Explain one concrete fact about one concrete object; the subject must be visible, the fact readable.',
     requiredSlots: ['subject', 'fact'],
-    optionalSlots: ['caption', 'metric'],
+    optionalSlots: ['caption', 'metric', 'character'],
     slotSpecs: [
       subjectSlot('subject', true),
       textSlot('fact', true),
       textSlot('caption', false),
       textSlot('metric', false),
+      characterSlot('character'),
     ],
     allowedLayers: FACT_LAYERS,
     variants: [
@@ -642,6 +710,7 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
         cameraHint: { shot: 'medium', movement: 'dolly', speed: 0.16 },
         layers: [
           subjectLayer('object', 'subject', 'center', 'hero', 0.08),
+          characterLayer('host', 'character', 'bottom-right', 'md', 0.2),
           pillLayer('fact', 'fact', 'bottom-center', 'lg', 'accent', 0.35),
           chipLayer('caption', 'caption', 'top-center'),
           textLayer('metric', 'metric', 'upper-center', 'lg', 'cold', 0.2),
@@ -814,11 +883,12 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
     purpose:
       'Close with one action: a short imperative, an optional subtitle and a single visual anchor.',
     requiredSlots: ['action'],
-    optionalSlots: ['subtitle', 'subject'],
+    optionalSlots: ['subtitle', 'subject', 'character'],
     slotSpecs: [
       textSlot('action', true),
       textSlot('subtitle', false),
       subjectSlot('subject', false),
+      characterSlot('character'),
     ],
     allowedLayers: CTA_LAYERS,
     variants: [
@@ -855,6 +925,7 @@ export const STORYBOARD_RECIPES: readonly StoryboardRecipe[] = [
         cameraHint: { shot: 'wide', movement: 'static', speed: 0 },
         layers: [
           subjectLayer('object', 'subject', 'center', 'hero', 0.08),
+          characterLayer('host', 'character', 'bottom-right', 'md', 0.18),
           pillLayer('action', 'action', 'bottom-center', 'lg', 'accent', 0.25),
           chipLayer('subtitle', 'subtitle', 'top-center', 'cold', 0.15),
         ],

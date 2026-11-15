@@ -6,6 +6,7 @@ import {
   parseRecipeSlots,
   type ComponentParamDiagnostic,
   type JsonObject,
+  type RecipeCharacter,
   type RecipeChartKind,
   type RecipeLayerKind,
   type RecipeLayerLayout,
@@ -30,6 +31,8 @@ export interface ResolvedRecipeLayer {
   readonly kind: RecipeLayerKind;
   /** Text content, local asset path, or a preset name for ambient layers. */
   readonly content: string | null;
+  /** Presenter bound to a `character` slot; null for every other layer. */
+  readonly character: RecipeCharacter | null;
   readonly chart: RecipeChartKind | null;
   readonly items: readonly ResolvedRecipeChartItem[];
   readonly layout: RecipeLayerLayout;
@@ -83,6 +86,18 @@ function isRecipeSubject(value: unknown): value is RecipeSubject {
     !Array.isArray(value) &&
     'assetKey' in value &&
     typeof value.assetKey === 'string'
+  );
+}
+
+function isRecipeCharacter(value: unknown): value is RecipeCharacter {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    'preset' in value &&
+    'emotion' in value &&
+    'pose' in value &&
+    'anchor' in value
   );
 }
 
@@ -178,14 +193,40 @@ function layerSubject(
   return value;
 }
 
+function layerCharacter(
+  recipeId: string,
+  layerId: string,
+  slots: RecipeSlots,
+  slot: string | null,
+): RecipeCharacter | null {
+  if (slot === null) {
+    return null;
+  }
+
+  const value = slotValue(recipeId, layerId, slots, slot);
+
+  if (value === null) {
+    return null;
+  }
+
+  if (!isRecipeCharacter(value)) {
+    throw new UnsupportedRecipeLayerError(
+      recipeId,
+      layerId,
+      `slot "${slot}" must be a character`,
+    );
+  }
+
+  return value;
+}
+
 function chartItems(
   recipeId: string,
   layerId: string,
   chart: RecipeChartKind | null,
   chartSlots: Readonly<Record<string, string>>,
   slots: RecipeSlots,
-): readonly ResolvedRecipeChartItem[] {
-  switch (chart) {
+): readonly ResolvedRecipeChartItem[] {  switch (chart) {
     case 'comparison-bars': {
       const items = ['left', 'right'].map((key) => {
         const value = slotValue(recipeId, layerId, slots, chartSlots[key]);
@@ -305,6 +346,7 @@ export function resolveRecipeScene(
           id: template.id,
           kind: template.kind,
           content,
+          character: null,
           chart: null,
           items: [],
           layout: template.layout,
@@ -334,6 +376,7 @@ export function resolveRecipeScene(
           content: isStarterAssetKey(subject.assetKey)
             ? STARTER_ASSET_CATALOG[subject.assetKey].path
             : subject.assetKey,
+          character: null,
           chart: null,
           items: [],
           layout: template.layout,
@@ -347,6 +390,7 @@ export function resolveRecipeScene(
           id: template.id,
           kind: template.kind,
           content: null,
+          character: null,
           chart: template.chart,
           items: chartItems(
             implementation.recipeId,
@@ -363,8 +407,7 @@ export function resolveRecipeScene(
       }
       case 'particles':
       case 'light':
-      case 'overlay':
-      case 'character': {
+      case 'overlay': {
         if (template.content === null) {
           throw new UnsupportedRecipeLayerError(
             implementation.recipeId,
@@ -377,6 +420,52 @@ export function resolveRecipeScene(
           id: template.id,
           kind: template.kind,
           content: template.content,
+          character: null,
+          chart: null,
+          items: [],
+          layout: template.layout,
+          from: template.from,
+          to: template.to,
+        });
+        break;
+      }
+      case 'character': {
+        // Slot-bound presenter first (M3.6b.7.2); a legacy static `content`
+        // preset (`car`) still renders when a catalog declares one.
+        const character =
+          template.slot === null
+            ? null
+            : layerCharacter(
+                implementation.recipeId,
+                template.id,
+                parsed.slots,
+                template.slot,
+              );
+
+        if (character === null) {
+          if (template.content === null) {
+            continue;
+          }
+
+          layers.push({
+            id: template.id,
+            kind: template.kind,
+            content: template.content,
+            character: null,
+            chart: null,
+            items: [],
+            layout: template.layout,
+            from: template.from,
+            to: template.to,
+          });
+          break;
+        }
+
+        layers.push({
+          id: template.id,
+          kind: template.kind,
+          content: null,
+          character,
           chart: null,
           items: [],
           layout: template.layout,

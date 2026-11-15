@@ -116,9 +116,14 @@ describe('recipe catalog', () => {
           }
 
           if (
-            ['particles', 'light', 'overlay', 'character'].includes(layer.kind)
+            ['particles', 'light', 'overlay'].includes(layer.kind)
           ) {
             expect(layer.content).not.toBeNull();
+          }
+
+          if (layer.kind === 'character') {
+            // Slot-bound presenter (M3.6b.7.2) or a legacy static preset name.
+            expect(layer.slot !== null || layer.content !== null).toBe(true);
           }
         }
       }
@@ -166,7 +171,53 @@ describe('recipe slot parsing', () => {
       kicker: 'НАУКА',
       highlight: null,
       subject: null,
+      character: null,
     });
+  });
+
+  it('fills character defaults and keeps the slot optional', () => {
+    const parsed = parseRecipeSlots('hook-hero', 'subject-lead', {
+      ...hookSlots,
+      character: {},
+    });
+
+    expect(parsed.diagnostics).toEqual([]);
+    expect(parsed.slots.character).toEqual({
+      preset: 'host',
+      emotion: 'neutral',
+      pose: 'idle',
+      anchor: 'center',
+    });
+  });
+
+  it('keeps an explicit character emotion and pose', () => {
+    const parsed = parseRecipeSlots('fact-object', 'stage', {
+      subject: { assetKey: 'water-drop' },
+      fact: 'ФАКТ',
+      character: { emotion: 'surprised', pose: 'wave' },
+    });
+
+    expect(parsed.slots.character).toMatchObject({
+      preset: 'host',
+      emotion: 'surprised',
+      pose: 'wave',
+    });
+  });
+
+  it('defaults an invalid character emotion and records invalid_value', () => {
+    const parsed = parseRecipeSlots('cta', 'prop', {
+      action: 'ПОДПИШИСЬ',
+      character: { emotion: 'ecstatic' },
+    });
+
+    expect(parsed.slots.character).toBeNull();
+    expect(parsed.diagnostics).toEqual([
+      {
+        path: 'character.emotion',
+        reason: 'invalid_value',
+        received: 'ecstatic',
+      },
+    ]);
   });
 
   it('throws a typed error for a missing required slot', () => {

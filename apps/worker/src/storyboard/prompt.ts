@@ -31,6 +31,8 @@ function slotShape(kind: RecipeSlotKind): string {
       return '{"label":"...","value":"...","fraction":0.0-1.0}';
     case 'steps':
       return '[{"label":"...","detail":"..."}] (2-4 шага)';
+    case 'character':
+      return '{"preset":"host","emotion":"neutral|happy|surprised|angry|sad","pose":"idle|wave","anchor":"left|center|right"}';
   }
 }
 
@@ -83,6 +85,9 @@ export function storyboardSystemPrompt(): string {
     '- recipeId, variant и slots бери только из каталога. Неизвестный стартовый ключ в fallbackIcon — ошибка.',
     '- Никаких выдуманных полей, путей и URL.',
     '- Для сравнений используй metric (fraction 0..1), для процессов — steps (2–4 шага).',
+    '- Персонаж: слот character необязателен и допустим только там, где он есть в каталоге; максимум один персонаж на сцену.',
+    '- Эмоцию выбирай по роли сцены: hook — surprised, cta — happy, объяснение — neutral/angry/sad по смыслу; не держи одну эмоцию дольше двух сцен подряд.',
+    '- Позу wave ставь только в приветствии или cta; в остальных сценах — idle.',
     '- Не проси нарисовать схему с подписями: подписи и числа рисует Remotion из слотов.',
     '- id сцены — уникальный латинский slug (например, "wet-nose-hook").',
   ].join('\n');

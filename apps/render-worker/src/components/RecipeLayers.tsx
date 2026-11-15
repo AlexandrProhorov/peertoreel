@@ -1,7 +1,10 @@
-import type {
-  RecipeLayerLayout,
-  StoryboardScene,
-  StoryboardStyle,
+import {
+  cartoonCharacterParamsSchema,
+  type RecipeCharacter,
+  type RecipeLayerLayout,
+  type RecipeLayerSize,
+  type StoryboardScene,
+  type StoryboardStyle,
 } from '@peertoreel/contracts';
 import {
   AbsoluteFill,
@@ -9,9 +12,11 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
+import { CHARACTER_VIEWBOX } from '../character.js';
 import type { ResolvedRecipeLayer, ResolvedSceneRecipe } from '../recipes.js';
 import { UnsupportedRecipeLayerError } from '../recipes.js';
 import type { InjectedAssetMap } from '../assets.js';
+import { CharacterSvg } from './CartoonCharacter.js';
 import { CharacterLayer, LightLayer, OverlayLayer, ParticlesLayer } from './layers/AmbientLayers.js';
 import { RecipeChartLayer } from './layers/ChartLayers.js';
 import { recipeRenderer } from './layers/layer-kind.js';
@@ -34,6 +39,49 @@ function subjectWidth(layout: RecipeLayerLayout): number {
     case 'hero':
       return 74;
   }
+}
+
+/** Presenter height as a fraction of the video height, by layer size. */
+const CHARACTER_HEIGHT: Readonly<Record<RecipeLayerSize, number>> = {
+  sm: 0.2,
+  md: 0.28,
+  lg: 0.36,
+  hero: 0.46,
+};
+
+/**
+ * Presenter inside a layout frame: size comes from the layer, emotion and pose
+ * from the slot, accent from the style palette. The slot's own `anchor` is
+ * accepted by the contract but placement belongs to the recipe layout.
+ */
+function RecipeCharacterView({
+  character,
+  size,
+  style,
+}: {
+  character: RecipeCharacter;
+  size: RecipeLayerSize;
+  style: StoryboardStyle;
+}) {
+  const { height } = useVideoConfig();
+  const params = cartoonCharacterParamsSchema.parse({
+    preset: character.preset,
+    emotion: character.emotion,
+    pose: character.pose,
+    anchor: character.anchor,
+    accent: style.palette.accent,
+  });
+
+  return (
+    <div
+      style={{
+        height: Math.round(height * CHARACTER_HEIGHT[size]),
+        aspectRatio: `${CHARACTER_VIEWBOX.width} / ${CHARACTER_VIEWBOX.height}`,
+      }}
+    >
+      <CharacterSvg params={params} />
+    </div>
+  );
 }
 
 function RecipeLayerView({
@@ -132,14 +180,26 @@ function RecipeLayerView({
         </AbsoluteFill>
       );
     case 'character':
+      if (layer.character === null) {
+        return (
+          <AbsoluteFill style={{ opacity, pointerEvents: 'none' }}>
+            <CharacterLayer
+              content={layer.content ?? 'car'}
+              seconds={seconds}
+              style={style}
+            />
+          </AbsoluteFill>
+        );
+      }
+
       return (
-        <AbsoluteFill style={{ opacity, pointerEvents: 'none' }}>
-          <CharacterLayer
-            content={layer.content ?? 'car'}
-            seconds={seconds}
+        <RecipeLayerFrame layout={layer.layout} opacity={opacity}>
+          <RecipeCharacterView
+            character={layer.character}
+            size={layer.layout.size}
             style={style}
           />
-        </AbsoluteFill>
+        </RecipeLayerFrame>
       );
     default:
       throw new UnsupportedRecipeLayerError(

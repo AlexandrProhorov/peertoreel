@@ -154,6 +154,53 @@ describe('recipe resolution', () => {
     expect(cta.recipe.layers).not.toEqual(hookA.recipe.layers);
   });
 
+  it('binds a character slot into a presenter layer and skips it when absent', () => {
+    const withHost = resolveRecipeScene(
+      implementation('hook-hero', 'ghost-question', {
+        title: 'ПОЧЕМУ НЕБО СИНЕЕ?',
+        character: { emotion: 'surprised', pose: 'wave' },
+      }),
+    );
+    const host = withHost.recipe.layers.find(
+      (layer) => layer.kind === 'character',
+    );
+    const withoutHost = resolveRecipeScene(
+      implementation('hook-hero', 'ghost-question', {
+        title: 'ПОЧЕМУ НЕБО СИНЕЕ?',
+      }),
+    );
+
+    expect(host).toMatchObject({
+      content: null,
+      character: {
+        preset: 'host',
+        emotion: 'surprised',
+        pose: 'wave',
+        anchor: 'center',
+      },
+    });
+    expect(withoutHost.recipe.layers.map((layer) => layer.kind)).not.toContain(
+      'character',
+    );
+    expect(withoutHost.recipe.layers.map((layer) => layer.id)).toEqual([
+      'question',
+    ]);
+  });
+
+  it('keeps the presenter above the flat background and below the text', () => {
+    const resolved = resolveRecipeScene(
+      implementation('fact-object', 'stage', {
+        fact: 'ФАКТ',
+        subject: { assetKey: 'water-drop' },
+        character: { emotion: 'happy' },
+      }),
+    );
+    const kinds = resolved.recipe.layers.map((layer) => layer.kind);
+
+    expect(kinds.indexOf('character')).toBeGreaterThan(kinds.indexOf('subject'));
+    expect(kinds.indexOf('character')).toBeLessThan(kinds.indexOf('pill'));
+  });
+
   it('throws typed errors for unknown recipes, variants and required slots', () => {
     expect(() =>
       resolveRecipeScene({

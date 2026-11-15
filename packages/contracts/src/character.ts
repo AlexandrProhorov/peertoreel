@@ -12,6 +12,21 @@
 
 export const CHARACTER_BLUEPRINT_VERSION = 'v1';
 
+/**
+ * Presenter contract enums. They live in this leaf module so both the
+ * component params (storyboard.components) and recipe slots can import them
+ * without a module cycle.
+ */
+export const CARTOON_CHARACTER_EMOTIONS = [
+  'neutral',
+  'happy',
+  'surprised',
+  'angry',
+  'sad',
+] as const;
+export const CARTOON_CHARACTER_POSES = ['idle', 'wave'] as const;
+export const CARTOON_CHARACTER_ANCHORS = ['left', 'center', 'right'] as const;
+
 export const CHARACTER_VIEWS = ['front'] as const;
 export type CharacterView = (typeof CHARACTER_VIEWS)[number];
 

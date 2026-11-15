@@ -1,4 +1,7 @@
 import {
+  CARTOON_CHARACTER_ANCHORS,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
   COMPONENT_PARAMS_SCHEMAS,
   RECIPE_CHART_KINDS,
   RECIPE_LAYER_ANCHORS,
@@ -51,10 +54,18 @@ const recipeChartItemSchema = z.object({
   fraction: z.number().nullable(),
 });
 
+const resolvedRecipeCharacterSchema = z.object({
+  preset: z.literal('host'),
+  emotion: z.enum(CARTOON_CHARACTER_EMOTIONS),
+  pose: z.enum(CARTOON_CHARACTER_POSES),
+  anchor: z.enum(CARTOON_CHARACTER_ANCHORS),
+});
+
 const resolvedRecipeLayerSchema = z.object({
   id: z.string(),
   kind: z.enum(RECIPE_LAYER_KINDS),
   content: z.string().nullable(),
+  character: resolvedRecipeCharacterSchema.nullable(),
   chart: z.enum(RECIPE_CHART_KINDS).nullable(),
   items: z.array(recipeChartItemSchema),
   layout: z.object({

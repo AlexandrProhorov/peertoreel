@@ -43,6 +43,9 @@ describe('storyboard director prompt', () => {
     expect(shapes.some((shape) => shape.includes('assetKey'))).toBe(true);
     expect(shapes.some((shape) => shape.includes('fraction'))).toBe(true);
     expect(shapes.some((shape) => shape.includes('label'))).toBe(true);
+    expect(
+      shapes.some((shape) => shape.includes('"emotion"') && shape.includes('"pose"')),
+    ).toBe(true);
   });
 
   it('lists every starter key with tags', () => {
@@ -72,5 +75,8 @@ describe('storyboard director prompt', () => {
     expect(prompt).toContain('subject/<');
     expect(prompt).toContain('fallbackIcon');
     expect(prompt).toContain('recipeId');
+    expect(prompt).toContain('character');
+    expect(prompt).toContain('surprised');
+    expect(prompt).toContain('максимум один персонаж');
   });
 });

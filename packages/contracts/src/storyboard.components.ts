@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  CARTOON_CHARACTER_ANCHORS,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
+} from './character.js';
 import type { JsonValue } from './json.js';
 import {
   STORYBOARD_COMPONENT_IDS,
@@ -72,15 +77,11 @@ export const ctaCardParamsSchema = z.object({
 });
 export type CtaCardParams = z.infer<typeof ctaCardParamsSchema>;
 
-export const CARTOON_CHARACTER_EMOTIONS = [
-  'neutral',
-  'happy',
-  'surprised',
-  'angry',
-  'sad',
-] as const;
-export const CARTOON_CHARACTER_POSES = ['idle', 'wave'] as const;
-export const CARTOON_CHARACTER_ANCHORS = ['left', 'center', 'right'] as const;
+export {
+  CARTOON_CHARACTER_ANCHORS,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
+} from './character.js';
 
 /**
  * Procedural presenter (M3.6b.7.1). Colours are params, not style lookups: a
