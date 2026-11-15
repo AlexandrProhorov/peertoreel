@@ -5,6 +5,7 @@ import {
   stageJobDataSchema,
   storyboardDraftSchema,
   type EpisodeManifest,
+  type EpisodeVisualsArtifact,
   type StageJobResult,
   type StockProvider,
 } from '@peertoreel/contracts';
@@ -28,15 +29,17 @@ import { findArtifactObjectKey } from '../stages/load-artifact.js';
 import { saveArtifact } from '../stages/save-artifact.js';
 import { loadRun, transitionRun } from '../stages/transition.js';
 import { collectEpisodeSubjects } from './subjects.js';
+import { resolveEpisodeSubjectAssets } from './subject-assets.js';
 import { fetchEpisodeVisuals } from './visuals.js';
 
 /**
  * DRAFT → SCRIPT_READY: DeepSeek director, Google TTS, real storyboard from
- * word timings, Pixabay images for subject slots. No render here: the human
- * reviews the script/scene text first.
+ * word timings, subject assets from the configured source (Pixabay by default,
+ * DeepSeek SVG behind `VISUALS_SOURCE`). No render here: the human reviews the
+ * script/scene text first.
  *
  * Idempotent: if the manifest and every artifact already exist for the same
- * topic, a retry only moves the run to SCRIPT_READY (no LLM/TTS/Pixabay call).
+ * topic, a retry only moves the run to SCRIPT_READY (no LLM/TTS/asset call).
  */
 
 const PLAN_ARTIFACT_TYPES = [
@@ -72,6 +75,18 @@ function requirePixabay(
   }
 
   return provider;
+}
+
+function requireAssetRuntime(
+  deps: StageDeps<WorkerEnv>,
+): NonNullable<StageDeps<WorkerEnv>['assets']> {
+  if (deps.assets === undefined) {
+    throw new UnrecoverableError(
+      'Библиотека ассетов не сконфигурирована — episode_plan не может сгенерировать subject',
+    );
+  }
+
+  return deps.assets;
 }
 
 async function readManifest(
@@ -150,7 +165,16 @@ export async function processEpisodePlanStage(
 
   const startedAt = Date.now();
   const deepseekKey = requireKey(deps.env.DEEPSEEK_API_KEY, 'DEEPSEEK_API_KEY');
-  const provider = requirePixabay(deps.env, deps.stockProvider);
+  // Fail fast when the selected source is not configured: a missing Pixabay
+  // key or asset runtime must not be discovered after paid LLM/TTS calls.
+  const pixabayProvider =
+    deps.env.VISUALS_SOURCE === 'pixabay'
+      ? requirePixabay(deps.env, deps.stockProvider)
+      : null;
+  const assetRuntime =
+    deps.env.VISUALS_SOURCE === 'deepseek-svg'
+      ? requireAssetRuntime(deps)
+      : null;
 
   await job.updateProgress(5);
 
@@ -209,10 +233,26 @@ export async function processEpisodePlanStage(
 
     await job.updateProgress(65);
 
-    // 4. Pixabay only for subject slots; everything else stays Tier 0.
+    // 4. Subject slots: the configured source. Pixabay keeps the old path;
+    // deepseek-svg resolves generated `subject/<slug>` and degrades to Tier 0.
     const subjects = collectEpisodeSubjects(storyboard);
     const visualsStartedAt = Date.now();
-    const visuals = await fetchEpisodeVisuals(subjects, provider, deps.logger);
+    let visuals: { artifact: EpisodeVisualsArtifact; queries: number };
+
+    if (pixabayProvider !== null) {
+      visuals = await fetchEpisodeVisuals(subjects, pixabayProvider, deps.logger);
+    } else if (assetRuntime !== null) {
+      visuals = await resolveEpisodeSubjectAssets({
+        subjects,
+        style: storyboard.style,
+        runtime: assetRuntime,
+        runId,
+        logger: deps.logger,
+      });
+    } else {
+      throw new UnrecoverableError('Источник визуалов не настроен');
+    }
+
     const visualsMs = Date.now() - visualsStartedAt;
 
     await job.updateProgress(80);
@@ -247,13 +287,13 @@ export async function processEpisodePlanStage(
         costUsd: 0,
       },
       stock: {
-        provider: 'pixabay',
+        provider: visuals.artifact.source,
         queries: visuals.queries,
         providerRequests: visuals.artifact.providerRequests,
         cacheHits: visuals.artifact.cacheHits,
         images: visuals.artifact.images.length,
         skipped: visuals.artifact.skipped,
-        costUsd: 0,
+        costUsd: visuals.artifact.costUsd,
       },
     });
 

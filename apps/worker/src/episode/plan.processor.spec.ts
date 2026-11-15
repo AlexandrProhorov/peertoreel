@@ -12,6 +12,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Logger } from 'pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { WorkerAssetRuntime } from '../assets/runtime.js';
 import type { WorkerEnv } from '../config/env.js';
 import { generateJson } from '../llm/deepseek.js';
 import { buildKaraokeAss } from '../media/karaoke.js';
@@ -21,6 +22,7 @@ import { findArtifactObjectKey } from '../stages/load-artifact.js';
 import { saveArtifact } from '../stages/save-artifact.js';
 import { loadRun, transitionRun } from '../stages/transition.js';
 import { processEpisodePlanStage } from './plan.processor.js';
+import { resolveEpisodeSubjectAssets } from './subject-assets.js';
 import { collectEpisodeSubjects } from './subjects.js';
 import { fetchEpisodeVisuals } from './visuals.js';
 
@@ -61,6 +63,10 @@ vi.mock('./subjects.js', () => ({
 
 vi.mock('./visuals.js', () => ({
   fetchEpisodeVisuals: vi.fn(),
+}));
+
+vi.mock('./subject-assets.js', () => ({
+  resolveEpisodeSubjectAssets: vi.fn(),
 }));
 
 const runId = '11111111-1111-4111-8111-111111111111';
@@ -138,6 +144,7 @@ function setup(options: {
   pixabayKey?: string;
   completePlan?: boolean;
   previousTopic?: string;
+  visualsSource?: 'pixabay' | 'deepseek-svg';
 } = {}) {
   const storage = {
     putObject: vi.fn().mockResolvedValue(undefined),
@@ -161,11 +168,24 @@ function setup(options: {
         'pixabayKey' in options ? options.pixabayKey : 'pixabay-key',
       LLM_BASE_URL: 'https://api.deepseek.com',
       LLM_MODEL: 'deepseek-flash',
+      VISUALS_SOURCE: options.visualsSource ?? 'pixabay',
       FFMPEG_BIN: 'ffmpeg',
       FFPROBE_BIN: 'ffprobe',
     } as unknown as WorkerEnv,
     logger: fakeLogger(),
     stockProvider: { search: vi.fn(), download: vi.fn() } as unknown as StockProvider,
+    assets:
+      options.visualsSource === 'deepseek-svg'
+        ? ({
+            source: 'deepseek-svg',
+            service: {},
+            repository: {},
+            blobStore: {},
+            maxUsdPerRun: 0.25,
+            createProvider: () => null,
+            unavailableReason: null,
+          } as unknown as WorkerAssetRuntime)
+        : undefined,
   };
 
   vi.mocked(loadRun).mockResolvedValue({
@@ -218,10 +238,27 @@ function setup(options: {
   vi.mocked(fetchEpisodeVisuals).mockResolvedValue({
     queries: 1,
     artifact: {
+      source: 'pixabay',
       images: [],
+      subjects: [],
       providerRequests: 2,
       cacheHits: 0,
       skipped: 0,
+      costUsd: 0,
+      providerDisabledByBudget: false,
+    },
+  });
+  vi.mocked(resolveEpisodeSubjectAssets).mockResolvedValue({
+    queries: 1,
+    artifact: {
+      source: 'deepseek-svg',
+      images: [],
+      subjects: [],
+      providerRequests: 1,
+      cacheHits: 0,
+      skipped: 0,
+      costUsd: 0.00135,
+      providerDisabledByBudget: false,
     },
   });
   vi.mocked(buildKaraokeAss).mockReturnValue('ass');
@@ -311,8 +348,39 @@ describe('processEpisodePlanStage', () => {
     expect(stored.topic).toBe(topic);
   });
 
-  it('reuses a complete plan instead of paying for LLM, TTS and Pixabay twice', async () => {
-    const { deps, storage } = setup({
+  it('uses the resolver source when VISUALS_SOURCE=deepseek-svg', async () => {
+    const { deps, storage } = setup({ visualsSource: 'deepseek-svg' });
+
+    await processEpisodePlanStage(fakeJob(), deps);
+
+    expect(fetchEpisodeVisuals).not.toHaveBeenCalled();
+    expect(resolveEpisodeSubjectAssets).toHaveBeenCalledWith(
+      expect.objectContaining({ runId, subjects: [] }),
+    );
+
+    const manifestCall = storage.putObject.mock.calls.find(([key]) =>
+      String(key).endsWith('/manifest.json'),
+    );
+    const stored = episodeManifestSchema.parse(
+      JSON.parse(
+        Buffer.from(manifestCall?.[1] as Uint8Array).toString('utf8'),
+      ),
+    );
+
+    expect(stored.stock.provider).toBe('deepseek-svg');
+    expect(stored.stock.providerRequests).toBe(1);
+    expect(stored.stock.costUsd).toBe(0.00135);
+  });
+
+  it('does not require a Pixabay key when the source is deepseek-svg', async () => {
+    const { deps } = setup({ visualsSource: 'deepseek-svg', pixabayKey: undefined });
+
+    await expect(processEpisodePlanStage(fakeJob(), deps)).resolves.toMatchObject({
+      state: 'SCRIPT_READY',
+    });
+  });
+
+  it('reuses a complete plan instead of paying for LLM, TTS and Pixabay twice', async () => {    const { deps, storage } = setup({
       completePlan: true,
       state: 'DRAFT',
     });

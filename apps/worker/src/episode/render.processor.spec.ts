@@ -53,11 +53,14 @@ const runId = '11111111-1111-4111-8111-111111111111';
 const manifestKey = `runs/${runId}/episode_plan/manifest.json`;
 
 const visuals: EpisodeVisualsArtifact = {
+  source: 'pixabay',
   images: [
     {
       sceneId: 'scene-1',
       sceneIdx: 0,
       reference: 'assets/starter/dog-snout.svg',
+      source: 'pixabay',
+      tier: 'provider',
       provider: 'pixabay',
       providerAssetId: '42',
       pageUrl: 'https://pixabay.com/photos/dog-42/',
@@ -71,11 +74,17 @@ const visuals: EpisodeVisualsArtifact = {
       height: 1920,
       bytes: 3,
       dataUri: 'data:image/jpeg;base64,AAAA',
+      costUsd: 0,
+      diagnostics: [],
+      prompt: null,
     },
   ],
+  subjects: [],
   providerRequests: 2,
   cacheHits: 0,
   skipped: 0,
+  costUsd: 0,
+  providerDisabledByBudget: false,
 };
 
 const manifest: EpisodeManifest = {

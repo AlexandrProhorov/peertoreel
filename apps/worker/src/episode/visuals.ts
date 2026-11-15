@@ -3,6 +3,7 @@ import {
   EPISODE_STOCK_LICENSE,
   episodeVisualSchema,
   episodeVisualsArtifactSchema,
+  type EpisodeSubjectDecision,
   type EpisodeVisual,
   type EpisodeVisualsArtifact,
   type StockProvider,
@@ -115,6 +116,8 @@ async function imageForSubject(
       cacheHits,
       visual: {
         reference: subject.reference,
+        source: 'pixabay',
+        tier: 'provider',
         provider: 'pixabay',
         providerAssetId: asset.providerAssetId,
         pageUrl: asset.pageUrl,
@@ -128,6 +131,16 @@ async function imageForSubject(
         height: asset.height,
         bytes: downloaded.body.byteLength,
         dataUri,
+        // Pixabay is free: 0 is a measured price, not an estimate.
+        costUsd: 0,
+        diagnostics: [
+          {
+            code: 'provider_generated',
+            message: 'Изображение получено из Pixabay',
+            assetKey: subject.reference,
+          },
+        ],
+        prompt: null,
       },
     };
   }
@@ -167,12 +180,30 @@ export async function fetchEpisodeVisuals(
   }
 
   const images: EpisodeVisual[] = [];
+  const decisions: EpisodeSubjectDecision[] = [];
 
   for (const subject of subjects) {
     const visual = byReference.get(subject.reference) ?? null;
 
     if (visual === null) {
       skipped += 1;
+      decisions.push({
+        sceneId: subject.sceneId,
+        sceneIdx: subject.sceneIdx,
+        reference: subject.reference,
+        source: 'tier0',
+        tier: 'starter',
+        provider: null,
+        costUsd: 0,
+        prompt: null,
+        diagnostics: [
+          {
+            code: 'provider_skipped',
+            message: 'Pixabay не дал изображение; остаётся стартовый ассет',
+            assetKey: subject.reference,
+          },
+        ],
+      });
       continue;
     }
 
@@ -183,15 +214,30 @@ export async function fetchEpisodeVisuals(
         sceneIdx: subject.sceneIdx,
       }),
     );
+    decisions.push({
+      sceneId: subject.sceneId,
+      sceneIdx: subject.sceneIdx,
+      reference: subject.reference,
+      source: 'pixabay',
+      tier: visual.tier,
+      provider: 'pixabay',
+      costUsd: visual.costUsd,
+      prompt: null,
+      diagnostics: visual.diagnostics,
+    });
   }
 
   return {
     queries,
     artifact: episodeVisualsArtifactSchema.parse({
+      source: 'pixabay',
       images,
+      subjects: decisions,
       providerRequests,
       cacheHits,
       skipped,
+      costUsd: 0,
+      providerDisabledByBudget: false,
     }),
   };
 }

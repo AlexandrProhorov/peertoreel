@@ -25,6 +25,9 @@ const subjects: EpisodeSubject[] = [
     sceneId: 'hook',
     sceneIdx: 0,
     reference: 'assets/starter/dog-snout.svg',
+    generated: false,
+    prompt: null,
+    fallbackKey: null,
     queries: [
       { query: 'animal dog nose', lang: undefined },
       { query: 'Собака крупным планом', lang: 'ru' },
@@ -34,6 +37,9 @@ const subjects: EpisodeSubject[] = [
     sceneId: 'fact',
     sceneIdx: 1,
     reference: 'assets/starter/dog-snout.svg',
+    generated: false,
+    prompt: null,
+    fallbackKey: null,
     queries: [
       { query: 'animal dog nose', lang: undefined },
       { query: 'Собака крупным планом', lang: 'ru' },
@@ -43,6 +49,9 @@ const subjects: EpisodeSubject[] = [
     sceneId: 'cta',
     sceneIdx: 2,
     reference: 'assets/starter/unknown.svg',
+    generated: false,
+    prompt: null,
+    fallbackKey: null,
     queries: [{ query: 'unknown thing', lang: 'ru' }],
   },
 ];
@@ -108,6 +117,19 @@ describe('fetchEpisodeVisuals', () => {
     // Two searches + one download (the empty query downloads nothing).
     expect(result.artifact.providerRequests).toBe(3);
     expect(result.artifact.cacheHits).toBe(0);
+    expect(result.artifact.source).toBe('pixabay');
+    expect(result.artifact.costUsd).toBe(0);
+    expect(result.artifact.subjects).toHaveLength(3);
+    expect(result.artifact.subjects[2]).toMatchObject({
+      source: 'tier0',
+      tier: 'starter',
+      provider: null,
+    });
+    expect(result.artifact.subjects[0]).toMatchObject({
+      source: 'pixabay',
+      tier: 'provider',
+      costUsd: 0,
+    });
     expect(stock.download).toHaveBeenCalledTimes(1);
   });
 

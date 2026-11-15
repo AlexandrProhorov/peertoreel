@@ -18,6 +18,7 @@ import { eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { loadWorkerEnv, type WorkerEnv } from './config/env.js';
+import { createWorkerAssetRuntime } from './assets/runtime.js';
 import { processEpisodePlanStage } from './episode/plan.processor.js';
 import { processEpisodeRenderStage } from './episode/render.processor.js';
 import { processPing } from './processors/ping.processor.js';
@@ -125,6 +126,7 @@ const deps: StageDeps<WorkerEnv> = {
   env,
   logger,
   stockProvider,
+  assets: createWorkerAssetRuntime(env, db, storage),
   tiktok: tiktokRuntime,
 };
 const connection = redisConnectionOptions(env.REDIS_URL);
@@ -361,6 +363,10 @@ logger.info(
     pingJob: PING_JOB,
     concurrency: env.WORKER_CONCURRENCY,
     pixabay: stockProvider ? 'configured' : 'missing-key',
+    visualsSource: env.VISUALS_SOURCE,
+    assetProvider: deps.assets?.createProvider('00000000-0000-4000-8000-000000000000')
+      ? 'configured'
+      : (deps.assets?.unavailableReason ?? 'missing-runtime'),
   },
   'worker started',
 );

@@ -1,15 +1,18 @@
 import {
+  GENERATED_SUBJECT_KEY_PREFIX,
   STARTER_ASSET_CATALOG,
   STARTER_ASSET_KEYS,
   getStoryboardRecipe,
   isStarterAssetKey,
+  type StarterAssetKey,
   type Storyboard,
   type StoryboardScene,
 } from '@peertoreel/contracts';
 
 /**
- * Episode mode only replaces subject slots. Every other reference stays Tier 0
- * (starter SVG), so the renderer always has something to draw.
+ * Episode mode replaces subject slots. Pixabay mode turns every slot into a
+ * stock query; DeepSeek mode resolves only generated `subject/<slug>` slots and
+ * leaves the rest on Tier 0 (M3.6b.9).
  */
 export interface EpisodeSubjectQuery {
   query: string;
@@ -26,6 +29,12 @@ export interface EpisodeSubject {
    * image stops the list; an empty first query falls through to the second.
    */
   queries: readonly EpisodeSubjectQuery[];
+  /** True for a generated `subject/<slug>` slot, false for a starter asset. */
+  generated: boolean;
+  /** Declared provider prompt; null for starter slots or object references. */
+  prompt: string | null;
+  /** Declared Tier 0 icon; a failed generation falls back to it. */
+  fallbackKey: StarterAssetKey | null;
 }
 
 const KEY_BY_REFERENCE = new Map<string, string>(
@@ -61,12 +70,23 @@ export function queriesForReference(
   );
 }
 
-function subjectReferences(scene: StoryboardScene): string[] {
-  const references = new Set<string>();
+function subjectSlots(scene: StoryboardScene): {
+  reference: string;
+  prompt: string | null;
+  fallbackKey: StarterAssetKey | null;
+}[] {
+  const slots = new Map<
+    string,
+    {
+      reference: string;
+      prompt: string | null;
+      fallbackKey: StarterAssetKey | null;
+    }
+  >();
 
   if (scene.implementation.type === 'recipe') {
     const recipe = getStoryboardRecipe(scene.implementation.recipeId);
-    const slots = scene.implementation.slots as Readonly<
+    const values = scene.implementation.slots as Readonly<
       Record<string, unknown>
     >;
 
@@ -75,7 +95,7 @@ function subjectReferences(scene: StoryboardScene): string[] {
         continue;
       }
 
-      const value = slots[spec.name];
+      const value = values[spec.name];
 
       if (
         typeof value === 'object' &&
@@ -84,22 +104,43 @@ function subjectReferences(scene: StoryboardScene): string[] {
         typeof value.assetKey === 'string'
       ) {
         const assetKey = value.assetKey;
-        references.add(
-          isStarterAssetKey(assetKey)
-            ? STARTER_ASSET_CATALOG[assetKey].path
-            : assetKey,
-        );
+        const reference = isStarterAssetKey(assetKey)
+          ? STARTER_ASSET_CATALOG[assetKey].path
+          : assetKey;
+
+        // First wins: the same key declared twice must not flip the prompt.
+        if (!slots.has(reference)) {
+          slots.set(reference, {
+            reference,
+            prompt:
+              'prompt' in value && typeof value.prompt === 'string'
+                ? value.prompt
+                : null,
+            fallbackKey:
+              'fallbackIcon' in value &&
+              typeof value.fallbackIcon === 'string' &&
+              isStarterAssetKey(value.fallbackIcon)
+                ? value.fallbackIcon
+                : null,
+          });
+        }
       }
     }
   }
 
   for (const object of scene.objects) {
     if (object.kind === 'subject' && object.content !== null) {
-      references.add(object.content);
+      if (!slots.has(object.content)) {
+        slots.set(object.content, {
+          reference: object.content,
+          prompt: null,
+          fallbackKey: null,
+        });
+      }
     }
   }
 
-  return [...references];
+  return [...slots.values()];
 }
 
 /** All subject slots of a storyboard, deduplicated per scene. */
@@ -109,14 +150,22 @@ export function collectEpisodeSubjects(
   const subjects: EpisodeSubject[] = [];
 
   storyboard.scenes.forEach((scene, sceneIdx) => {
-    for (const reference of subjectReferences(scene)) {
-      const queries = queriesForReference(reference, scene.description);
+    for (const slot of subjectSlots(scene)) {
+      const queries = queriesForReference(slot.reference, scene.description);
 
       if (queries.length === 0) {
         continue;
       }
 
-      subjects.push({ sceneId: scene.id, sceneIdx, reference, queries });
+      subjects.push({
+        sceneId: scene.id,
+        sceneIdx,
+        reference: slot.reference,
+        queries,
+        generated: slot.reference.startsWith(GENERATED_SUBJECT_KEY_PREFIX),
+        prompt: slot.prompt,
+        fallbackKey: slot.fallbackKey,
+      });
     }
   });
 
