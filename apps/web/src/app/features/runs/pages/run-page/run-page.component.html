@@ -29,6 +29,10 @@
             {{ stateLabel(run.state) }}
           </span>
           <span>стадия: {{ stageLabel(run.currentStage) }}</span>
+          <span>
+            TTS:
+            {{ run.ttsProvider === 'google' ? 'Google' : 'ElevenLabs' }}
+          </span>
           <span>обновлён {{ run.updatedAt | date: 'dd.MM HH:mm:ss' }}</span>
         </p>
       </div>
@@ -70,10 +74,16 @@
             <mat-progress-bar
               mode="determinate"
               [value]="job.progress"
-              [attr.aria-label]="'Прогресс стадии: ' + job.progress + '%'"
+              [attr.aria-label]="progressAriaLabel(job)"
             />
             <div class="run__progress-meta">
               <span>{{ job.status }}</span>
+              @if (job.progressDetail?.unit; as unit) {
+                <span>Сцена {{ unit.index }} из {{ unit.total }}</span>
+              }
+              @if (job.progressDetail?.estimatedRemainingMs; as remaining) {
+                <span>{{ etaLabel(remaining) }}</span>
+              }
               <span>{{ job.progress }}%</span>
             </div>
           }

@@ -80,11 +80,37 @@ export const stageJobResultSchema = z.object({
 });
 export type StageJobResult = z.infer<typeof stageJobResultSchema>;
 
+export const stageJobUnitSchema = z.object({
+  /** What the unit is, e.g. `scene`. */
+  label: z.string().min(1).max(40),
+  /** 1-based unit currently in flight (or the last finished one). */
+  index: z.number().int().min(0),
+  total: z.number().int().min(1),
+});
+export type StageJobUnit = z.infer<typeof stageJobUnitSchema>;
+
+/**
+ * Structured progress for long stages (M3.6c). The raw percent stays for
+ * backward compatibility; the detail explains why a bar can sit at 65% for a
+ * minute: "scene 3 of 5, ~40 s left", not an unexplained freeze.
+ */
+export const stageJobProgressSchema = z.object({
+  percent: z.number().min(0).max(100),
+  /** Human-readable current step (`render`, `concat`, `tts`). */
+  phase: z.string().min(1).max(60).optional(),
+  unit: stageJobUnitSchema.optional(),
+  elapsedMs: z.number().int().nonnegative().optional(),
+  /** Null while there is not enough history to estimate. */
+  estimatedRemainingMs: z.number().int().nonnegative().nullable().optional(),
+});
+export type StageJobProgress = z.infer<typeof stageJobProgressSchema>;
+
 export const stageJobSnapshotSchema = z.object({
   jobId: z.string().min(1),
   stage: runStageSchema,
   status: z.enum(['queued', 'active', 'completed', 'failed']),
   progress: z.number().min(0).max(100),
+  progressDetail: stageJobProgressSchema.optional(),
   result: stageJobResultSchema.optional(),
   failedReason: z.string().optional(),
 });

@@ -169,6 +169,7 @@ function setup(options: {
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'Почему небо синее',
     mode: 'pipeline',
+    ttsProvider: 'elevenlabs',
     state: options.state ?? 'VOICE_READY',
     currentStage: 'voiceover',
     resumeState: null,

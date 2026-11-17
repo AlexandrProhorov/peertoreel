@@ -6,6 +6,9 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-17 | UI-demo: 10 устройств, контракты, quality-gate, fidelity-слой | [2026-11-17-01](docs/sessions/2026-11/2026-11-17-01-ui-demo-fidelity.md) |
+| 2026-11-15 | M3.6b.11: TTS как конфиг прогона (ElevenLabs/Google) | [2026-11-15-07](docs/sessions/2026-11/2026-11-15-07-m3-6b-11-tts-config.md) |
+| 2026-11-15 | M3.6b.10: честный прогресс рендера (сцены + ETA) и state guard script | [2026-11-15-06](docs/sessions/2026-11/2026-11-15-06-m3-6b-10-progress-eta.md) |
 | 2026-11-15 | M3.6b.7.4: semantic layer — план персонажа и роли | [2026-11-15-04](docs/sessions/2026-11/2026-11-15-04-m3-6b-7-4-semantic-layer.md) |
 | 2026-11-15 | M3.6b.7.3: аксессуары (`glasses`, `scarf`, `hat`) и поза `point` | [2026-11-15-03](docs/sessions/2026-11/2026-11-15-03-m3-6b-7-3-aksessuary-i-pose-point.md) |
 | 2026-11-15 | M3.6b.7.2: персонаж как слой рецепта и эмоции директора | [2026-11-15-02](docs/sessions/2026-11/2026-11-15-02-m3-6b-7-2-character-in-recipes.md) |

@@ -36,6 +36,21 @@
           </p>
         </div>
 
+        <mat-form-field appearance="outline">
+          <mat-label>Озвучка (TTS)</mat-label>
+          <mat-select formControlName="ttsProvider">
+            <mat-option value="elevenlabs">ElevenLabs — с таймингами слов</mat-option>
+            <mat-option value="google">Google TTS — бесплатно, тайминги приблизительные</mat-option>
+          </mat-select>
+          @if (form.controls.episode.value) {
+            <mat-hint>Эпизод всегда озвучивается Google TTS.</mat-hint>
+          } @else {
+            <mat-hint>
+              Если квота ElevenLabs кончилась, выберите Google и перезапустите voiceover.
+            </mat-hint>
+          }
+        </mat-form-field>
+
         <button
           mat-flat-button
           type="submit"

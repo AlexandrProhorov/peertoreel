@@ -13,6 +13,7 @@ const run: Run = {
   id: '11111111-1111-4111-8111-111111111111',
   topic: 'Почему небо синее',
   mode: 'pipeline',
+  ttsProvider: 'elevenlabs',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   failedStage: null,
@@ -104,6 +105,19 @@ describe('RunsApiService', () => {
     });
 
     request.flush({ ...run, mode: 'episode' });
+  });
+
+  it('sends an explicit TTS provider', () => {
+    api.create('Почему небо синее', 'pipeline', 'google').subscribe();
+
+    const request = http.expectOne('http://api.test/api/v1/runs');
+    expect(request.request.body).toEqual({
+      topic: 'Почему небо синее',
+      mode: 'pipeline',
+      ttsProvider: 'google',
+    });
+
+    request.flush({ ...run, ttsProvider: 'google' });
   });
 
   it('posts a transition with the reason', () => {

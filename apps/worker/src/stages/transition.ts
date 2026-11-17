@@ -5,6 +5,7 @@ import {
   type RunMode,
   type RunStage,
   type RunState,
+  type RunTtsProvider,
 } from '@peertoreel/contracts';
 import { eq } from 'drizzle-orm';
 
@@ -20,6 +21,7 @@ export interface RunSnapshot {
   createdBy: string;
   topic: string;
   mode: RunMode;
+  ttsProvider: RunTtsProvider;
   state: RunState;
   currentStage: RunStage | null;
   resumeState: RunState | null;
@@ -37,6 +39,7 @@ export async function loadRun(
       createdBy: runs.createdBy,
       topic: runs.topic,
       mode: runs.mode,
+      ttsProvider: runs.ttsProvider,
       state: runs.state,
       currentStage: runs.currentStage,
       resumeState: runs.resumeState,

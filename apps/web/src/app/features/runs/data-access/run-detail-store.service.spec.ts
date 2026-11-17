@@ -17,6 +17,7 @@ const run: Run = {
   id: '11111111-1111-4111-8111-111111111111',
   topic: 'Почему небо синее',
   mode: 'pipeline',
+  ttsProvider: 'elevenlabs',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   failedStage: null,
@@ -54,6 +55,7 @@ const reviewDetail: RunDetail = {
 const episodeDraftDetail: RunDetail = {
   ...run,
   mode: 'episode',
+  ttsProvider: 'elevenlabs',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   events: [],
@@ -61,6 +63,7 @@ const episodeDraftDetail: RunDetail = {
 const episodeRenderingDetail: RunDetail = {
   ...run,
   mode: 'episode',
+  ttsProvider: 'elevenlabs',
   state: 'RENDERING',
   currentStage: 'episode_render',
   events: [],

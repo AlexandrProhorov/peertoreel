@@ -26,6 +26,19 @@ export const RUN_MODES = ['pipeline', 'episode'] as const;
 export const runModeSchema = z.enum(RUN_MODES);
 export type RunMode = z.infer<typeof runModeSchema>;
 
+/**
+ * Voiceover provider per run (M3.6b.11). ElevenLabs is the default for the
+ * pipeline; Google is the free fallback and the only episode-mode provider.
+ * The choice is data: the worker never falls back silently.
+ */
+export const RUN_TTS_PROVIDERS = ['elevenlabs', 'google'] as const;
+export const runTtsProviderSchema = z.enum(RUN_TTS_PROVIDERS);
+export type RunTtsProvider = z.infer<typeof runTtsProviderSchema>;
+
+export function defaultTtsProviderFor(mode: RunMode): RunTtsProvider {
+  return mode === 'episode' ? 'google' : 'elevenlabs';
+}
+
 export const RUN_STATES = [
   'DRAFT',
   'RESEARCHING',
@@ -148,6 +161,7 @@ export const runSchema = z.object({
   id: z.uuid(),
   topic: z.string().min(1).max(300),
   mode: runModeSchema,
+  ttsProvider: runTtsProviderSchema,
   state: runStateSchema,
   currentStage: runStageSchema.nullable(),
   failedStage: runStageSchema.nullable(),
@@ -158,14 +172,30 @@ export const runSchema = z.object({
 });
 export type Run = z.infer<typeof runSchema>;
 
-export const createRunRequestSchema = z.object({
-  topic: z.string().min(1).max(300),
-  /**
-   * The API default keeps existing clients (topic only) on the pipeline path;
-   * episode mode must be requested explicitly.
-   */
-  mode: runModeSchema.default('pipeline'),
-});
+export const createRunRequestSchema = z
+  .object({
+    topic: z.string().min(1).max(300),
+    /**
+     * The API default keeps existing clients (topic only) on the pipeline path;
+     * episode mode must be requested explicitly.
+     */
+    mode: runModeSchema.default('pipeline'),
+    /**
+     * Omitted → `defaultTtsProviderFor(mode)`. Episode runs cannot pick
+     * ElevenLabs: the episode path has no aligned-timestamps adapter.
+     */
+    ttsProvider: runTtsProviderSchema.optional(),
+  })
+  .superRefine((request, ctx) => {
+    if (request.mode === 'episode' && request.ttsProvider === 'elevenlabs') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ttsProvider'],
+        message:
+          'Episode runs use google TTS; elevenlabs is not implemented for episode mode',
+      });
+    }
+  });
 export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
 /** Request body as the client sends it: `mode` may be omitted. */
 export type CreateRunRequestInput = z.input<typeof createRunRequestSchema>;

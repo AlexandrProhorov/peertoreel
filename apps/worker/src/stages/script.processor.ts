@@ -1,4 +1,6 @@
 import {
+  STAGE_PRODUCED_STATE,
+  STAGE_REQUIRED_STATE,
   scriptSchema,
   stageJobDataSchema,
   type StageJobResult,
@@ -20,9 +22,19 @@ export async function processScriptStage(
   const { runId } = stageJobDataSchema.parse(job.data);
   const run = await loadRun(deps.db, runId);
 
+  const required = STAGE_REQUIRED_STATE.script;
+  const produced = STAGE_PRODUCED_STATE.script;
+
   // Idempotency: a completed stage must not regenerate (and re-charge) on retry.
-  if (run.state === 'SCRIPT_READY') {
+  if (run.state === produced) {
     return { runId, stage: 'script', state: run.state, artifacts: [] };
+  }
+
+  // State guard: a stale or duplicated job must not write a second script.
+  if (run.state !== required) {
+    throw new Error(
+      `Стадия script ждёт ${required}, а run ${runId} в состоянии ${run.state}`,
+    );
   }
 
   const topic = await deps.db.query.runs.findFirst({

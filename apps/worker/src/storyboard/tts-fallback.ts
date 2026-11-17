@@ -5,13 +5,11 @@ import { probeMedia } from '../media/ffprobe.js';
 import { runFfmpeg } from '../media/ffmpeg.js';
 
 /**
- * Spike-only TTS fallback for M3.5 when the ElevenLabs quota is exhausted.
- * It is CLI-only: the production voiceover stage keeps using ElevenLabs.
- *
- * Google Translate TTS has no word alignment, so scene durations are exact
- * (one probe per scene) and word times are allocated proportionally to word
- * length inside each scene. Recipe layers do not depend on word times; ASS
- * karaoke uses them as a best-effort approximation.
+ * Free Google Translate TTS (M3.5). Used by the episode path and by the
+ * voiceover stage when the run selects `google`; it has no word alignment, so
+ * scene durations are exact (one probe per scene) and word times are allocated
+ * proportionally to word length inside each scene. Recipe layers do not depend
+ * on word times; ASS karaoke uses them as a best-effort approximation.
  */
 export const GOOGLE_TTS_PROVIDER = 'google-translate-spike' as const;
 

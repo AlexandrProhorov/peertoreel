@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router } from '@angular/router';
-import type { RunState, StageQueueName } from '@peertoreel/contracts';
+import type { RunState, StageJobSnapshot, StageQueueName } from '@peertoreel/contracts';
 import {
   artifactLabel,
   formatBytes,
@@ -130,6 +130,27 @@ export class RunPageComponent implements OnInit {
   protected readonly formatBytes = formatBytes;
   protected readonly isAudio = isAudio;
   protected readonly artifacts = computed(() => sortArtifacts(this.store.artifacts()));
+
+  /** "~40 с" for the remaining work; null when the server has no estimate yet. */
+  protected etaLabel(ms: number | null | undefined): string | null {
+    if (ms === null || ms === undefined) {
+      return null;
+    }
+
+    const seconds = Math.max(1, Math.round(ms / 1000));
+
+    return seconds < 60
+      ? `~${seconds} с`
+      : `~${Math.round(seconds / 60)} мин`;
+  }
+
+  protected progressAriaLabel(job: StageJobSnapshot): string {
+    const unit = job.progressDetail?.unit;
+
+    return unit === undefined
+      ? `Прогресс стадии: ${job.progress}%`
+      : `Прогресс стадии: ${job.progress}%, сцена ${unit.index} из ${unit.total}`;
+  }
   /** Episode preview is meaningful on the script gate and after the render. */
   protected readonly episodePreview = computed(() => {
     const run = this.store.selected();

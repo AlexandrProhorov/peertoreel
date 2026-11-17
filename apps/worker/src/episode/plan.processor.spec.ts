@@ -193,6 +193,7 @@ function setup(options: {
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic,
     mode: options.mode ?? 'episode',
+    ttsProvider: 'google',
     state: options.state ?? 'DRAFT',
     currentStage: 'topic_discovery',
     resumeState: null,

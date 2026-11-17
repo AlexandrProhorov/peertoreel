@@ -8,6 +8,8 @@ import {
   stageForRun,
   stageJobId,
   stageJobDataSchema,
+  stageJobProgressSchema,
+  stageJobSnapshotSchema,
   stageQueueNameSchema,
 } from './stages.js';
 
@@ -105,5 +107,37 @@ describe('stage contracts', () => {
 
     expect(stageJobId('visuals', runId)).toBe(`visuals-${runId}`);
     expect(stageJobId('visuals', runId)).not.toContain(':');
+  });
+
+  it('describes a long stage as a unit with an estimate', () => {
+    const parsed = stageJobSnapshotSchema.parse({
+      jobId: 'episode_render-x',
+      stage: 'episode_render',
+      status: 'active',
+      progress: 52,
+      progressDetail: {
+        percent: 52,
+        phase: 'scenes',
+        unit: { label: 'scene', index: 2, total: 3 },
+        elapsedMs: 12_000,
+        estimatedRemainingMs: 5_000,
+      },
+    });
+
+    expect(parsed.progressDetail?.unit).toEqual({
+      label: 'scene',
+      index: 2,
+      total: 3,
+    });
+    expect(parsed.progressDetail?.estimatedRemainingMs).toBe(5_000);
+  });
+
+  it('rejects a unit that claims zero total scenes', () => {
+    expect(
+      stageJobProgressSchema.safeParse({
+        percent: 10,
+        unit: { label: 'scene', index: 1, total: 0 },
+      }).success,
+    ).toBe(false);
   });
 });

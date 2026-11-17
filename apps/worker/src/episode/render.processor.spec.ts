@@ -164,6 +164,7 @@ function setup(options: {
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: manifest.topic,
     mode: options.mode ?? 'episode',
+    ttsProvider: 'google',
     state: options.state ?? 'SCRIPT_READY',
     currentStage: 'episode_plan',
     resumeState: null,
@@ -300,6 +301,35 @@ describe('processEpisodeRenderStage', () => {
     expect(stored.render?.costUsd).toBe(0);
     expect(result.artifacts[0]?.type).toBe('draft_mp4');
     expect(deleteArtifactByObjectKey).not.toHaveBeenCalled();
+  });
+
+  it('reports per-scene progress with an ETA', async () => {
+    const { deps } = setup();
+    const job = fakeJob();
+
+    await processEpisodeRenderStage(job, deps);
+
+    const call = vi.mocked(renderStoryboardCli).mock.calls[0]?.[0];
+
+    call?.onProgress?.({ type: 'total', total: 3 });
+    call?.onProgress?.({ type: 'scene', index: 1, total: 3, id: 'a', renderMs: 4_000 });
+    call?.onProgress?.({ type: 'scene', index: 2, total: 3, id: 'b', renderMs: 6_000 });
+
+    expect(job.updateProgress).toHaveBeenCalledWith({
+      percent: 15,
+      phase: 'scenes',
+      unit: { label: 'scene', index: 0, total: 3 },
+      elapsedMs: 0,
+      estimatedRemainingMs: null,
+    });
+    expect(job.updateProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        percent: 52,
+        phase: 'scenes',
+        unit: { label: 'scene', index: 2, total: 3 },
+        estimatedRemainingMs: 5_000,
+      }),
+    );
   });
 
   it('invalidates a stale QC report after a new draft', async () => {

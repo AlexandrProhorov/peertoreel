@@ -16,6 +16,7 @@ import {
   type RunDetail,
   type RunMode,
   type RunStoryboardResponse,
+  type RunTtsProvider,
   type StageJobSnapshot,
   type StageQueueName,
   type TransitionRunRequest,
@@ -47,8 +48,16 @@ export class RunsApiService extends BaseApiService {
     return this.get(`/runs/${id}/storyboard`, runStoryboardResponseSchema);
   }
 
-  create(topic: string, mode: RunMode): Observable<Run> {
-    const body: CreateRunRequestInput = { topic, mode };
+  create(
+    topic: string,
+    mode: RunMode,
+    ttsProvider?: RunTtsProvider,
+  ): Observable<Run> {
+    const body: CreateRunRequestInput = {
+      topic,
+      mode,
+      ...(ttsProvider === undefined ? {} : { ttsProvider }),
+    };
 
     return this.post('/runs', body, runSchema);
   }

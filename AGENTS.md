@@ -59,7 +59,7 @@ docs/           # adr/, pipeline contracts, API notes
 | Render | FFmpeg | 1080×1920, 30 fps, H.264/AAC, loudnorm −14 LUFS, ASS karaoke subtitles |
 | Scene render | Remotion 4.0.x in `apps/render-worker` (M3.3) | data-driven storyboard renderer; React only there; pinned Chrome + local woff2; free ≤3 people (ADR-0012/0014) |
 | LLM | DeepSeek V4.1 Flash (default), stronger model for QC | behind `LlmProvider` port |
-| TTS | ElevenLabs | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed) |
+| TTS | ElevenLabs (default) or Google Translate TTS per run | `with-timestamps` returns character-level alignment; word timings are derived in our code (Scribe fallback if needed). `runs.tts_provider` is the switch; Google has approximated timings and no silent failover |
 | Stock | **Pixabay** API | Pexels dropped (new keys paused); 100 req/60 s, cache 24 h |
 | Images / Vectors | Recraft V4/V4.1 Vector (SVG) + fal.ai (FLUX.2 `[klein] 4B` / `[pro]` + BiRefNet v2) | `FLUX.2 [klein] 4B` (Apache 2.0) and `BiRefNet v2` (MIT) are commercial-safe; `FLUX [dev]` and self-hosted `Bria RMBG 2.0` (`CC BY-NC 4.0`) are non-commercial. Behind `ImageProvider` port (ADR-0015, ADR-0017) |
 | Video gen | MiniMax H3 (via fal.ai), optional M4.8 | behind `VideoProvider` port; disabled by default; other models stay swappable (ADR-0012) |

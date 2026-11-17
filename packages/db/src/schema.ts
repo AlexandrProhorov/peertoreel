@@ -50,6 +50,7 @@ export const runStageValues = [
 ] as const;
 
 export const runModeValues = ['pipeline', 'episode'] as const;
+export const runTtsProviderValues = ['elevenlabs', 'google'] as const;
 
 export const appMeta = pgTable('app_meta', {
   key: text('key').primaryKey(),
@@ -108,6 +109,10 @@ export const publishCardStateValues = [
 export const runStateEnum = pgEnum('run_state', runStateValues);
 export const runStageEnum = pgEnum('run_stage', runStageValues);
 export const runModeEnum = pgEnum('run_mode', runModeValues);
+export const runTtsProviderEnum = pgEnum(
+  'run_tts_provider',
+  runTtsProviderValues,
+);
 export const publishCardStateEnum = pgEnum(
   'publish_card_state',
   publishCardStateValues,
@@ -122,6 +127,9 @@ export const runs = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     topic: text('topic').notNull(),
     mode: runModeEnum('mode').notNull().default('pipeline'),
+    ttsProvider: runTtsProviderEnum('tts_provider')
+      .notNull()
+      .default('elevenlabs'),
     state: runStateEnum('state').notNull().default('DRAFT'),
     currentStage: runStageEnum('current_stage'),
     failedStage: runStageEnum('failed_stage'),

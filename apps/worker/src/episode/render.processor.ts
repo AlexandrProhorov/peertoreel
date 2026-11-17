@@ -122,12 +122,42 @@ export async function processEpisodeRenderStage(
     await job.updateProgress(15);
 
     const scenesStartedAt = Date.now();
+    const sceneDurations: number[] = [];
 
     try {
       await renderStoryboardCli({
         storyboardPath,
         assetsPath,
         outDir: scenesDir,
+        onProgress: (event) => {
+          if (event.type === 'total') {
+            void job.updateProgress({
+              percent: 15,
+              phase: 'scenes',
+              unit: { label: 'scene', index: 0, total: event.total },
+              elapsedMs: 0,
+              estimatedRemainingMs: null,
+            });
+            return;
+          }
+
+          sceneDurations.push(event.renderMs);
+          const average =
+            sceneDurations.reduce((sum, value) => sum + value, 0) /
+            sceneDurations.length;
+          const remainingMs = Math.max(
+            0,
+            Math.round((event.total - event.index) * average),
+          );
+
+          void job.updateProgress({
+            percent: 15 + Math.round((event.index / event.total) * 55),
+            phase: 'scenes',
+            unit: { label: 'scene', index: event.index, total: event.total },
+            elapsedMs: Date.now() - scenesStartedAt,
+            estimatedRemainingMs: remainingMs,
+          });
+        },
       });
     } catch (error: unknown) {
       if (isBrowserError(error)) {

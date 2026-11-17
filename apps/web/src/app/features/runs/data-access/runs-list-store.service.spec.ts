@@ -10,6 +10,7 @@ const run: Run = {
   id: '11111111-1111-4111-8111-111111111111',
   topic: 'Почему небо синее',
   mode: 'pipeline',
+  ttsProvider: 'elevenlabs',
   state: 'DRAFT',
   currentStage: 'topic_discovery',
   failedStage: null,
@@ -79,11 +80,11 @@ describe('RunsListStoreService', () => {
     const store = setup({ create });
     const onCreated = vi.fn();
 
-    store.create('  Почему небо синее  ', 'episode', onCreated);
+    store.create('  Почему небо синее  ', 'episode', 'google', onCreated);
 
     await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith({ ...run, mode: 'episode' }));
 
-    expect(create).toHaveBeenCalledWith('Почему небо синее', 'episode');
+    expect(create).toHaveBeenCalledWith('Почему небо синее', 'episode', 'google');
     expect(store.pending()).toBe(false);
   });
 
@@ -92,7 +93,7 @@ describe('RunsListStoreService', () => {
     const store = setup({ create });
     const onCreated = vi.fn();
 
-    store.create('   ', 'pipeline', onCreated);
+    store.create('   ', 'pipeline', 'elevenlabs', onCreated);
     await flush();
 
     expect(create).not.toHaveBeenCalled();
@@ -105,8 +106,8 @@ describe('RunsListStoreService', () => {
     const store = setup({ create });
     const onCreated = vi.fn();
 
-    store.create('Тема', 'pipeline', onCreated);
-    store.create('Другая тема', 'pipeline', onCreated);
+    store.create('Тема', 'pipeline', 'elevenlabs', onCreated);
+    store.create('Другая тема', 'pipeline', 'elevenlabs', onCreated);
 
     expect(create).toHaveBeenCalledOnce();
 

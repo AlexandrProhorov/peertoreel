@@ -5,6 +5,7 @@ import {
   allowedTransitions,
   canTransition,
   createRunRequestSchema,
+  defaultTtsProviderFor,
   runSchema,
   stageForState,
   transitionRunRequestSchema,
@@ -15,6 +16,7 @@ const episodeRun = {
   id: '8a5c1a8f-3d38-4d2f-9b63-36b7f5e5f1a2',
   topic: 'Почему небо синее',
   mode: 'episode' as const,
+  ttsProvider: 'google' as const,
   state: 'DRAFT' as const,
   currentStage: 'topic_discovery' as const,
   failedStage: null,
@@ -123,6 +125,9 @@ describe('run contracts', () => {
     expect(
       runSchema.safeParse({ ...episodeRun, mode: undefined }).success,
     ).toBe(false);
+    expect(
+      runSchema.safeParse({ ...episodeRun, ttsProvider: undefined }).success,
+    ).toBe(false);
   });
 
   it('defaults a new run to pipeline mode', () => {
@@ -135,6 +140,25 @@ describe('run contracts', () => {
     ).toEqual({ topic: 'Тема', mode: 'episode' });
     expect(
       createRunRequestSchema.safeParse({ topic: 'Тема', mode: 'nope' }).success,
+    ).toBe(false);
+  });
+
+  it('picks a TTS provider from the mode, not from a silent default', () => {
+    expect(defaultTtsProviderFor('pipeline')).toBe('elevenlabs');
+    expect(defaultTtsProviderFor('episode')).toBe('google');
+    expect(
+      createRunRequestSchema.parse({
+        topic: 'Тема',
+        mode: 'pipeline',
+        ttsProvider: 'google',
+      }).ttsProvider,
+    ).toBe('google');
+    expect(
+      createRunRequestSchema.safeParse({
+        topic: 'Тема',
+        mode: 'episode',
+        ttsProvider: 'elevenlabs',
+      }).success,
     ).toBe(false);
   });
 });

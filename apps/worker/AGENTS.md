@@ -10,8 +10,7 @@ conventions.
   posts or charges. Use run/stage state as the idempotency guard; use a deterministic
   `jobId` where the queue supports it.
 - Every processor also re-checks `STAGE_REQUIRED_STATE` before doing work; idempotency alone is
-  not a state guard. `processScriptStage` currently lacks this check — fix it when that file is
-  touched.
+  not a state guard.
 - Scene rendering is per-scene (M3.7): payload `{ runId, sceneIdx }`, `scene_clip` artifact,
   deterministic key; regenerating one scene must not rebuild the whole video.
 - Classify provider errors: retryable vs terminal (see `AGENTS.md` §7). Max attempts + backoff
@@ -20,9 +19,10 @@ conventions.
   shell strings. Shell out with argument arrays.
 - **The director returns a draft, not timings.** The M3.5 director draft may choose
   recipes/variants/slots and narration text only; scene windows are derived from real TTS audio
-  and a word-count mismatch fails instead of shifting scenes. Google TTS is used by the CLI
-  spike and the M3.5.1 `episode_plan` prototype; the production `voiceover` stage stays on
-  ElevenLabs and the provider is recorded in the manifest.
+  and a word-count mismatch fails instead of shifting scenes. TTS is per run (`ttsProvider`):
+  ElevenLabs produces word alignment, Google Translate TTS is the free fallback with
+  approximated word times. No silent failover: the provider is stored on the run and a quota
+  error tells the operator to switch it.
 - **Assets come from the resolver, not from job code.** When a stage needs a subject asset, call
   `@peertoreel/assets` (`TieredAssetResolver`) with `allowProvider` set explicitly from config;
   never import Recraft/fal.ai SDKs in a processor. The resolver's typed errors are terminal for
