@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "draw-and-fill",
+      "device": "spec",
+      "durationSec": 3,
+      "revealSec": 1,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "e1",
+            "primitive": "card",
+            "layout": { "x": 72, "y": 540, "width": 936, "height": 620 },
+            "params": { "background": "#161618", "radius": 40, "padding": 48 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "e2",
+            "primitive": "label",
+            "layout": { "x": 120, "y": 600, "width": 700, "height": 90 },
+            "params": {
+              "text": "он читает",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 700
+            },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "e3",
+            "primitive": "line",
+            "layout": { "x": 120, "y": 740 },
+            "params": {
+              "color": "#CCFF00",
+              "width": 6,
+              "fromX": 120,
+              "fromY": 740,
+              "toX": 820,
+              "toY": 740
+            },
+            "states": ["rest"],
+            "transitions": ["draw"],
+            "operations": ["extend"],
+            "links": []
+          },
+          {
+            "id": "e4",
+            "primitive": "label",
+            "layout": { "x": 120, "y": 790, "width": 700, "height": 90 },
+            "params": {
+              "text": "между строк",
+              "token": "headline",
+              "tone": "accent",
+              "weight": 700
+            },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "e5",
+            "primitive": "track",
+            "layout": { "x": 120, "y": 980, "width": 700, "height": 16 },
+            "params": {
+              "length": 700,
+              "thickness": 12,
+              "color": "#CCFF00",
+              "fill": 0.8
+            },
+            "states": ["rest"],
+            "transitions": ["fill"],
+            "operations": ["fill"],
+            "links": []
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "e1", "transition": "appear" },
+          { "at": 0.2, "element": "e2", "transition": "appear" },
+          { "at": 0.5, "element": "e3", "transition": "draw" },
+          { "at": 1.0, "element": "e4", "transition": "appear" },
+          { "at": 1.4, "element": "e5", "transition": "fill" }
+        ]
+      }
+    },
+    {
+      "id": "type-and-drag",
+      "device": "spec",
+      "durationSec": 3,
+      "revealSec": 1,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "e1",
+            "primitive": "card",
+            "layout": { "x": 72, "y": 540, "width": 936, "height": 620 },
+            "params": { "background": "#161618", "radius": 40, "padding": 48 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "e2",
+            "primitive": "label",
+            "layout": { "x": 120, "y": 600, "width": 700, "height": 120 },
+            "params": {
+              "text": "предскажи пять лет",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 700
+            },
+            "states": ["rest"],
+            "transitions": ["type"],
+            "operations": ["type-on"],
+            "links": []
+          },
+          {
+            "id": "e3",
+            "primitive": "track",
+            "layout": { "x": 120, "y": 900, "width": 700, "height": 16 },
+            "params": {
+              "length": 700,
+              "thickness": 12,
+              "color": "#CCFF00",
+              "fill": 1
+            },
+            "states": ["rest"],
+            "transitions": ["fill"],
+            "operations": ["fill"],
+            "links": []
+          },
+          {
+            "id": "e4",
+            "primitive": "thumb",
+            "layout": { "x": 760, "y": 874, "width": 68, "height": 68 },
+            "params": { "size": 68, "color": "#CCFF00", "axis": "x" },
+            "states": ["rest"],
+            "transitions": ["drag"],
+            "operations": ["move"],
+            "links": ["e3"]
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "e1", "transition": "appear" },
+          { "at": 0.2, "element": "e2", "transition": "type" },
+          { "at": 1.2, "element": "e3", "transition": "fill" },
+          { "at": 1.4, "element": "e4", "transition": "drag" }
+        ]
+      }
+    }
+  ]
+}
