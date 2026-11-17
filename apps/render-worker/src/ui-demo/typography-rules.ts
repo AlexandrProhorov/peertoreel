@@ -1,0 +1,70 @@
+import { TYPE_SCALE, type TypeToken } from './typography.js';
+
+/**
+ * Text conventions: a token is chosen for the box it lives in, not the other way
+ * round.
+ *
+ * A block that is 220 px tall with `body` inside reads as a mistake — the text
+ * is tiny relative to its own surface. A block 40 px tall with `headline` is a
+ * mistake too. Both are geometry, so both are checked before rendering instead
+ * of being compensated by shrinking the font.
+ */
+
+/** Auto-fit may shrink this far; below it the scene is rejected, not hidden. */
+export const MIN_FONT_SCALE = 0.85;
+
+export interface TypeBoxRule {
+  /** One line with a little air; anything smaller is a squeezed token. */
+  readonly minHeight: number;
+  /** Three and a half lines; beyond that the box wants a bigger token. */
+  readonly maxHeight: number;
+}
+
+function lineHeightOf(token: TypeToken): number {
+  const style = TYPE_SCALE[token];
+
+  return style.fontSize * style.lineHeight;
+}
+
+export const TYPE_BOX_RULES: Record<TypeToken, TypeBoxRule> = Object.fromEntries(
+  (Object.keys(TYPE_SCALE) as TypeToken[]).map((token) => {
+    const line = lineHeightOf(token);
+
+    return [
+      token,
+      {
+        minHeight: Math.ceil(line * 1.05),
+        maxHeight: Math.ceil(line * 3.5),
+      },
+    ];
+  }),
+) as Record<TypeToken, TypeBoxRule>;
+
+export function isTypeToken(value: string): value is TypeToken {
+  return value in TYPE_SCALE;
+}
+
+/**
+ * Returns a human-readable problem, or null when the box suits the token.
+ * `height` is the declared layout height; content-sized elements skip the check.
+ */
+export function checkTextBox(
+  token: string,
+  height: number | undefined,
+): string | null {
+  if (height === undefined || !isTypeToken(token)) {
+    return null;
+  }
+
+  const rule = TYPE_BOX_RULES[token];
+
+  if (height < rule.minHeight) {
+    return `${token} needs a box at least ${rule.minHeight}px tall, got ${Math.round(height)}`;
+  }
+
+  if (height > rule.maxHeight) {
+    return `${token} is too small for a ${Math.round(height)}px box (max ${rule.maxHeight}); use a larger token`;
+  }
+
+  return null;
+}

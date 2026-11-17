@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "discount",
+      "device": "spec",
+      "durationSec": 6,
+      "revealSec": 2,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0 },
+            "params": { "background": "#0A0A0B", "vignette": true },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["hold"],
+            "links": []
+          },
+          {
+            "id": "price",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 420, "width": 818, "height": 240, "align": "left" },
+            "params": { "text": "100 ₽", "token": "display", "tone": "ink", "weight": 800 },
+            "states": ["rest"],
+            "transitions": ["appear", "hold"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "waiting",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 700, "width": 818, "height": 60, "align": "left" },
+            "params": { "text": "все ждут скидку", "token": "caption", "tone": "muted", "weight": 500 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "crowd",
+            "primitive": "grid",
+            "layout": { "x": 72, "y": 880, "width": 818, "height": 460 },
+            "params": { "columns": 6, "rows": 4, "gap": 26 },
+            "states": ["rest", "filling"],
+            "transitions": ["appear", "fill", "disappear"],
+            "operations": ["reveal", "stagger"],
+            "links": []
+          },
+          {
+            "id": "verdict",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 1440, "width": 818, "height": 140, "align": "left" },
+            "params": { "text": "покупать некому", "token": "headline", "tone": "accent", "weight": 700 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "stage", "transition": "appear" },
+          { "at": 0.3, "element": "price", "transition": "appear", "text": "100 ₽" },
+          { "at": 0.8, "element": "waiting", "transition": "appear" },
+          { "at": 1.0, "element": "crowd", "transition": "fill" },
+          { "at": 1.8, "element": "price", "transition": "hold", "text": "70 ₽" },
+          { "at": 2.6, "element": "price", "transition": "hold", "text": "40 ₽" },
+          { "at": 3.9, "element": "crowd", "transition": "disappear" },
+          { "at": 3.9, "element": "waiting", "transition": "disappear" },
+          { "at": 4.1, "element": "verdict", "transition": "appear" }
+        ]
+      }
+    }
+  ]
+}

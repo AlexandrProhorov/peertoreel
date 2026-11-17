@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-lime",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "features",
+      "device": "spec",
+      "durationSec": 6,
+      "revealSec": 2,
+      "themeId": "studio-lime",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0 },
+            "params": { "background": "#CCFF00" },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["hold"],
+            "links": []
+          },
+          {
+            "id": "screen",
+            "primitive": "card",
+            "layout": { "x": 72, "y": 380, "width": 818, "height": 720 },
+            "params": { "background": "#FFFFFF", "radius": 40, "padding": 40 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "core",
+            "primitive": "grid",
+            "layout": { "x": 112, "y": 440, "width": 738, "height": 220 },
+            "params": { "columns": 3, "rows": 2, "gap": 24 },
+            "states": ["rest", "filling"],
+            "transitions": ["appear", "fill"],
+            "operations": ["reveal", "stagger"],
+            "links": ["screen"]
+          },
+          {
+            "id": "noise",
+            "primitive": "grid",
+            "layout": { "x": 112, "y": 700, "width": 738, "height": 340 },
+            "params": { "columns": 5, "rows": 3, "gap": 18 },
+            "states": ["rest", "filling"],
+            "transitions": ["appear", "fill", "disappear"],
+            "operations": ["reveal", "stagger"],
+            "links": ["screen"]
+          },
+          {
+            "id": "caption",
+            "primitive": "label",
+            "layout": { "x": 112, "y": 1044, "width": 738, "height": 52, "align": "center" },
+            "params": { "text": "главная кнопка", "token": "caption", "tone": "muted", "weight": 500 },
+            "states": ["rest"],
+            "transitions": ["appear", "disappear"],
+            "operations": ["reveal"],
+            "links": ["screen"]
+          },
+          {
+            "id": "verdict",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 1180, "width": 818, "height": 160, "align": "left" },
+            "params": { "text": "это уже не продукт", "token": "headline", "tone": "ink", "weight": 800 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "stage", "transition": "appear" },
+          { "at": 0.3, "element": "screen", "transition": "appear" },
+          { "at": 0.5, "element": "core", "transition": "fill" },
+          { "at": 0.7, "element": "caption", "transition": "appear" },
+          { "at": 1.8, "element": "noise", "transition": "fill" },
+          { "at": 3.4, "element": "noise", "transition": "disappear" },
+          { "at": 3.4, "element": "caption", "transition": "disappear" },
+          { "at": 3.6, "element": "verdict", "transition": "appear" }
+        ]
+      }
+    }
+  ]
+}
