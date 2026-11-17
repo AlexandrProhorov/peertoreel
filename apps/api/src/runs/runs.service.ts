@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   canTransition,
+  defaultTtsProviderFor,
   derivePublishDefaults,
   episodeManifestSchema,
   episodeVisualsArtifactSchema,
@@ -43,6 +44,7 @@ function toRun(record: RunRecord): Run {
     id: record.id,
     topic: record.topic,
     mode: record.mode,
+    ttsProvider: record.ttsProvider,
     state: record.state,
     currentStage: record.currentStage,
     failedStage: record.failedStage,
@@ -77,6 +79,8 @@ export class RunsService {
       createdBy: userId,
       topic: request.topic.trim(),
       mode: request.mode,
+      ttsProvider:
+        request.ttsProvider ?? defaultTtsProviderFor(request.mode),
       stage: stageForState('DRAFT', request.mode) ?? 'topic_discovery',
     });
 

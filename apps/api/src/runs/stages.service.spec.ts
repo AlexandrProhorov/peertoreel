@@ -12,6 +12,7 @@ function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'Почему небо синее',
     mode: 'pipeline',
+    ttsProvider: 'elevenlabs',
     state: 'VOICE_READY',
     currentStage: 'voiceover',
     failedStage: null,

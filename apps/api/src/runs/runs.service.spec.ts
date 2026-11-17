@@ -18,6 +18,7 @@ function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'Почему небо синее',
     mode: 'pipeline',
+    ttsProvider: 'elevenlabs',
     state: 'DRAFT',
     currentStage: 'topic_discovery',
     failedStage: null,
@@ -69,6 +70,7 @@ describe('RunsService', () => {
       createdBy: '22222222-2222-4222-8222-222222222222',
       topic: 'Почему небо синее',
       mode: 'pipeline',
+      ttsProvider: 'elevenlabs',
       stage: 'topic_discovery',
     });
     expect(run.state).toBe('DRAFT');
@@ -90,9 +92,26 @@ describe('RunsService', () => {
       createdBy: '22222222-2222-4222-8222-222222222222',
       topic: 'Почему у собак мокрый нос',
       mode: 'episode',
+      ttsProvider: 'google',
       stage: 'topic_discovery',
     });
     expect(run.mode).toBe('episode');
+  });
+
+  it('keeps an explicit TTS choice for a pipeline run', async () => {
+    const { service, repository } = setup(
+      makeRun({ ttsProvider: 'google' }),
+    );
+
+    await service.create('22222222-2222-4222-8222-222222222222', {
+      topic: 'Почему небо синее',
+      mode: 'pipeline',
+      ttsProvider: 'google',
+    });
+
+    expect(repository.createWithEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ ttsProvider: 'google' }),
+    );
   });
 
   it('lets an episode run skip research to the script gate', async () => {

@@ -4,6 +4,7 @@ import {
   type RunMode,
   type RunStage,
   type RunState,
+  type RunTtsProvider,
 } from '@peertoreel/contracts';
 import { and, desc, eq, isNotNull, lt, ne } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
@@ -18,6 +19,7 @@ export interface RunRecord {
   createdBy: string;
   topic: string;
   mode: RunMode;
+  ttsProvider: RunTtsProvider;
   state: RunState;
   currentStage: RunStage | null;
   failedStage: RunStage | null;
@@ -67,6 +69,7 @@ export const runColumns = {
   createdBy: runs.createdBy,
   topic: runs.topic,
   mode: runs.mode,
+  ttsProvider: runs.ttsProvider,
   state: runs.state,
   currentStage: runs.currentStage,
   failedStage: runs.failedStage,
@@ -84,6 +87,7 @@ export class RunsRepository {
     createdBy: string;
     topic: string;
     mode: RunMode;
+    ttsProvider: RunTtsProvider;
     stage: RunStage;
   }): Promise<RunRecord> {
     return this.database.db.transaction(async (tx) => {
@@ -93,6 +97,7 @@ export class RunsRepository {
           createdBy: input.createdBy,
           topic: input.topic,
           mode: input.mode,
+          ttsProvider: input.ttsProvider,
           state: 'DRAFT',
           currentStage: input.stage,
         })
