@@ -1,0 +1,435 @@
+import type { CSSProperties } from 'react';
+import { useCurrentFrame, useVideoConfig } from 'remotion';
+import { assetSrcByKey } from '../asset-src.js';
+import type { ASSET_KEYS } from '../assets.js';
+import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
+import { reveal } from '../timing.js';
+import {
+  Avatar,
+  Bubble,
+  Card,
+  Grid,
+  Label,
+  Line,
+  ObjectLayer,
+  Pill,
+  Stage,
+  Thumb,
+  Track,
+  type Tone,
+} from '../primitives/index.js';
+import type { SpecScene } from '../spec.js';
+import type { UiTheme } from '../themes.js';
+import type { TypeToken } from '../typography.js';
+
+type Params = Readonly<Record<string, string | number | boolean>>;
+
+function num(params: Params, key: string, fallback: number): number {
+  const value = params[key];
+
+  return typeof value === 'number' ? value : fallback;
+}
+
+function str(params: Params, key: string): string | undefined {
+  const value = params[key];
+
+  return typeof value === 'string' ? value : undefined;
+}
+
+function flag(params: Params, key: string): boolean {
+  return params[key] === true;
+}
+
+/** Style parameters came from the model; they must not be replaced by defaults. */
+function tokenOf(params: Params): TypeToken | undefined {
+  const value = str(params, 'token');
+
+  return value === undefined ? undefined : (value as TypeToken);
+}
+
+function toneOf(params: Params): Tone | undefined {
+  const value = str(params, 'tone');
+
+  return value === undefined ? undefined : (value as Tone);
+}
+
+/**
+ * Only behaviours the renderer actually performs are accepted here. A transition
+ * outside this set means the contract promised something the factory cannot do.
+ */
+export const RENDERED_TRANSITIONS = [
+  'appear',
+  'disappear',
+  'move',
+  'scale',
+  'draw',
+  'fill',
+  'type',
+  'drag',
+  'break',
+  'release',
+  'hold',
+] as const;
+
+function behaviorStyle(
+  transition: string | undefined,
+  progress: number,
+): CSSProperties {
+  switch (transition) {
+    case 'disappear':
+      return { opacity: 1 - progress };
+    case 'appear':
+      return {
+        opacity: progress,
+        transform: `translateY(${(1 - progress) * 24}px)`,
+      };
+    case 'move':
+      return {
+        opacity: progress,
+        transform: `translateX(${(1 - progress) * -40}px)`,
+      };
+    case 'scale':
+      return { opacity: progress, transform: `scale(${0.9 + 0.1 * progress})` };
+    case 'drag':
+      return { transform: `translateX(${(1 - progress) * -240}px)` };
+    /* draw / fill / type / break animate their own geometry, not opacity. */
+    case 'draw':
+    case 'fill':
+    case 'type':
+    case 'break':
+    case 'hold':
+      return {};
+    default:
+      return { opacity: progress };
+  }
+}
+
+/** Truncated text for a type-on transition. */
+function typed(text: string | undefined, transition: string | undefined, progress: number): string | undefined {
+  if (text === undefined || transition !== 'type') {
+    return text;
+  }
+
+  return text.slice(0, Math.ceil(text.length * progress));
+}
+
+/**
+ * Renders a `CompositionSpec` with contracted primitives. The spec is validated
+ * by `specSceneSchema` before it reaches this component, so an unknown
+ * primitive, parameter or operation can never be drawn.
+ */
+export function SpecRenderer({
+  scene,
+  theme,
+}: {
+  scene: SpecScene;
+  theme: UiTheme;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  /* One element can carry several cues (fill, then break, then release); the
+     latest cue that has already started drives the visible behaviour. */
+  const cues = new Map<
+    string,
+    Array<{ start: number; transition: string; text?: string }>
+  >();
+
+  for (const step of scene.spec.sequence) {
+    const list = cues.get(step.element) ?? [];
+
+    list.push({
+      start: Math.round(step.at * fps),
+      transition: step.transition,
+      ...(step.text === undefined ? {} : { text: step.text }),
+    });
+    cues.set(step.element, list);
+  }
+
+  for (const list of cues.values()) {
+    list.sort((left, right) => left.start - right.start);
+  }
+
+  return (
+    <div
+      data-ui-device={scene.device}
+      data-ui-scene={scene.id}
+      style={{ position: 'absolute', inset: 0 }}
+    >
+      {scene.spec.elements.map((element) => {
+        const list = cues.get(element.id) ?? [];
+        const index = list.reduce(
+          (active, cue, cueIndex) => (cue.start <= frame ? cueIndex : active),
+          -1,
+        );
+        const cue = index < 0 ? undefined : list[index];
+        const start = cue?.start ?? list[0]?.start ?? 0;
+        const end =
+          list[index + 1]?.start ?? Math.max(start + 1, Math.round(scene.durationSec * fps));
+        const transition = cue?.transition;
+        const progress = reveal(frame, start, 6);
+        /* Motion runs from its own cue to the next one, not over a fixed 6 frames. */
+        const motion = Math.min(
+          1,
+          Math.max(0, (frame - start) / Math.max(1, end - start)),
+        );
+        const params = element.params as Params;
+        /* A cue can carry its own copy: counters, prices and totals change with
+           the sequence instead of spawning one element per value. */
+        const text = cue?.text ?? str(params, 'text');
+        const style: CSSProperties = {
+          position: 'absolute',
+          left: element.layout.x,
+          top: element.layout.y,
+          ...(element.layout.width === undefined ? {} : { width: element.layout.width }),
+          ...(element.layout.height === undefined ? {} : { height: element.layout.height }),
+          ...behaviorStyle(transition, progress),
+        };
+        const textStyle: CSSProperties = {
+          ...style,
+          ...(element.layout.align === undefined ? {} : { textAlign: element.layout.align }),
+        };
+
+        switch (element.primitive) {
+          case 'stage':
+            return (
+              <Stage
+                key={element.id}
+                theme={theme}
+                grid={flag(params, 'grid')}
+                vignette={flag(params, 'vignette')}
+                markers={{ surface: element.id }}
+              />
+            );
+          case 'card':
+            return (
+              <Card
+                key={element.id}
+                theme={theme}
+                background={str(params, 'background')}
+                radius={num(params, 'radius', 40)}
+                padding={num(params, 'padding', 40)}
+                border={str(params, 'border')}
+                shadow={
+                  (str(params, 'shadow') as 'none' | 'soft' | 'strong' | undefined) ??
+                  'none'
+                }
+                shadowColor={str(params, 'shadowColor')}
+                style={style}
+                markers={{ surface: element.id }}
+              />
+            );
+          case 'label':
+            return (
+              <Label
+                key={element.id}
+                theme={theme}
+                token={tokenOf(params)}
+                tone={toneOf(params)}
+                weight={
+                  typeof params.weight === 'number' ? params.weight : undefined
+                }
+                align={
+                  (str(params, 'align') as 'left' | 'center' | 'right' | undefined) ?? undefined
+                }
+                text={typed(text, transition, progress)}
+                style={textStyle}
+                fontScale={num(params, 'fontScale', 1)}
+                elementId={element.id}
+                markers={{ critical: 'spec-text' }}
+              />
+            );
+          case 'pill':
+            return (
+              <Pill
+                key={element.id}
+                theme={theme}
+                text={typed(text, transition, progress)}
+                background={str(params, 'background')}
+                textColor={str(params, 'textColor')}
+                radius={num(params, 'radius', 999)}
+                paddingX={num(params, 'paddingX', 40)}
+                paddingY={num(params, 'paddingY', 18)}
+                gap={num(params, 'gap', 18)}
+                token={tokenOf(params)}
+                shadow={
+                  (str(params, 'shadow') as 'none' | 'soft' | 'strong' | undefined) ??
+                  'none'
+                }
+                style={{
+                  ...style,
+                  /* The surface wraps its text instead of cutting it: the
+                     declared width is a minimum, the frame is the maximum. */
+                  width: 'auto',
+                  maxWidth:
+                    CRITICAL_SAFE_BOUNDS.right - element.layout.x,
+                }}
+                markers={{ critical: 'spec-text', surface: element.id }}
+              />
+            );
+          case 'bubble':
+            return (
+              <Bubble
+                key={element.id}
+                theme={theme}
+                text={typed(text, transition, progress)}
+                side={str(params, 'side') === 'left' ? 'left' : 'right'}
+                background={str(params, 'background')}
+                textColor={str(params, 'textColor')}
+                token={tokenOf(params)}
+                style={textStyle}
+                markers={{ critical: 'spec-text' }}
+              />
+            );
+          case 'avatar':
+            return (
+              <Avatar
+                key={element.id}
+                src={assetSrcByKey((str(params, 'asset') ?? 'owl') as (typeof ASSET_KEYS)[number])}
+                size={num(params, 'size', 96)}
+                ring={flag(params, 'ring')}
+                style={style}
+              />
+            );
+          case 'object':
+            return (
+              <ObjectLayer
+                key={element.id}
+                src={assetSrcByKey((str(params, 'asset') ?? 'owl') as (typeof ASSET_KEYS)[number])}
+                size={num(params, 'size', 320)}
+                rotation={num(params, 'rotation', 0)}
+                shadow={flag(params, 'shadow')}
+                style={style}
+              />
+            );
+          case 'thumb': {
+            const size = num(params, 'size', 28);
+            /* `drag` reads the travel from the declared layout box instead of a
+               fixed offset, so a knob can cross a rail of any length. The move
+               runs from its own cue to the next one. */
+            const travel =
+              (transition === 'drag' || transition === 'release') &&
+              element.layout.width !== undefined
+                ? Math.max(0, element.layout.width - size)
+                : null;
+            /* A released knob keeps its end position and drops out of frame. */
+            const moved = transition === 'release' ? 1 : motion;
+            const fall = transition === 'release' ? motion : 0;
+
+            return (
+              <Thumb
+                key={element.id}
+                size={size}
+                color={str(params, 'color')}
+                style={{
+                  ...style,
+                  /* The layout box is the travel range, not the knob size. */
+                  width: size,
+                  height: size,
+                  opacity: 1 - fall,
+                  ...(travel === null
+                    ? {}
+                    : {
+                        transform: `translateX(${moved * travel}px) translateY(${fall * 560}px) rotate(${fall * 24}deg)`,
+                      }),
+                }}
+              />
+            );
+          }
+          case 'track': {
+            const breakProgress = transition === 'break' ? motion : 0;
+
+            return (
+              <Track
+                key={element.id}
+                theme={theme}
+                length={num(params, 'length', 600)}
+                thickness={num(params, 'thickness', 8)}
+                color={str(params, 'color')}
+                breakAt={
+                  typeof params.breakAt === 'number' ? params.breakAt : undefined
+                }
+                breakProgress={breakProgress}
+                fill={
+                  transition === 'fill'
+                    ? num(params, 'fill', 0) * motion
+                    : num(params, 'fill', 0)
+                }
+                style={style}
+              />
+            );
+          }
+          case 'grid': {
+            const columns = num(params, 'columns', 4);
+            const rows = num(params, 'rows', 3);
+            const cells = Array.from({ length: columns * rows }, (_, index) => index);
+
+            return (
+              <Grid
+                key={element.id}
+                columns={columns}
+                rows={rows}
+                gap={num(params, 'gap', 16)}
+                style={style}
+                markers={{ surface: element.id }}
+              >
+                {cells.map((index) => {
+                  const cellIn =
+                    transition === 'fill'
+                      ? reveal(frame, start + index * 2, 4)
+                      : progress;
+
+                  return (
+                    <div
+                      key={index}
+                      style={{
+                        borderRadius: 10,
+                        background: theme.accent,
+                        opacity: cellIn * (index < cells.length * 0.9 ? 1 : 0.25),
+                      }}
+                    />
+                  );
+                })}
+              </Grid>
+            );
+          }
+          case 'line': {
+            /* Coordinates are local to the element's layout box, like every
+               other primitive: the model places the box, not the frame. */
+            const originX = element.layout.x;
+            const originY = element.layout.y;
+            const fromX = originX + num(params, 'fromX', 0);
+            const fromY = originY + num(params, 'fromY', 0);
+            const toX = originX + num(params, 'toX', 600);
+            const toY = originY + num(params, 'toY', 0);
+            const drawProgress = transition === 'draw' ? progress : 1;
+
+            return (
+              <Line
+                key={element.id}
+                color={str(params, 'color') ?? theme.accent}
+                width={num(params, 'width', 2)}
+                dashed={flag(params, 'dashed')}
+                fromX={fromX}
+                fromY={fromY}
+                toX={fromX + (toX - fromX) * drawProgress}
+                toY={fromY + (toY - fromY) * drawProgress}
+                /* The SVG covers the frame; only the line's own points move. */
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: 1080,
+                  height: 1920,
+                  ...behaviorStyle(transition, progress),
+                }}
+              />
+            );
+          }
+          default:
+            return null;
+        }
+      })}
+    </div>
+  );
+}
+

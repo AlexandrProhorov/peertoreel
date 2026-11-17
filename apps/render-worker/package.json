@@ -9,6 +9,15 @@
     "prerender-fixture": "pnpm --filter @peertoreel/contracts build",
     "render-fixture": "tsx src/cli.ts render-fixture",
     "render-storyboard": "tsx src/cli.ts render-storyboard",
+    "ui:demo": "tsx src/ui-demo/cli.ts",
+    "ui:lint": "tsx src/ui-demo/lint/cli.ts",
+    "ui:motion": "tsx src/ui-demo/motion/cli.ts",
+    "ui:variants": "tsx src/ui-demo/variants/build.ts",
+    "ui:variants:report": "tsx src/ui-demo/variants/report.ts",
+    "ui:fidelity": "tsx src/ui-demo/fidelity-cli.ts",
+    "ui:direct": "tsx src/ui-demo/director/cli.ts",
+    "ui:visual": "tsx src/ui-demo/visual/cli.ts",
+    "ui:fit": "tsx src/ui-demo/fit/cli.ts",
     "recolor:starter": "tsx src/recolor-starter.ts",
     "pilot:deepseek-svg": "tsx src/pilot-deepseek-svg.ts",
     "ensure-browser": "tsx src/ensure-browser.ts",
@@ -20,6 +29,7 @@
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",
+    "@fontsource/onest": "^5.3.1",
     "@peertoreel/assets": "workspace:*",
     "@peertoreel/contracts": "workspace:*",
     "@peertoreel/db": "workspace:*",
@@ -43,3 +53,4 @@
     "vitest": "^5.0.5"
   }
 }
+

@@ -26,6 +26,16 @@ import { config as loadEnv } from 'dotenv';
 
 type RenderKind = 'fixture' | 'custom';
 
+/**
+ * Machine-readable progress for the worker that spawns this CLI (M3.6c).
+ * Human log lines stay untouched; the worker only reads the prefix.
+ */
+const PROGRESS_PREFIX = '##progress ';
+
+function emitProgress(payload: Record<string, unknown>): void {
+  console.log(`${PROGRESS_PREFIX}${JSON.stringify(payload)}`);
+}
+
 interface RenderedScene {
   index: number;
   id: string;
@@ -274,6 +284,8 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
   const startedAt = Date.now();
   const rendered: RenderedScene[] = [];
 
+  emitProgress({ type: 'total', total: selected.length });
+
   for (const { scene, index } of selected) {
     const outPath = sceneOutputPath(input.outDir, index);
     const lastLogged = { value: -1 };
@@ -330,6 +342,14 @@ async function renderStoryboard(input: RenderRunInput): Promise<void> {
     console.log(
       `  done: ${result.durationInFrames} frames, ${result.sizeBytes} bytes, ${renderMs} ms`,
     );
+
+    emitProgress({
+      type: 'scene',
+      index: index + 1,
+      total: selected.length,
+      id: scene.id,
+      renderMs,
+    });
   }
 
   const totalMs = Date.now() - startedAt;
