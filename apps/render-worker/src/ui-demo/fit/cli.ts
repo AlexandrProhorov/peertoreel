@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { measureUiEpisode } from '../lint/render.js';
 import { uiEpisodeSchema, type UiEpisode } from '../spec.js';
+import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { MIN_FONT_SCALE } from '../typography-rules.js';
 
 /**
@@ -15,6 +16,52 @@ import { MIN_FONT_SCALE } from '../typography-rules.js';
  */
 
 const MAX_PASSES = 3;
+
+/**
+ * Geometry repair: no element may sit under the platform rail or leave the
+ * content bounds. The model places boxes by feel, so the same code that measures
+ * the text also clamps the layout — otherwise every run ships two or three
+ * rail violations that nobody can fix at generation time.
+ */
+function clampLayout<T extends { layout: { x: number; y: number; width?: number; height?: number } }>(
+  element: T,
+): T {
+  const left = CRITICAL_SAFE_BOUNDS.left;
+  const top = CRITICAL_SAFE_BOUNDS.top;
+  const right = CRITICAL_SAFE_BOUNDS.right;
+  const bottom = CRITICAL_SAFE_BOUNDS.bottom;
+  const layout = { ...element.layout };
+
+  if (layout.width !== undefined) {
+    if (layout.x + layout.width > right) {
+      if (layout.width <= right - left) {
+        layout.x = right - layout.width;
+      } else {
+        layout.width = right - layout.x;
+      }
+    }
+
+    if (layout.x < left) {
+      layout.x = left;
+    }
+  }
+
+  if (layout.height !== undefined) {
+    if (layout.y + layout.height > bottom) {
+      if (layout.height <= bottom - top) {
+        layout.y = bottom - layout.height;
+      } else {
+        layout.height = bottom - layout.y;
+      }
+    }
+
+    if (layout.y < top) {
+      layout.y = top;
+    }
+  }
+
+  return { ...element, layout };
+}
 
 function optionValue(name: string): string | undefined {
   const inline = process.argv.find((argument) => argument.startsWith(`${name}=`));
@@ -52,7 +99,23 @@ export async function autofitEpisode(
   episode: UiEpisode,
   outDir: string,
 ): Promise<{ episode: UiEpisode; fixes: Fix[]; remaining: string[] }> {
-  let current = episode;
+  const clamped: UiEpisode = {
+    ...episode,
+    scenes: episode.scenes.map((scene) =>
+      scene.device !== 'spec'
+        ? scene
+        : {
+            ...scene,
+            spec: {
+              ...scene.spec,
+              elements: scene.spec.elements.map((element) =>
+                element.primitive === 'stage' ? element : clampLayout(element),
+              ),
+            },
+          },
+    ),
+  } as UiEpisode;
+  let current = clamped;
   const fixes: Fix[] = [];
   let remaining: string[] = [];
 
