@@ -417,6 +417,92 @@ export function salvageEpisode(raw: unknown, repairs: Repair[]): unknown {
   return raw;
 }
 
+interface SceneBox {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function boxOf(element: Unknown): SceneBox | null {
+  const layout = element['layout'];
+
+  if (!isObject(layout)) {
+    return null;
+  }
+
+  const x = Number(layout['x']);
+  const y = Number(layout['y']);
+  const width = Number(layout['width'] ?? 0);
+  const height = Number(layout['height'] ?? 0);
+
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { x, y, width, height };
+}
+
+function overlaps(a: SceneBox, b: SceneBox): boolean {
+  const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+
+  return overlapX > 0 && overlapY > 0;
+}
+
+/**
+ * A grid is a background pattern, so the decoration yields to the content: when
+ * the model stands text or a surface on its cells, the grid goes. Text on cells
+ * is unreadable and a lime card on lime cells is invisible; removing the
+ * pattern changes neither the copy nor the layout.
+ */
+function dropCoveredGrids(
+  elements: readonly Unknown[],
+  repairs: Repair[],
+): { elements: Unknown[]; dropped: Set<string> } {
+  const boxes = elements.map((element) => ({ element, box: boxOf(element) }));
+  const droppedElements = new Set<Unknown>();
+  const dropped = new Set<string>();
+
+  for (const grid of boxes) {
+    if (grid.element['primitive'] !== 'grid' || grid.box === null) {
+      continue;
+    }
+
+    for (const other of boxes) {
+      if (
+        other.element === grid.element ||
+        other.element['primitive'] === 'stage' ||
+        other.box === null ||
+        !overlaps(grid.box, other.box)
+      ) {
+        continue;
+      }
+
+      const gridId = grid.element['id'];
+      drop(
+        repairs,
+        typeof gridId === 'string' ? gridId : null,
+        'grid',
+        `decoration under "${String(other.element['id'])}"`,
+        'grid',
+      );
+      droppedElements.add(grid.element);
+
+      if (typeof gridId === 'string') {
+        dropped.add(gridId);
+      }
+
+      break;
+    }
+  }
+
+  return {
+    elements: elements.filter((element) => !droppedElements.has(element)),
+    dropped,
+  };
+}
+
 /** Returns a copy of the scene with the salvageable defects removed. */
 export function salvageScene(scene: unknown, repairs: Repair[]): unknown {
   if (!isObject(scene)) {
@@ -429,9 +515,18 @@ export function salvageScene(scene: unknown, repairs: Repair[]): unknown {
     return scene;
   }
 
-  const elements = spec['elements'].filter(isObject).map((element) => salvageElement(element, repairs));
+  const salvaged = spec['elements']
+    .filter(isObject)
+    .map((element) => salvageElement(element, repairs));
+  const { elements, dropped } = dropCoveredGrids(salvaged, repairs);
   const sequence = Array.isArray(spec['sequence'])
-    ? salvageSequence(elements, spec['sequence'].filter(isObject), repairs)
+    ? salvageSequence(
+        elements,
+        spec['sequence']
+          .filter(isObject)
+          .filter((step) => !dropped.has(String(step['element']))),
+        repairs,
+      )
     : spec['sequence'];
 
   return {

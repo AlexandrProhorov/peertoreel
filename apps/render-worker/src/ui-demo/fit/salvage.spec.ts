@@ -272,6 +272,45 @@ describe('salvage', () => {
     expect(result.spec.elements[0]?.params['textColor']).toBeUndefined();
   });
 
+  it('drops a grid that content stands on', () => {
+    const value = {
+      id: 'grid',
+      spec: {
+        kind: 'composition',
+        elements: [
+          {
+            id: 'cells',
+            primitive: 'grid',
+            layout: { x: 72, y: 200, width: 600, height: 400 },
+            params: { columns: 4, rows: 3 },
+          },
+          {
+            id: 'note',
+            primitive: 'label',
+            layout: { x: 100, y: 300, width: 400, height: 120 },
+            params: { text: 'много', token: 'caption', tone: 'ink' },
+          },
+        ],
+        sequence: [
+          { element: 'cells', transition: 'appear' },
+          { element: 'note', transition: 'type' },
+        ],
+      },
+    };
+    const repairs: Repair[] = [];
+    const result = salvageScene(value, repairs) as {
+      spec: {
+        elements: ReadonlyArray<{ id: string }>;
+        sequence: ReadonlyArray<{ element: string }>;
+      };
+    };
+
+    /* The decoration yields: text on cells is unreadable, the copy stays. */
+    expect(result.spec.elements.map((element) => element.id)).toEqual(['note']);
+    expect(result.spec.sequence.map((step) => step.element)).toEqual(['note']);
+    expect(repairs[0]).toMatchObject({ path: 'grid', from: 'grid' });
+  });
+
   it('does not rescue an unknown primitive: the validator must reject it', () => {
     const value = {
       id: 'unknown',

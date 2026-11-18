@@ -156,7 +156,19 @@ export async function repairEpisode(
   const stillOverflowing = finalMeasurement.measurements
     .flatMap((scene) => scene.boxes)
     .filter((box) => box.overflowText === true)
-    .map((box) => box.elementId ?? box.name);
+    .map((box) => {
+      /* Say how much room the copy needs: "clock needs 840px in 308px" is a
+         correction the model can act on, an id is not. */
+      const id = box.elementId ?? box.name;
+      const copy =
+        box.text === undefined ? '' : ` "${box.text.slice(0, 24)}"`;
+      const content = box.contentWidth === undefined ? null : Math.round(box.contentWidth);
+      const available = box.boxWidth === undefined ? null : Math.round(box.boxWidth);
+
+      return content === null || available === null
+        ? `${id}${copy}`
+        : `${id}${copy}: ${content}px in ${available}px`;
+    });
 
   return {
     episode: current,
