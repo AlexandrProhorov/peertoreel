@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { checkTextBox } from '../typography-rules.js';
 import { normalizeRawEpisode } from './normalize.js';
 import { salvageScene, type Repair } from './salvage.js';
 
@@ -182,6 +183,61 @@ describe('salvage', () => {
 
     expect(normalized.schemaVersion).toBe(1);
     expect(repairs[0]).toMatchObject({ path: 'schemaVersion', to: '1' });
+  });
+
+  it('infers a type token and a default ink for text without style', () => {
+    const value = {
+      id: 'style',
+      spec: {
+        kind: 'composition',
+        elements: [
+          {
+            id: 'line',
+            primitive: 'label',
+            layout: { x: 72, y: 600, width: 480, height: 150 },
+            params: { text: 'текст без стиля' },
+          },
+        ],
+        sequence: [],
+      },
+    };
+    const repairs: Repair[] = [];
+    const result = salvageScene(value, repairs) as {
+      spec: { elements: ReadonlyArray<{ params: Record<string, unknown> }> };
+    };
+    const params = result.spec.elements[0]?.params ?? {};
+
+    expect(typeof params['token']).toBe('string');
+    expect(checkTextBox(String(params['token']), 150)).toBeNull();
+    expect(params['tone']).toBe('ink');
+    expect(repairs.map((repair) => repair.path)).toEqual([
+      'label.token',
+      'label.tone',
+    ]);
+  });
+
+  it('leaves the ink to the author when a background is declared', () => {
+    const value = {
+      id: 'styled',
+      spec: {
+        kind: 'composition',
+        elements: [
+          {
+            id: 'chip',
+            primitive: 'pill',
+            layout: { x: 72, y: 600, width: 480, height: 112 },
+            params: { text: 'плашка', background: '#CCFF00' },
+          },
+        ],
+        sequence: [],
+      },
+    };
+    const result = salvageScene(value, []) as {
+      spec: { elements: ReadonlyArray<{ params: Record<string, unknown> }> };
+    };
+
+    expect(result.spec.elements[0]?.params['tone']).toBeUndefined();
+    expect(result.spec.elements[0]?.params['textColor']).toBeUndefined();
   });
 
   it('does not rescue an unknown primitive: the validator must reject it', () => {

@@ -13,6 +13,7 @@ import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
 import type { Repair } from '../fit/salvage.js';
 import { uiEpisodeSchema, type UiEpisode, type UiScene } from '../spec.js';
+import { parseJsonResponse } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
 import { sceneContext } from './scene-context.js';
@@ -128,7 +129,7 @@ async function generateScene(options: {
     let parsed: unknown;
 
     try {
-      parsed = JSON.parse(raw);
+      parsed = parseJsonResponse(raw);
     } catch (error: unknown) {
       errors.splice(0, errors.length, ...issuesOf(error));
       continue;

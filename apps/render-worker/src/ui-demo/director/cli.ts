@@ -9,6 +9,7 @@ import { uiEpisodeSchema } from '../spec.js';
 import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
 import type { Repair } from '../fit/salvage.js';
+import { parseJsonResponse } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import {
   DIRECTOR_SYSTEM_PROMPT,
@@ -127,7 +128,7 @@ async function directOne(options: {
     let parsed: unknown;
 
     try {
-      parsed = JSON.parse(raw);
+      parsed = parseJsonResponse(raw);
     } catch (error: unknown) {
       errors.splice(0, errors.length, ...issuesOf(error));
       continue;

@@ -1,4 +1,5 @@
 import { tokenForHeight } from '../typography-rules.js';
+import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { deriveTiming } from '../timing-plan.js';
 import { clampLayout } from './clamp.js';
 import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
@@ -100,10 +101,20 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
       }
 
       const rightX = first.box.x + first.box.width + MIN_GAP;
-      const fitsRight = rightX + second.box.width <= 890;
+      const belowY = first.box.y + first.box.height + MIN_GAP;
+      const fitsRight = rightX + second.box.width <= CRITICAL_SAFE_BOUNDS.right;
+      const fitsBelow = belowY + second.box.height <= CRITICAL_SAFE_BOUNDS.bottom;
+      /* Separation must not push a box out of the frame: when neither side has
+         room, the overlap stays — a visible surface is worth more than 16px. */
       const next = fitsRight
         ? { x: rightX, y: second.box.y }
-        : { x: second.box.x, y: first.box.y + first.box.height + MIN_GAP };
+        : fitsBelow
+          ? { x: second.box.x, y: belowY }
+          : null;
+
+      if (next === null) {
+        continue;
+      }
 
       result[second.index] = { ...target, layout: { ...layout, ...next } };
       boxes[j] = {

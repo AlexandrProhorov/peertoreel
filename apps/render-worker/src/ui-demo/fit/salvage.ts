@@ -4,6 +4,7 @@ import {
   type PrimitiveContract,
   type PrimitiveId,
 } from '../catalog.js';
+import { tokenForHeight } from '../typography-rules.js';
 
 /**
  * Salvage before validation: cut what cannot change the meaning.
@@ -174,6 +175,58 @@ function salvageValue(
   }
 }
 
+/** The text primitives: they need an ink, and the box implies the type size. */
+const TEXT_PRIMITIVES = new Set<PrimitiveId>(['label', 'pill', 'bubble']);
+
+function salvageTextStyle(
+  element: Unknown,
+  params: Unknown,
+  id: string | null,
+  primitive: PrimitiveId,
+  repairs: Repair[],
+): Unknown {
+  const text = params['text'];
+
+  if (!TEXT_PRIMITIVES.has(primitive) || typeof text !== 'string' || text.trim() === '') {
+    return params;
+  }
+
+  const next: Unknown = { ...params };
+  const layout = element['layout'];
+
+  if (
+    next['token'] === undefined &&
+    isObject(layout) &&
+    typeof layout['height'] === 'number'
+  ) {
+    const token = tokenForHeight('body', layout['height']);
+
+    next['token'] = token;
+    repairs.push({
+      element: id,
+      path: `${primitive}.token`,
+      reason: 'type size follows the box',
+      from: '(missing)',
+      to: token,
+    });
+  }
+
+  /* Only on the theme surface: on a declared background the ink must be chosen
+     by the author, and the contrast gate decides. */
+  if (next['tone'] === undefined && next['textColor'] === undefined && next['background'] === undefined) {
+    next['tone'] = 'ink';
+    repairs.push({
+      element: id,
+      path: `${primitive}.tone`,
+      reason: 'default theme ink',
+      from: '(missing)',
+      to: 'ink',
+    });
+  }
+
+  return next;
+}
+
 function salvageElement(element: Unknown, repairs: Repair[]): Unknown {
   const primitive = element['primitive'];
 
@@ -226,7 +279,7 @@ function salvageElement(element: Unknown, repairs: Repair[]): Unknown {
   }
 
   return salvageDeclarations(
-    { ...element, params: next },
+    { ...element, params: salvageTextStyle(element, next, id, primitive as PrimitiveId, repairs) },
     id,
     primitive as PrimitiveId,
     contract,
