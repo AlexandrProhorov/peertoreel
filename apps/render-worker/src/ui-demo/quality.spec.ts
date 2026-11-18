@@ -211,6 +211,44 @@ describe('quality gate', () => {
     expect(issues.map((issue) => issue.code)).not.toContain('text-contrast');
   });
 
+  it('rejects a surface that stands empty', () => {
+    const spec = baseSpec();
+    spec.elements = [
+      ...baseSpec().elements.slice(0, 1).map((element) => ({
+        ...element,
+        params: { background: '#161618' },
+      })),
+      {
+        id: 'blank',
+        primitive: 'card',
+        layout: { x: 120, y: 1200, width: 300, height: 200 },
+        params: { background: '#F3F3F5' },
+        states: [],
+        transitions: [],
+        operations: [],
+        links: [],
+      },
+    ];
+
+    expect(lintQuality(spec).map((issue) => issue.code)).toContain('empty-surface');
+  });
+
+  it('accepts a card that holds a label or sits inside another card', () => {
+    const spec = baseSpec();
+    spec.elements.push({
+      id: 'nested',
+      primitive: 'card',
+      layout: { x: 200, y: 640, width: 300, height: 160 },
+      params: { background: '#F3F3F5' },
+      states: [],
+      transitions: [],
+      operations: [],
+      links: [],
+    });
+
+    expect(lintQuality(spec).map((issue) => issue.code)).not.toContain('empty-surface');
+  });
+
   it('rejects an empty scene', () => {
     const spec = baseSpec();
     spec.elements = [spec.elements[0]!];

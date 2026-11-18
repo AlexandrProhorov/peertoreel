@@ -16,11 +16,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const foreign = (name: string): unknown =>
   JSON.parse(readFileSync(resolve(here, '../../../fixtures/foreign', name), 'utf8'));
 
-const models = [
-  'gpt-subscriptions.json',
-  'claude-subscriptions.json',
-  'deepseek-subscriptions.json',
-] as const;
+const models = ['gpt-subscriptions.json', 'claude-subscriptions.json'] as const;
 
 describe('foreign model import', () => {
   for (const model of models) {
@@ -33,6 +29,22 @@ describe('foreign model import', () => {
       expect(uiEpisodeSchema.safeParse(result.episode).success).toBe(true);
     });
   }
+
+  it('deepseek: rejects the scenes built on empty surfaces', () => {
+    /* The answer predates the empty-surface rule: a fan of three blank cards and
+       a wallet card that holds nothing. The rule rejects both scenes; the other
+       two survive, so the fixture documents the boundary instead of hiding it. */
+    const result = importForeignEpisode(foreign('deepseek-subscriptions.json'));
+    const reasons = result.statuses
+      .filter((status) => !status.ok)
+      .flatMap((status) => status.reasons)
+      .join(' ');
+
+    expect(result.statuses).toHaveLength(4);
+    expect(result.lost).toBe(2);
+    expect(reasons).toContain('empty-surface');
+    expect(result.episode?.scenes).toHaveLength(2);
+  });
 
   it('reports what it salvaged instead of hiding the repair', () => {
     const gpt = importForeignEpisode(foreign('gpt-subscriptions.json'));

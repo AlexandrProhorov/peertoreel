@@ -13,7 +13,8 @@ export type QualityIssueCode =
   | 'accent-required'
   | 'density'
   | 'surface-visible'
-  | 'text-contrast';
+  | 'text-contrast'
+  | 'empty-surface';
 
 export interface QualityIssue {
   readonly code: QualityIssueCode;
@@ -188,6 +189,44 @@ export function lintQuality(
         'surface-visible',
         surface.id,
         `surface ${surface.background} is almost the background ${behind} (${delta.toFixed(2)} < ${MIN_SURFACE_DELTA})`,
+      );
+    }
+  }
+
+  /* A surface with no copy and nothing inside is a hole in the frame: the model
+     uses it as a block, the viewer reads nothing. Nested surfaces are exempt —
+     a list item inside a phone is a shape the container explains. */
+  const parsedSurfaces = spec.elements.filter((element) =>
+    ['card', 'pill', 'bubble'].includes(element.primitive),
+  );
+
+  for (const element of parsedSurfaces) {
+    const params = element.params as Readonly<Record<string, unknown>>;
+    const text = params['text'];
+
+    if (typeof text === 'string' && text.trim() !== '') {
+      continue;
+    }
+
+    const filled = spec.elements.some((other) => {
+      if (other === element || other.primitive === 'stage') {
+        return false;
+      }
+
+      const area = (other.layout.width ?? 0) * (other.layout.height ?? 0);
+
+      return area > 0 && contains(element.layout, other.layout);
+    });
+    /* A list item inside a phone is a shape the container explains. */
+    const nested = parsedSurfaces.some(
+      (other) => other !== element && contains(other.layout, element.layout),
+    );
+
+    if (!filled && !nested) {
+      add(
+        'empty-surface',
+        element.id,
+        `"${element.id}" is a surface with no text and nothing inside: give it a label or remove it`,
       );
     }
   }
