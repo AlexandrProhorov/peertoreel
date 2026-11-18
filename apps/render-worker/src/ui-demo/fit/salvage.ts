@@ -1,4 +1,9 @@
-import { PRIMITIVES, type ParameterSpec, type PrimitiveId } from '../catalog.js';
+import {
+  PRIMITIVES,
+  type ParameterSpec,
+  type PrimitiveContract,
+  type PrimitiveId,
+} from '../catalog.js';
 
 /**
  * Salvage before validation: cut what cannot change the meaning.
@@ -220,7 +225,50 @@ function salvageElement(element: Unknown, repairs: Repair[]): Unknown {
     }
   }
 
-  return { ...element, params: next };
+  return salvageDeclarations(
+    { ...element, params: next },
+    id,
+    primitive as PrimitiveId,
+    contract,
+    repairs,
+  );
+}
+
+/**
+ * The element also declares what it can do in `states`, `transitions` and
+ * `operations`. An undeclared name is a promise the renderer does not keep, and
+ * the model writes `scale` there even when the cue list is clean.
+ */
+function salvageDeclarations(
+  element: Unknown,
+  id: string | null,
+  primitive: PrimitiveId,
+  contract: PrimitiveContract,
+  repairs: Repair[],
+): Unknown {
+  const next: Unknown = { ...element };
+
+  for (const key of ['states', 'transitions', 'operations'] as const) {
+    const declared = element[key];
+
+    if (!Array.isArray(declared)) {
+      continue;
+    }
+
+    const allowed = contract[key];
+
+    next[key] = declared.filter((value) => {
+      if (typeof value === 'string' && (allowed as readonly string[]).includes(value)) {
+        return true;
+      }
+
+      drop(repairs, id, `${primitive}.${key}.${describe(value)}`, 'not in the contract', value);
+
+      return false;
+    });
+  }
+
+  return next;
 }
 
 function salvageSequence(
@@ -265,6 +313,37 @@ function salvageSequence(
   }
 
   return kept;
+}
+
+/**
+ * Episode-level salvage: the version field is metadata, not meaning. A model
+ * sometimes answers `{"type": "json_object", ...}` — echoing the API option in
+ * place of `schemaVersion` — and the scene is otherwise complete.
+ */
+export function salvageEpisode(raw: unknown, repairs: Repair[]): unknown {
+  if (!isObject(raw)) {
+    return raw;
+  }
+
+  const version = raw['schemaVersion'];
+
+  if (version === 1) {
+    return raw;
+  }
+
+  if (version === undefined || version === '1') {
+    repairs.push({
+      element: null,
+      path: 'schemaVersion',
+      reason: 'missing or written as text',
+      from: describe(version),
+      to: '1',
+    });
+
+    return { ...raw, schemaVersion: 1 };
+  }
+
+  return raw;
 }
 
 /** Returns a copy of the scene with the salvageable defects removed. */

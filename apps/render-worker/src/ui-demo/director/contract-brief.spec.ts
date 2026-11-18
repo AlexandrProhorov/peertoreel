@@ -60,6 +60,17 @@ describe('director prompt covers the catalogue', () => {
     expect(DIRECTOR_SYSTEM_PROMPT).toContain('JSON');
   });
 
+  it('does not offer transitions the contract dropped', () => {
+    /* `move` and `scale` left the transition set; naming them in the event list
+       made the model write cues that salvage then cut, and the scene lost its
+       only action. */
+    const prompt = buildUserPrompt('тема');
+    const eventLine = prompt.split('\n').find((line) => line.includes('событие')) ?? '';
+
+    expect(eventLine).not.toContain('move');
+    expect(eventLine).not.toContain('scale');
+  });
+
   it('keeps direction in the system prompt, not a list of bans', () => {
     expect(DIRECTOR_SYSTEM_PROMPT).toContain('Что зритель должен понять');
     expect(DIRECTOR_SYSTEM_PROMPT).toContain('Что изменилось к концу');

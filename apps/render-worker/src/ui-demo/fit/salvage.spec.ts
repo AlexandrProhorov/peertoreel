@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normalizeRawEpisode } from './normalize.js';
 import { salvageScene, type Repair } from './salvage.js';
 
 /**
@@ -108,6 +109,79 @@ describe('salvage', () => {
     const value = scene({ a: { background: '#161618', radius: 40 } }, { a: 'card' });
 
     expect(repairsOf(value)).toEqual([]);
+  });
+
+  it('drops an undeclared transition from the element declaration', () => {
+    const value = {
+      id: 'declared',
+      spec: {
+        kind: 'composition',
+        elements: [
+          {
+            id: 'plate',
+            primitive: 'card',
+            layout: { x: 72, y: 600, width: 480, height: 240 },
+            params: { background: '#161618' },
+            states: ['rest'],
+            transitions: ['appear', 'scale'],
+            operations: ['reveal', 'type-on'],
+            links: [],
+          },
+        ],
+        sequence: [],
+      },
+    };
+    const repairs: Repair[] = [];
+    const result = salvageScene(value, repairs) as {
+      spec: {
+        elements: ReadonlyArray<{
+          transitions: string[];
+          operations: string[];
+        }>;
+      };
+    };
+
+    expect(result.spec.elements[0]?.transitions).toEqual(['appear']);
+    expect(result.spec.elements[0]?.operations).toEqual(['reveal']);
+    expect(repairs.map((repair) => repair.path)).toEqual([
+      'card.transitions.scale',
+      'card.operations.type-on',
+    ]);
+  });
+
+  it('restores a missing schemaVersion instead of rejecting the answer', () => {
+    /* The model echoed the API option: {"type": "json_object", ...} and no
+       schemaVersion, while the scene itself is complete. */
+    const raw = {
+      type: 'json_object',
+      themeId: 'studio-dark',
+      scenes: [
+        {
+          id: 'echo',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            elements: [
+              {
+                id: 'a',
+                primitive: 'label',
+                layout: { x: 72, y: 600, width: 480, height: 160 },
+                params: { text: 'текст', token: 'headline', tone: 'ink' },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const repairs: Repair[] = [];
+    const normalized = normalizeRawEpisode(raw, repairs) as { schemaVersion: number };
+
+    expect(normalized.schemaVersion).toBe(1);
+    expect(repairs[0]).toMatchObject({ path: 'schemaVersion', to: '1' });
   });
 
   it('does not rescue an unknown primitive: the validator must reject it', () => {

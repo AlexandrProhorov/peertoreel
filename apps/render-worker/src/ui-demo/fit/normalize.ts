@@ -1,7 +1,7 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { deriveTiming } from '../timing-plan.js';
 import { clampLayout } from './clamp.js';
-import { salvageScene, type Repair } from './salvage.js';
+import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
 
 /**
  * Normalisation before validation: the two things the model is bad at and code
@@ -149,13 +149,15 @@ function normalizeElement(element: Unknown): Unknown {
 }
 
 export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unknown {
-  if (!isObject(raw) || !Array.isArray(raw['scenes'])) {
-    return raw;
+  const salvaged = salvageEpisode(raw, repairs);
+
+  if (!isObject(salvaged) || !Array.isArray(salvaged['scenes'])) {
+    return salvaged;
   }
 
   return {
-    ...raw,
-    scenes: raw['scenes'].map((rawScene) => {
+    ...salvaged,
+    scenes: salvaged['scenes'].map((rawScene) => {
       /* Salvage first: unknown parameters, `"none"` colours and out-of-range
          numbers are cut before the strict schema sees them. What cannot be
          repaired without changing the meaning is left for the validator. */
