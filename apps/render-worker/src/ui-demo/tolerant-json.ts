@@ -51,9 +51,14 @@ function firstBalanced(text: string): string | null {
   return null;
 }
 
+/** Windows editors add a BOM; JSON.parse rejects it. */
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 /** Throws the original parse error when no JSON value can be recovered. */
 export function parseJsonResponse(raw: string): unknown {
-  const trimmed = raw.trim();
+  const trimmed = stripBom(raw).trim();
 
   try {
     return JSON.parse(trimmed);

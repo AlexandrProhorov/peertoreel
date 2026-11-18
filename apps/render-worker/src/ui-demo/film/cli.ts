@@ -13,7 +13,7 @@ import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
 import type { Repair } from '../fit/salvage.js';
 import { uiEpisodeSchema, type UiEpisode, type UiScene } from '../spec.js';
-import { parseJsonResponse } from '../tolerant-json.js';
+import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
 import { sceneContext } from './scene-context.js';
@@ -194,7 +194,7 @@ async function main(): Promise<void> {
   const outRoot = path.resolve(cwd, optionValue('--out') ?? 'out/film');
   const withAction = !process.argv.includes('--no-action');
   const topics = topicsSchema.parse(
-    JSON.parse(await readFile(path.resolve(cwd, input), 'utf8')),
+    JSON.parse(stripBom(await readFile(path.resolve(cwd, input), 'utf8'))),
   );
   const client = createDeepSeekJsonClient({
     apiKey: config.apiKey,
