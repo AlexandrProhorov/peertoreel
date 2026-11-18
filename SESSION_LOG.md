@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-20 | UI-demo: читаемость кадра под нагрузкой модели (наслоения, паддинг, пустые блоки) | [2026-11-20-02](docs/sessions/2026-11/2026-11-20-02-ui-demo-readability.md) |
 | 2026-11-20 | UI-demo: приёмка чужих ответов, salvage, абсолютные линии | [2026-11-20-01](docs/sessions/2026-11/2026-11-20-01-ui-foreign-import.md) |
 | 2026-11-18 | UI-галерея в вебе: iframe-песочница примитивов на одном описании с промптом | [2026-11-18-01](docs/sessions/2026-11/2026-11-18-01-ui-gallery-sandbox.md) |
 | 2026-11-17 | UI-demo: 10 устройств, контракты, quality-gate, fidelity-слой | [2026-11-17-01](docs/sessions/2026-11/2026-11-17-01-ui-demo-fidelity.md) |
