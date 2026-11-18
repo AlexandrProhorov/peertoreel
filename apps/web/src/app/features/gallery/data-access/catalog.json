@@ -1,0 +1,773 @@
+{
+  "schemaVersion": 1,
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "fps": 30,
+  "maxElementsPerScene": 6,
+  "maxInstancesPerPrimitive": 4,
+  "assets": [
+    "owl",
+    "panda",
+    "ledger",
+    "candy",
+    "crystal-ball",
+    "framed-picture",
+    "airplane",
+    "envelope",
+    "coin",
+    "full-moon",
+    "red-heart"
+  ],
+  "themes": [
+    {
+      "id": "studio-dark",
+      "background": "#0A0A0B",
+      "ink": "#FFFFFF",
+      "muted": "#8B8B93",
+      "surface": "#161618",
+      "accent": "#CCFF00",
+      "accentInk": "#0B0B0C"
+    },
+    {
+      "id": "studio-light",
+      "background": "#FFFFFF",
+      "ink": "#0B0B0C",
+      "muted": "#66666D",
+      "surface": "#F3F3F5",
+      "accent": "#CCFF00",
+      "accentInk": "#0B0B0C"
+    },
+    {
+      "id": "studio-lime",
+      "background": "#CCFF00",
+      "ink": "#0B0B0C",
+      "muted": "#4F5512",
+      "surface": "#FFFFFF",
+      "accent": "#CCFF00",
+      "accentInk": "#0B0B0C"
+    }
+  ],
+  "primitives": [
+    {
+      "id": "stage",
+      "semantics": "фоновая поверхность сцены",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "background",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "grid",
+          "type": "boolean",
+          "initial": true
+        },
+        {
+          "name": "vignette",
+          "type": "boolean",
+          "initial": false
+        }
+      ],
+      "states": [
+        "rest"
+      ],
+      "transitions": [
+        "appear",
+        "disappear"
+      ],
+      "operations": [
+        "hold"
+      ],
+      "prompt": [
+        "- stage — фоновая поверхность сцены",
+        "    background: color\n    grid: boolean\n    vignette: boolean",
+        "    переходы: appear, disappear",
+        "    состояния: rest",
+        "    операции: hold"
+      ]
+    },
+    {
+      "id": "card",
+      "semantics": "видимая поверхность, контейнер или объект",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "background",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "radius",
+          "type": "number",
+          "min": 0,
+          "max": 48,
+          "initial": 40
+        },
+        {
+          "name": "padding",
+          "type": "number",
+          "min": 0,
+          "max": 80,
+          "initial": 40
+        },
+        {
+          "name": "border",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "elevation",
+          "type": "enum",
+          "values": [
+            "low",
+            "high"
+          ],
+          "initial": "low"
+        },
+        {
+          "name": "shadow",
+          "type": "enum",
+          "values": [
+            "none",
+            "soft",
+            "strong"
+          ],
+          "initial": "soft"
+        },
+        {
+          "name": "shadowColor",
+          "type": "color",
+          "initial": ""
+        }
+      ],
+      "states": [
+        "rest",
+        "highlighted"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "hold"
+      ],
+      "operations": [
+        "reveal",
+        "move",
+        "scale"
+      ],
+      "prompt": [
+        "- card — видимая поверхность, контейнер или объект",
+        "    background: color\n    radius: number, 0..48\n    padding: number, 0..80\n    border: color\n    elevation: enum, одно из [\"low\",\"high\"]\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    shadowColor: color",
+        "    переходы: appear, disappear, hold",
+        "    состояния: rest, highlighted",
+        "    операции: reveal, move, scale"
+      ]
+    },
+    {
+      "id": "pill",
+      "semantics": "компактный маркированный текстовый элемент",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "background",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "textColor",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "radius",
+          "type": "number",
+          "min": 0,
+          "max": 999,
+          "initial": 999
+        },
+        {
+          "name": "paddingX",
+          "type": "number",
+          "min": 0,
+          "max": 120,
+          "initial": 40
+        },
+        {
+          "name": "paddingY",
+          "type": "number",
+          "min": 0,
+          "max": 80,
+          "initial": 18
+        },
+        {
+          "name": "gap",
+          "type": "number",
+          "min": 0,
+          "max": 64,
+          "initial": 18
+        },
+        {
+          "name": "shadow",
+          "type": "enum",
+          "values": [
+            "none",
+            "soft",
+            "strong"
+          ],
+          "initial": "soft"
+        },
+        {
+          "name": "token",
+          "type": "enum",
+          "values": [
+            "display",
+            "headline",
+            "card",
+            "body",
+            "bubble",
+            "selection",
+            "input",
+            "caption",
+            "label",
+            "name"
+          ],
+          "initial": "card"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "maxLength": 80,
+          "initial": "нейросети"
+        }
+      ],
+      "states": [
+        "rest",
+        "active"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "activate",
+        "type",
+        "hold"
+      ],
+      "operations": [
+        "reveal",
+        "move",
+        "scale",
+        "type-on"
+      ],
+      "prompt": [
+        "- pill — компактный маркированный текстовый элемент",
+        "    background: color\n    textColor: color\n    radius: number, 0..999\n    paddingX: number, 0..120\n    paddingY: number, 0..80\n    gap: number, 0..64\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 80 символов",
+        "    переходы: appear, disappear, activate, type, hold",
+        "    состояния: rest, active",
+        "    операции: reveal, move, scale, type-on"
+      ]
+    },
+    {
+      "id": "bubble",
+      "semantics": "реплика или сообщение",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "side",
+          "type": "enum",
+          "values": [
+            "left",
+            "right"
+          ],
+          "initial": "left"
+        },
+        {
+          "name": "background",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "textColor",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "token",
+          "type": "enum",
+          "values": [
+            "display",
+            "headline",
+            "card",
+            "body",
+            "bubble",
+            "selection",
+            "input",
+            "caption",
+            "label",
+            "name"
+          ],
+          "initial": "bubble"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "maxLength": 160,
+          "initial": "Он ответил за секунду"
+        }
+      ],
+      "states": [
+        "rest",
+        "shown"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "type",
+        "hold"
+      ],
+      "operations": [
+        "reveal",
+        "type-on",
+        "move"
+      ],
+      "prompt": [
+        "- bubble — реплика или сообщение",
+        "    side: enum, одно из [\"left\",\"right\"]\n    background: color\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 160 символов",
+        "    переходы: appear, disappear, type, hold",
+        "    состояния: rest, shown",
+        "    операции: reveal, type-on, move"
+      ]
+    },
+    {
+      "id": "avatar",
+      "semantics": "аватар участника из локальной библиотеки",
+      "offeredToDirector": false,
+      "parameters": [
+        {
+          "name": "asset",
+          "type": "asset",
+          "initial": "owl"
+        },
+        {
+          "name": "size",
+          "type": "number",
+          "min": 48,
+          "max": 200,
+          "initial": 96
+        },
+        {
+          "name": "ring",
+          "type": "boolean",
+          "initial": true
+        }
+      ],
+      "states": [
+        "rest"
+      ],
+      "transitions": [
+        "appear",
+        "disappear"
+      ],
+      "operations": [
+        "reveal",
+        "move",
+        "scale",
+        "rotate"
+      ],
+      "prompt": []
+    },
+    {
+      "id": "object",
+      "semantics": "объёмный объект из локальной библиотеки",
+      "offeredToDirector": false,
+      "parameters": [
+        {
+          "name": "asset",
+          "type": "asset",
+          "initial": "owl"
+        },
+        {
+          "name": "size",
+          "type": "number",
+          "min": 80,
+          "max": 700,
+          "initial": 320
+        },
+        {
+          "name": "rotation",
+          "type": "number",
+          "min": -15,
+          "max": 15,
+          "initial": 0
+        },
+        {
+          "name": "shadow",
+          "type": "boolean",
+          "initial": true
+        }
+      ],
+      "states": [
+        "rest",
+        "highlighted"
+      ],
+      "transitions": [
+        "appear",
+        "disappear"
+      ],
+      "operations": [
+        "reveal",
+        "move",
+        "scale",
+        "rotate"
+      ],
+      "prompt": []
+    },
+    {
+      "id": "label",
+      "semantics": "текстовый смысловой акцент",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "text",
+          "type": "string",
+          "maxLength": 80,
+          "initial": "Сцена за 5 секунд"
+        },
+        {
+          "name": "tone",
+          "type": "enum",
+          "values": [
+            "ink",
+            "muted",
+            "accent",
+            "surface",
+            "accent-ink"
+          ],
+          "initial": "ink"
+        },
+        {
+          "name": "token",
+          "type": "enum",
+          "values": [
+            "display",
+            "headline",
+            "card",
+            "body",
+            "bubble",
+            "selection",
+            "input",
+            "caption",
+            "label",
+            "name"
+          ],
+          "initial": "headline"
+        },
+        {
+          "name": "weight",
+          "type": "enum",
+          "values": [
+            400,
+            500,
+            600,
+            700,
+            800
+          ],
+          "initial": 800
+        },
+        {
+          "name": "align",
+          "type": "enum",
+          "values": [
+            "left",
+            "center",
+            "right"
+          ],
+          "initial": "left"
+        },
+        {
+          "name": "fontScale",
+          "type": "number",
+          "min": 0.85,
+          "max": 1,
+          "initial": 1
+        }
+      ],
+      "states": [
+        "rest"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "type",
+        "hold"
+      ],
+      "operations": [
+        "reveal",
+        "type-on",
+        "move"
+      ],
+      "prompt": [
+        "- label — текстовый смысловой акцент",
+        "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1",
+        "    переходы: appear, disappear, type, hold",
+        "    состояния: rest",
+        "    операции: reveal, type-on, move"
+      ]
+    },
+    {
+      "id": "thumb",
+      "semantics": "положение или указатель на шкале",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "size",
+          "type": "number",
+          "min": 12,
+          "max": 80,
+          "initial": 28
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "axis",
+          "type": "enum",
+          "values": [
+            "x",
+            "y"
+          ],
+          "initial": "x"
+        }
+      ],
+      "states": [
+        "rest",
+        "dragging",
+        "released"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "grab",
+        "drag",
+        "release"
+      ],
+      "operations": [
+        "move",
+        "scale"
+      ],
+      "prompt": [
+        "- thumb — положение или указатель на шкале",
+        "    size: number, 12..80\n    color: color\n    axis: enum, одно из [\"x\",\"y\"]",
+        "    переходы: appear, disappear, grab, drag, release",
+        "    состояния: rest, dragging, released",
+        "    операции: move, scale"
+      ]
+    },
+    {
+      "id": "track",
+      "semantics": "заполнение, величина, прогресс",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "length",
+          "type": "number",
+          "min": 80,
+          "max": 900,
+          "initial": 600
+        },
+        {
+          "name": "thickness",
+          "type": "number",
+          "min": 2,
+          "max": 24,
+          "initial": 8
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "fill",
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "initial": 0.6
+        },
+        {
+          "name": "breakAt",
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "initial": 0.7
+        }
+      ],
+      "states": [
+        "rest",
+        "filling",
+        "broken"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "fill",
+        "break",
+        "reset"
+      ],
+      "operations": [
+        "reveal",
+        "fill",
+        "move"
+      ],
+      "prompt": [
+        "- track — заполнение, величина, прогресс",
+        "    length: number, 80..900\n    thickness: number, 2..24\n    color: color\n    fill: number, 0..1\n    breakAt: number, 0..1",
+        "    переходы: appear, disappear, fill, break, reset",
+        "    состояния: rest, filling, broken",
+        "    операции: reveal, fill, move"
+      ]
+    },
+    {
+      "id": "grid",
+      "semantics": "регулярная пространственная структура",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "columns",
+          "type": "number",
+          "min": 2,
+          "max": 8,
+          "initial": 4
+        },
+        {
+          "name": "rows",
+          "type": "number",
+          "min": 2,
+          "max": 8,
+          "initial": 3
+        },
+        {
+          "name": "gap",
+          "type": "number",
+          "min": 0,
+          "max": 40,
+          "initial": 16
+        },
+        {
+          "name": "cell",
+          "type": "enum",
+          "values": [
+            "dot",
+            "emoji",
+            "avatar"
+          ],
+          "initial": "dot"
+        }
+      ],
+      "states": [
+        "rest",
+        "filling",
+        "full"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "fill",
+        "reset"
+      ],
+      "operations": [
+        "reveal",
+        "stagger",
+        "move"
+      ],
+      "prompt": [
+        "- grid — регулярная пространственная структура",
+        "    columns: number, 2..8\n    rows: number, 2..8\n    gap: number, 0..40\n    cell: enum, одно из [\"dot\",\"emoji\",\"avatar\"]",
+        "    переходы: appear, disappear, fill, reset",
+        "    состояния: rest, filling, full",
+        "    операции: reveal, stagger, move"
+      ]
+    },
+    {
+      "id": "line",
+      "semantics": "связь, направление, траектория",
+      "offeredToDirector": true,
+      "parameters": [
+        {
+          "name": "dashed",
+          "type": "boolean",
+          "initial": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "initial": ""
+        },
+        {
+          "name": "width",
+          "type": "number",
+          "min": 1,
+          "max": 12,
+          "initial": 3
+        },
+        {
+          "name": "fromX",
+          "type": "number",
+          "min": 0,
+          "max": 1080,
+          "initial": 0
+        },
+        {
+          "name": "fromY",
+          "type": "number",
+          "min": 0,
+          "max": 1920,
+          "initial": 0
+        },
+        {
+          "name": "toX",
+          "type": "number",
+          "min": 0,
+          "max": 1080,
+          "initial": 600
+        },
+        {
+          "name": "toY",
+          "type": "number",
+          "min": 0,
+          "max": 1920,
+          "initial": 120
+        }
+      ],
+      "states": [
+        "rest",
+        "drawing",
+        "broken"
+      ],
+      "transitions": [
+        "appear",
+        "disappear",
+        "draw",
+        "break",
+        "reset"
+      ],
+      "operations": [
+        "reveal",
+        "extend"
+      ],
+      "prompt": [
+        "- line — связь, направление, траектория",
+        "    dashed: boolean\n    color: color\n    width: number, 1..12\n    fromX: number, 0..1080\n    fromY: number, 0..1920\n    toX: number, 0..1080\n    toY: number, 0..1920",
+        "    переходы: appear, disappear, draw, break, reset",
+        "    состояния: rest, drawing, broken",
+        "    операции: reveal, extend"
+      ]
+    }
+  ],
+  "preview": {
+    "channel": "ui-gallery",
+    "path": "gallery/playground/index.html"
+  }
+}

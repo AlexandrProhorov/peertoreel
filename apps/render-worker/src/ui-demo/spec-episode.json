@@ -60,7 +60,7 @@
         "sequence": [
           { "at": 0.1, "element": "e1", "transition": "appear" },
           { "at": 0.35, "element": "e2", "transition": "appear" },
-          { "at": 0.6, "element": "e3", "transition": "appear" }
+          { "at": 0.6, "element": "e3", "transition": "draw" }
         ]
       }
     }

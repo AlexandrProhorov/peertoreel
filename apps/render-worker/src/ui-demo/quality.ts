@@ -100,6 +100,7 @@ function contains(
 
 interface Surface {
   readonly id: string;
+  readonly primitive: string;
   readonly background: string;
   readonly layout: { x: number; y: number; width?: number; height?: number };
 }
@@ -125,7 +126,12 @@ export function lintQuality(
     const background = typeof params.background === 'string' ? params.background : null;
 
     if (['card', 'pill', 'bubble', 'stage'].includes(element.primitive) && background !== null) {
-      surfaces.push({ id: element.id, background, layout: element.layout });
+      surfaces.push({
+        id: element.id,
+        primitive: element.primitive,
+        background,
+        layout: element.layout,
+      });
     }
   }
 
@@ -134,7 +140,10 @@ export function lintQuality(
   }
 
   for (const surface of surfaces) {
-    if (surface.id === 'stage') {
+    /* The stage IS the background: comparing it to the theme background is
+       always a 1.00 ratio. Checked by primitive, not by the element's id —
+       an id is a name the model chooses, not a contract. */
+    if (surface.primitive === 'stage') {
       continue;
     }
 

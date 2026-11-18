@@ -1,158 +1,171 @@
 import {
   MAX_ELEMENTS_PER_SCENE,
   MAX_INSTANCES_PER_PRIMITIVE,
-  PRIMITIVES,
 } from '../catalog.js';
+import {
+  buildGalleryCatalog,
+  FORBIDDEN_PRIMITIVES,
+  PRIMITIVE_SEMANTICS,
+} from '../gallery/catalog.js';
 import { CRITICAL_SAFE_BOUNDS, CANVAS } from '../platform.js';
 import { UI_THEMES } from '../themes.js';
 import { TYPE_BOX_RULES } from '../typography-rules.js';
-
-const typeRules = TYPE_BOX_RULES;
+import { TYPE_SCALE, type TypeToken } from '../typography.js';
 
 /**
- * The contract text handed to the model is generated from the same catalogue the
- * renderer validates against. A prompt that drifts from code is worse than no
- * prompt: it teaches the model rules nobody enforces.
+ * Prompt construction. Three layers, each with one owner:
+ *
+ * A. technical contract — generated from `catalog.ts`, never hand-written;
+ * B. semantics — what each primitive is for, short;
+ * C. direction — what makes a scene a scene; the only part that is prose.
+ *
+ * A rule lives in code or here, never in both: the validator is the source of
+ * truth for what is rejected, the prompt only has to say what is wanted.
  */
 
-/** Assets need a key from the local library; a director cannot invent one. */
-const FORBIDDEN_PRIMITIVES = ['avatar', 'object'] as const;
+/* The prompt and the web gallery read one description: see `gallery/catalog.ts`. */
+export { FORBIDDEN_PRIMITIVES, PRIMITIVE_SEMANTICS };
 
-function parameterLine(name: string, parameter: {
-  type: string;
-  min?: number;
-  max?: number;
-  values?: readonly (string | number)[];
-  maxLength?: number;
-}): string {
-  const parts = [parameter.type];
-
-  if (parameter.min !== undefined || parameter.max !== undefined) {
-    parts.push(`range ${parameter.min ?? '*'}..${parameter.max ?? '*'}`);
-  }
-
-  if (parameter.values !== undefined) {
-    parts.push(`one of ${JSON.stringify(parameter.values)}`);
-  }
-
-  if (parameter.maxLength !== undefined) {
-    parts.push(`max ${parameter.maxLength} chars`);
-  }
-
-  return `${name}: ${parts.join(', ')}`;
-}
-
-function primitiveLines(): string[] {
-  return Object.entries(PRIMITIVES)
-    .filter(([id]) => !(FORBIDDEN_PRIMITIVES as readonly string[]).includes(id))
-    .map(([id, contract]) => {
-      const params = Object.entries(contract.parameters)
-        .map(([name, parameter]) => `    - ${parameterLine(name, parameter)}`)
-        .join('\n');
-
-      return [
-        `- ${id}`,
-        params,
-        `    transitions: ${contract.transitions.join(', ')}`,
-        `    states: ${contract.states.join(', ')}`,
-        `    operations: ${contract.operations.join(', ')}`,
-      ].join('\n');
-    });
-}
-
-function themeLines(): string[] {
-  return Object.values(UI_THEMES).map(
-    (theme) =>
-      `- ${theme.id}: background ${theme.background}, ink ${theme.ink}, muted ${theme.muted}, ` +
-      `surface ${theme.surface}, accent ${theme.accent}, accentInk ${theme.accentInk}`,
-  );
-}
-
+/** Layer A + B: what exists, and what it is for — exactly what the gallery shows. */
 export function buildContractBrief(): string {
-  const safe = CRITICAL_SAFE_BOUNDS;
+  return buildGalleryCatalog()
+    .primitives.filter((primitive) => primitive.offeredToDirector)
+    .map((primitive) => primitive.prompt.join('\n'))
+    .join('\n');
+}
 
-  return [
-    `Кадр ${CANVAS.width}×${CANVAS.height}, 30 fps, вертикаль.`,
-    `Текст и важные элементы живут в прямоугольнике x ${safe.left}..${safe.right}, y ${safe.top}..${safe.bottom}.`,
-    `Не больше ${MAX_ELEMENTS_PER_SCENE} элементов в сцене и ${MAX_INSTANCES_PER_PRIMITIVE} экземпляров одного примитива.`,
-    '',
-    'Примитивы и их параметры:',
-    ...primitiveLines(),
-    '',
-    'Темы (выбери одну):',
-    ...themeLines(),
-  ].join('\n');
+/** Typography: every token in the scale, generated from code. */
+export function buildTypographyBrief(): string {
+  return (Object.keys(TYPE_SCALE) as TypeToken[])
+    .map((token) => {
+      const rule = TYPE_BOX_RULES[token];
+
+      return `- ${token} (${TYPE_SCALE[token].fontSize}px): бокс ${rule.minHeight}..${rule.maxHeight}px`;
+    })
+    .join('\n');
+}
+
+function themeLines(): string {
+  return Object.values(UI_THEMES)
+    .map(
+      (theme) =>
+        `- ${theme.id}: фон ${theme.background}, текст ${theme.ink}, вторичный ${theme.muted}, ` +
+        `поверхность ${theme.surface}, акцент ${theme.accent}, текст на акценте ${theme.accentInk}`,
+    )
+    .join('\n');
 }
 
 export const DIRECTOR_SYSTEM_PROMPT = [
-  'Ты режиссёр вертикальных коротких видео и одновременно верстальщик.',
-  'По теме придумай ОДНУ сцену на 5–8 секунд и опиши её исполнимой схемой.',
-  'Ответ — только JSON-объект, без markdown и без пояснений.',
-  'Весь текст на экране — по-русски, короткий, без выдуманных фактов и цифр.',
-  'Сцена должна читаться без звука: смысл несут композиция и движение, а не подпись.',
-  'Не повторяй одну и ту же раскладку для разных тем: выбирай пространственное решение из смысла темы.',
-].join(' ');
+  'Ты режиссёр вертикальных коротких видео. По теме ты придумываешь одну сцену на 5–8 секунд',
+  'и описываешь её исполнимой схемой. Ты отвечаешь за мысль и за визуальное решение;',
+  'за границы допустимого отвечает код, который проверит твой ответ.',
+  '',
+  'Перед схемой реши три вопроса (в ответ их выносить не нужно):',
+  '1. Что зритель должен понять? Одна фраза.',
+  '2. Какое одно действие это передаёт? Рост, разрушение, вытеснение, объединение,',
+  '   перегрузка, потеря равновесия, перемещение, трансформация.',
+  '3. Что изменилось к концу? Состояние до и состояние после.',
+  '',
+  'Как устроена хорошая сцена:',
+  '- одна сцена — одна мысль; если действий два, это две сцены;',
+  '- сцена меняется во времени: исходное состояние, действие, читаемый результат;',
+  '  статичный заголовок с украшениями — не сцена;',
+  '- каждый элемент участвует в действии: объект, причина, контекст или результат;',
+  '  элемент без роли убирается;',
+  '- композиция следует за мыслью: асимметрия, крупный объект, пересечения и пустота',
+  '  уместны, если усиливают смысл; заполнять области ради правила не нужно;',
+  '- формальные приёмы (списки, нумерованные карточки, крестики, ряды одинаковых блоков)',
+  '  берутся только тогда, когда их требует тема;',
+  '- средства подбираются под действие, а не наоборот: если идея держится на двух',
+  '  элементах, ставь два.',
+  '',
+  'Ответ — только JSON-объект, без markdown и пояснений. Весь текст на экране по-русски,',
+  'короткий, без выдуманных фактов и цифр.',
+].join('\n');
 
-export function buildUserPrompt(topic: string): string {
+export interface UserPromptOptions {
+  /** Target scene length in seconds; defaults to the 5–8 s single-scene mode. */
+  readonly seconds?: number;
+  /** Theme picked by the arc, so one scene does not restate the palette. */
+  readonly themeId?: string;
+  /** Lines prepended above the task: where this scene sits in the film. */
+  readonly context?: readonly string[];
+}
+
+export function buildUserPrompt(
+  topic: string,
+  options: UserPromptOptions = {},
+): string {
+  const safe = CRITICAL_SAFE_BOUNDS;
+  const length =
+    options.seconds === undefined
+      ? '5..8'
+      : String(Math.max(1, options.seconds));
+  const theme = options.themeId ?? '<любая тема из списка ниже>';
+
   return [
+    ...(options.context === undefined ? [] : [...options.context, '']),
     `Тема: ${topic}`,
     '',
-    'Верни JSON строго такой формы:',
+    'Форма ответа (поля с фиксированными значениями оставь как есть):',
     `{
   "schemaVersion": 1,
-  "themeId": "<id темы>",
+  "themeId": "${theme}",
   "captions": false,
   "speech": [],
   "scenes": [
     {
       "id": "<латиницей, до 24 символов>",
       "device": "spec",
-      "durationSec": <5..8>,
+      "durationSec": <${length}>,  
       "revealSec": 2,
-      "themeId": "<id темы>",
+      "themeId": "${theme}",
       "spec": {
         "kind": "composition",
         "elements": [
-          { "id": "...", "primitive": "...", "layout": { "x": 72, "y": 400, "width": 818, "height": 120, "align": "left" },
-            "params": { }, "states": [], "transitions": [], "operations": [], "links": [] }
+          { "id": "a", "primitive": "label", "layout": { "x": 72, "y": 400, "width": 818, "height": 140 },
+            "params": { "text": "текст", "token": "headline", "tone": "ink", "weight": 800 },
+            "states": [], "transitions": [], "operations": [], "links": [] }
         ],
         "sequence": [
-          { "at": 0.2, "element": "...", "transition": "appear" },
-          { "at": 2.4, "element": "...", "transition": "hold", "text": "новый текст" }
+          { "at": 0.2, "element": "a", "transition": "appear" },
+          { "at": 1.4, "element": "a", "transition": "type" }
         ]
       }
     }
   ]
 }`,
     '',
-    'Правила, которые проверяет валидатор (нарушение = отказ):',    '- ровно одна сцена, device всегда "spec";',
-    '- 2..6 элементов; текст только в label, pill, bubble;',
-    '- у каждой label и bubble обязательны params.token и params.tone; у каждой pill обязательны params.token и params.textColor;',
-    '- нужен хотя бы один крупный токен: display, headline, card или selection;',
-    '- нужен акцент: tone "accent" или цвет, равный accent темы;',
-    '- нужна видимая поверхность: stage/card/pill/bubble с params.background; stage ставится с id "stage", layout {x:0,y:0};',
-    '- text элемента не длиннее 80 символов, layout не выходит из безопасного прямоугольника;',
-    '- transitions/operations/params — только из списка выше, иначе отказ;',
-    '- sequence: at в секундах, по возрастанию, меньше durationSec; реплика может нести text (счётчики, суммы);',
-    '- примитивы avatar и object недоступны.',
+    'Жёсткие границы (их проверяет код):',
+    `- ровно одна сцена, device всегда "spec", длительность ${length} секунд;`,
+    `- от 2 до ${MAX_ELEMENTS_PER_SCENE} элементов, не больше ${MAX_INSTANCES_PER_PRIMITIVE} экземпляров одного примитива;`,
+    '- первым элементом всегда stage с фоном выбранной темы;',
+    '- текст живёт только в label, pill и bubble, остальные — форма и поверхность;',
+    `- важный текст и объекты: x ${safe.left}..${safe.right}, y ${safe.top}..${safe.bottom}; кадр ${CANVAS.width}×${CANVAS.height};`,
+    '- в sequence указывается переход (событие: appear, disappear, move, scale, draw, type…),',
+    '  а не операция. Операции описывают, что элемент умеет, и в sequence не пишутся;',
+    '- переход обязан быть в списке переходов этого примитива; hold есть только у текстовых',
+    '  элементов (label, pill, bubble) и у card — им меняют текст и состояние без анимации;',
+    '- sequence: время в секундах по возрастанию, меньше длительности; реплика может нести text;',
+    '- сцена должна развиваться: начальное и конечное состояние различаются, иначе она',
+    '  отклоняется — но меняться должен минимум элементов, а не все;',
+    '- статичные элементы — норма: неподвижный объект держит кадр, пока меняется другой;',
+    '- средства подбираются под действие: если примитив не умеет нужного перехода —',
+    '  смени примитив, а не действие;',
+    '- нужен один крупный токен — display, headline, card или selection: главный смысл;',
+    '- нужен один акцент: поверхность или заливка цвета акцента темы; акцентный текст',
+    '  допустим только на тёмном фоне — на светлом он не читается и будет отклонён;',
+    '- поверхность (card, pill, bubble) должна отличаться от фона темы, иначе её не видно.',
     '',
-    'Пространство кадра:',
-    '- по горизонтали три области — левая, центральная, правая; по вертикали — верхняя, средняя, нижняя;',
-    '- занимай осмысленно минимум две разные области, а не только левый верх;',
-    '- крупный объект может занимать несколько областей и пересекать их;',
-    '- асимметрия разрешена и приветствуется, если она несёт смысл: пустая половина кадра — тоже решение, но не по умолчанию;',
-    '- это подсказка о пространстве, а не сетка шаблонов: раскладку придумываешь ты.',
-    '',
-    'Правило типографики (размер шрифта определяется боксом, а не наоборот):',
-    `- display: бокс по высоте ${typeRules.display?.minHeight}..${typeRules.display?.maxHeight}px`,
-    `- headline: ${typeRules.headline?.minHeight}..${typeRules.headline?.maxHeight}px`,
-    `- card: ${typeRules.card?.minHeight}..${typeRules.card?.maxHeight}px`,
-    `- body: ${typeRules.body?.minHeight}..${typeRules.body?.maxHeight}px`,
-    `- caption: ${typeRules.caption?.minHeight}..${typeRules.caption?.maxHeight}px`,
-    `- label: ${typeRules.label?.minHeight}..${typeRules.label?.maxHeight}px`,
-    '- в высоком блоке ставь крупный токен: мелкий текст в большом блоке — ошибка;',
-    '- не угадывай ширину текста: пиши коротко, переносы делает рендерер,',
-    '',
+    'Примитивы: назначение и технические параметры',
     buildContractBrief(),
+    '',
+    'Типографика: размер шрифта определяется высотой бокса',
+    buildTypographyBrief(),
+    '- мелкий токен в высоком боксе — такая же ошибка, как крупный в низком;',
+    '- ширину текста не угадывай: пиши коротко, переносы делает рендерер.',
+    '',
+    'Темы:',
+    themeLines(),
   ].join('\n');
 }

@@ -42,7 +42,9 @@ export const UI_THEMES: Record<UiThemeId, UiTheme> = {
     background: '#FFFFFF',
     grid: 'rgba(10, 10, 12, 0.05)',
     ink: '#0B0B0C',
-    muted: '#8A8A90',
+    /* Muted is body text, so it must clear 4.5:1 on white (5.70) and on the
+       surface (5.14). The previous #8A8A90 was 3.43 — the gate was right. */
+    muted: '#66666D',
     surface: '#F3F3F5',
     surfaceInk: '#0B0B0C',
     accent: '#CCFF00',

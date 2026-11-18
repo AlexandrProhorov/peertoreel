@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { parseDeepSeekSvgEnv } from '../../provider-config.js';
 import { uiEpisodeSchema } from '../spec.js';
+import { repairEpisode } from '../fit/autofit.js';
+import { normalizeRawEpisode } from '../fit/normalize.js';
+import { checkVisibleChange } from '../verify/motion.js';
 import {
   DIRECTOR_SYSTEM_PROMPT,
   buildUserPrompt,
@@ -32,6 +35,8 @@ const attemptRecordSchema = z.object({
   attempts: z.number().int().nonnegative(),
   accepted: z.boolean(),
   errors: z.array(z.string()),
+  lintErrors: z.array(z.string()),
+  repairs: z.number().int().nonnegative(),
   promptTokens: z.number().nonnegative(),
   completionTokens: z.number().nonnegative(),
   usd: z.number().nonnegative(),
@@ -127,12 +132,34 @@ async function directOne(options: {
       continue;
     }
 
-    const result = uiEpisodeSchema.safeParse(parsed);
+    const result = uiEpisodeSchema.safeParse(normalizeRawEpisode(parsed));
 
     if (result.success) {
+      /* Validation only says the spec is legal; it says nothing about whether
+         the text fits the frame. Repair runs here so "accepted" means
+         "renderable", and the remaining violations travel with the record. */
+      const repaired = await repairEpisode(result.data, {
+        outDir: path.join(dir, 'fit'),
+      });
+      const motion = await checkVisibleChange(
+        repaired.episode,
+        path.join(dir, 'motion'),
+      );
+
+      if (!motion.changed) {
+        /* A cue is not an action: if two distant frames are identical, the
+           scene is a poster and the model has to try again. */
+        errors.splice(
+          0,
+          errors.length,
+          `scene is static: frames ${motion.earlyFrame} and ${motion.lateFrame} are identical — show a visible change`,
+        );
+        continue;
+      }
+
       await writeFile(
         path.join(dir, 'episode.json'),
-        `${JSON.stringify(result.data, null, 2)}\n`,
+        `${JSON.stringify(repaired.episode, null, 2)}\n`,
         'utf8',
       );
 
@@ -142,6 +169,8 @@ async function directOne(options: {
         attempts: attempt,
         accepted: true,
         errors: [],
+        lintErrors: repaired.violations,
+        repairs: repaired.fixes.length,
         promptTokens,
         completionTokens,
         usd: costOf(promptTokens, completionTokens, options.rates),
@@ -159,6 +188,8 @@ async function directOne(options: {
     attempts: options.attempts,
     accepted: false,
     errors,
+    lintErrors: [],
+    repairs: 0,
     promptTokens,
     completionTokens,
     usd: costOf(promptTokens, completionTokens, options.rates),
@@ -181,6 +212,16 @@ async function main(): Promise<void> {
     quiet: true,
   });
 
+  const printPrompt = optionValue('--print-prompt');
+
+  if (printPrompt !== undefined) {
+    console.log('=== SYSTEM ===');
+    console.log(DIRECTOR_SYSTEM_PROMPT);
+    console.log('=== USER ===');
+    console.log(buildUserPrompt(printPrompt));
+    return;
+  }
+
   const config = parseDeepSeekSvgEnv(process.env);
   const inputPath = optionValue('--input');
 
@@ -199,7 +240,7 @@ async function main(): Promise<void> {
   const client = createDeepSeekJsonClient({
     apiKey: config.apiKey,
     ...(config.model === undefined ? {} : { model: config.model }),
-    maxTokens: 6000,
+    maxTokens: 8000,
   });
   const rates = {
     input: config.rates.inputUsdPerMtok,
@@ -223,7 +264,10 @@ async function main(): Promise<void> {
 
     console.log(
       `${entry.slug}: ${record.accepted ? 'accepted' : 'FAILED'} in ${record.attempts} attempt(s), ` +
-        `${record.promptTokens}+${record.completionTokens} tokens, $${record.usd.toFixed(4)}`,
+        `${record.promptTokens}+${record.completionTokens} tokens, $${record.usd.toFixed(4)}` +
+        (record.accepted
+          ? `, ${record.repairs} repair(s), ${record.lintErrors.length} lint error(s)`
+          : ''),
     );
 
     if (!record.accepted) {

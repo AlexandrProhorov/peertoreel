@@ -47,6 +47,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'gallery',
+    canActivate: [authGuard],
+    loadChildren: () =>
+      import('./features/gallery/gallery.routes').then(
+        (module) => module.GALLERY_ROUTES,
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'health',
   },

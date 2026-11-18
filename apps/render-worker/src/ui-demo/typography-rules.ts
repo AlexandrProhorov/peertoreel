@@ -68,3 +68,34 @@ export function checkTextBox(
 
   return null;
 }
+
+/**
+ * The box decides the token: when the declared token does not fit its height, pick
+ * the largest token that does. Same text, same layout — only the type size the
+ * box already implies. Returns the input when no token fits (the linter then
+ * rejects the scene, which is honest).
+ */
+export function tokenForHeight(
+  token: string,
+  height: number | undefined,
+): string {
+  if (height === undefined || !isTypeToken(token)) {
+    return token;
+  }
+
+  const rule = TYPE_BOX_RULES[token];
+
+  if (height >= rule.minHeight && height <= rule.maxHeight) {
+    return token;
+  }
+
+  const fitting = (Object.keys(TYPE_SCALE) as TypeToken[])
+    .filter(
+      (candidate) =>
+        TYPE_BOX_RULES[candidate].minHeight <= height &&
+        height <= TYPE_BOX_RULES[candidate].maxHeight,
+    )
+    .sort((left, right) => TYPE_SCALE[right].fontSize - TYPE_SCALE[left].fontSize);
+
+  return fitting[0] ?? token;
+}

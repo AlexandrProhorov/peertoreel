@@ -1,0 +1,18 @@
+<div class="preview">
+  <div class="preview__frame">
+    <iframe
+      #frame
+      [src]="src"
+      title="Превью примитива"
+      (load)="onLoad()"
+    ></iframe>
+  </div>
+
+  @if (!isReady()) {
+    <p class="preview__hint" aria-live="polite">Загружаем renderer…</p>
+  }
+
+  @if (failed(); as error) {
+    <p class="preview__error" role="alert">{{ error }}</p>
+  }
+</div>

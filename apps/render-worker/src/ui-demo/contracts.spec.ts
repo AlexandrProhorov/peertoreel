@@ -64,6 +64,8 @@ function validSpec(): CompositionSpec {
     sequence: [
       { at: 0, element: 'e1', transition: 'appear' },
       { at: 0.2, element: 'e2', transition: 'appear' },
+      /* A valid scene has an action: appearing is not an event. */
+      { at: 1, element: 'e3', transition: 'type' },
     ],
   };
 }
@@ -258,6 +260,19 @@ describe('composition validation', () => {
     expect(
       validateComposition(spec).filter((issue) => issue.code === 'typography-fit'),
     ).toEqual([]);
+  });
+
+  it('rejects a cue that changes text on a container', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('e2', 'card', { params: { background: '#161618' } }),
+    ];
+    spec.sequence = [{ at: 0.5, element: 'e2', transition: 'appear', text: 'нет' }];
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain(
+      'text-not-supported',
+    );
   });
 
   it('rejects a sequence step that points at a missing element or transition', () => {

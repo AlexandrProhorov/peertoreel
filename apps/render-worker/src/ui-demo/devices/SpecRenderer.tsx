@@ -60,8 +60,6 @@ function toneOf(params: Params): Tone | undefined {
 export const RENDERED_TRANSITIONS = [
   'appear',
   'disappear',
-  'move',
-  'scale',
   'draw',
   'fill',
   'type',
@@ -71,6 +69,11 @@ export const RENDERED_TRANSITIONS = [
   'hold',
 ] as const;
 
+/**
+ * Entrance animations own opacity. A mid-scene move or scale must not restart
+ * the fade: the element is already on screen, and `opacity: progress` made it
+ * blink — visible, gone, visible again.
+ */
 function behaviorStyle(
   transition: string | undefined,
   progress: number,
@@ -84,12 +87,11 @@ function behaviorStyle(
         transform: `translateY(${(1 - progress) * 24}px)`,
       };
     case 'move':
-      return {
-        opacity: progress,
-        transform: `translateX(${(1 - progress) * -40}px)`,
-      };
     case 'scale':
-      return { opacity: progress, transform: `scale(${0.9 + 0.1 * progress})` };
+      /* Positional nudges read as a twitch mid-scene. Animation belongs to the
+         entrance and the exit; a real action comes from the primitive that owns
+         it — fill, draw, type, break, drag. */
+      return {};
     case 'drag':
       return { transform: `translateX(${(1 - progress) * -240}px)` };
     /* draw / fill / type / break animate their own geometry, not opacity. */
@@ -104,13 +106,49 @@ function behaviorStyle(
   }
 }
 
-/** Truncated text for a type-on transition. */
-function typed(text: string | undefined, transition: string | undefined, progress: number): string | undefined {
-  if (text === undefined || transition !== 'type') {
-    return text;
+/** Typing speed: a full line takes this long, regardless of its length. */
+const TYPE_FRAMES = 24;
+
+interface TextState {
+  readonly text: string | undefined;
+  /** Text with a `type` cue never appears as a block first. */
+  readonly typedOnly: boolean;
+  /** Opacity owned by typing, or null when the entrance owns it. */
+  readonly opacity: number | null;
+}
+
+/**
+ * One entrance per text element. A cue list like `appear @0.5` + `type @1.4`
+ * used to show the whole line and then retype it from empty. If the element
+ * declares typing, it types: nothing before the cue, characters after it.
+ */
+function resolveText(
+  cues: ReadonlyArray<{ start: number; transition: string; text?: string }>,
+  frame: number,
+  base: string | undefined,
+): TextState {
+  const typing = cues
+    .filter((cue) => cue.transition === 'type' || cue.text !== undefined)
+    .filter((cue) => cue.start <= frame);
+
+  const last = typing.at(-1);
+
+  if (last === undefined) {
+    const hasTyping = cues.some((cue) => cue.transition === 'type');
+
+    return hasTyping
+      ? { text: undefined, typedOnly: true, opacity: 0 }
+      : { text: base, typedOnly: false, opacity: null };
   }
 
-  return text.slice(0, Math.ceil(text.length * progress));
+  const progress = reveal(frame, last.start, TYPE_FRAMES);
+  const full = last.text ?? base;
+
+  return {
+    text: full === undefined ? full : full.slice(0, Math.ceil(full.length * progress)),
+    typedOnly: true,
+    opacity: 1,
+  };
 }
 
 /**
@@ -175,7 +213,8 @@ export function SpecRenderer({
         const params = element.params as Params;
         /* A cue can carry its own copy: counters, prices and totals change with
            the sequence instead of spawning one element per value. */
-        const text = cue?.text ?? str(params, 'text');
+        const textState = resolveText(list, frame, str(params, 'text'));
+        const text = textState.text;
         const style: CSSProperties = {
           position: 'absolute',
           left: element.layout.x,
@@ -184,8 +223,13 @@ export function SpecRenderer({
           ...(element.layout.height === undefined ? {} : { height: element.layout.height }),
           ...behaviorStyle(transition, progress),
         };
+        /* Typing owns the entrance: the element must not fade in as a block and
+           then retype itself. The exit still wins. */
+        const textOpacity =
+          transition === 'disappear' ? 1 - progress : textState.opacity;
         const textStyle: CSSProperties = {
           ...style,
+          ...(textOpacity === null ? {} : { opacity: textOpacity }),
           ...(element.layout.align === undefined ? {} : { textAlign: element.layout.align }),
         };
 
@@ -231,7 +275,7 @@ export function SpecRenderer({
                 align={
                   (str(params, 'align') as 'left' | 'center' | 'right' | undefined) ?? undefined
                 }
-                text={typed(text, transition, progress)}
+                text={text}
                 style={textStyle}
                 fontScale={num(params, 'fontScale', 1)}
                 elementId={element.id}
@@ -243,7 +287,7 @@ export function SpecRenderer({
               <Pill
                 key={element.id}
                 theme={theme}
-                text={typed(text, transition, progress)}
+                text={text}
                 background={str(params, 'background')}
                 textColor={str(params, 'textColor')}
                 radius={num(params, 'radius', 999)}
@@ -256,7 +300,7 @@ export function SpecRenderer({
                   'none'
                 }
                 style={{
-                  ...style,
+                  ...textStyle,
                   /* The surface wraps its text instead of cutting it: the
                      declared width is a minimum, the frame is the maximum. */
                   width: 'auto',
@@ -271,7 +315,7 @@ export function SpecRenderer({
               <Bubble
                 key={element.id}
                 theme={theme}
-                text={typed(text, transition, progress)}
+                text={text}
                 side={str(params, 'side') === 'left' ? 'left' : 'right'}
                 background={str(params, 'background')}
                 textColor={str(params, 'textColor')}

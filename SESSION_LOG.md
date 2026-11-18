@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-18 | UI-галерея в вебе: iframe-песочница примитивов на одном описании с промптом | [2026-11-18-01](docs/sessions/2026-11/2026-11-18-01-ui-gallery-sandbox.md) |
 | 2026-11-17 | UI-demo: 10 устройств, контракты, quality-gate, fidelity-слой | [2026-11-17-01](docs/sessions/2026-11/2026-11-17-01-ui-demo-fidelity.md) |
 | 2026-11-15 | M3.6b.11: TTS как конфиг прогона (ElevenLabs/Google) | [2026-11-15-07](docs/sessions/2026-11/2026-11-15-07-m3-6b-11-tts-config.md) |
 | 2026-11-15 | M3.6b.10: честный прогресс рендера (сцены + ETA) и state guard script | [2026-11-15-06](docs/sessions/2026-11/2026-11-15-06-m3-6b-10-progress-eta.md) |

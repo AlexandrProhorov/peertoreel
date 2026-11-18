@@ -23,7 +23,9 @@ export const compositionElementSchema = z.object({
   layout: compositionLayoutSchema,
   params: z.record(z.string().min(1).max(40), specValueSchema).default({}),
   states: z.array(z.string().min(1).max(32)).max(4).default([]),
-  transitions: z.array(z.string().min(1).max(32)).max(4).default([]),
+  /* The declared list is bounded by the primitive's own list, not by 4: card and
+     label now expose up to seven transitions and the model lists them. */
+  transitions: z.array(z.string().min(1).max(32)).max(8).default([]),
   operations: z.array(z.string().min(1).max(32)).max(6).default([]),
   links: z.array(z.string().min(1).max(24)).max(4).default([]),
 });
@@ -38,8 +40,8 @@ export const compositionSpecSchema = z.object({
         at: z.number().finite().nonnegative(),
         element: z.string().min(1).max(24),
         transition: z.string().min(1).max(32),
-        /** A cue may replace the element's text: counters, prices, totals. */
-        text: z.string().min(1).max(80).optional(),
+        /** A cue may replace the element's text; an empty string clears it. */
+        text: z.string().max(80).optional(),
       }),
     )
     .max(24)
@@ -63,7 +65,8 @@ export type CompositionIssueCode =
   | 'dangling-link'
   | 'element-budget'
   | 'primitive-budget'
-  | 'sequence-unknown-element';
+  | 'sequence-unknown-element'
+  | 'text-not-supported';
 
 export interface CompositionIssue {
   readonly code: CompositionIssueCode;
@@ -283,7 +286,20 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
       fail(
         'unknown-transition',
         element.id,
-        `sequence: ${element.primitive} has no transition "${step.transition}"`,
+        `sequence: ${element.primitive} has no transition "${step.transition}"; allowed: ${(contract?.transitions ?? []).join(', ')}`,
+      );
+    }
+
+    /* A cue may replace the text of a text element. On a container that text is
+       silently dropped today, so the spec would promise something it cannot do. */
+    if (
+      step.text !== undefined &&
+      !['label', 'pill', 'bubble'].includes(element.primitive)
+    ) {
+      fail(
+        'text-not-supported',
+        element.id,
+        `sequence: ${element.primitive} cannot change its text`,
       );
     }
   }
@@ -291,6 +307,14 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
   return issues;
 }
 
+/**
+ * A scene must develop, but development is not "every element animates".
+ *
+ * The old rule demanded a cue with a property transition, and the model answered
+ * with the one primitive that has motion built in — a progress bar in half the
+ * scenes. Whether a scene changes is now measured on the rendered frame (see
+ * `verify/motion.ts`); how it changes is a directing decision.
+ */
 export interface CompositionParseResult {
   readonly spec: CompositionSpec | null;
   readonly issues: CompositionIssue[];

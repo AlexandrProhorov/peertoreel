@@ -9,6 +9,8 @@
  * (verified), never for declared-but-unbuilt ones.
  */
 
+import { MIN_FONT_SCALE } from './typography-rules.js';
+
 export const MAX_ELEMENTS_PER_SCENE = 6;
 /** A row of four chips is a normal interface; five means the scene repeats itself. */
 export const MAX_INSTANCES_PER_PRIMITIVE = 4;
@@ -112,7 +114,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       text: { type: 'string', maxLength: 80 },
     },
     states: ['rest', 'active'],
-    transitions: ['appear', 'disappear', 'activate', 'type'],
+    transitions: ['appear', 'disappear', 'activate', 'type', 'hold'],
     operations: ['reveal', 'move', 'scale', 'type-on'],
     lifecycles: LIFECYCLE,
   },
@@ -128,7 +130,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       text: { type: 'string', maxLength: 160 },
     },
     states: ['rest', 'shown'],
-    transitions: ['appear', 'disappear', 'type'],
+    transitions: ['appear', 'disappear', 'type', 'hold'],
     operations: ['reveal', 'type-on', 'move'],
     lifecycles: LIFECYCLE,
   },
@@ -162,8 +164,8 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       token: { type: 'enum', values: ['display', 'headline', 'card', 'body', 'bubble', 'selection', 'input', 'caption', 'label', 'name'] },
       weight: { type: 'enum', values: [400, 500, 600, 700, 800] },
       align: { type: 'enum', values: ['left', 'center', 'right'] },
-      /** Multiplier for the token size when the text does not fit its box. */
-      fontScale: { type: 'number', min: 0.5, max: 1 },
+      /** Multiplier for the token size; the floor is the auto-fit floor. */
+      fontScale: { type: 'number', min: MIN_FONT_SCALE, max: 1 },
     },
     states: ['rest'],
     transitions: ['appear', 'disappear', 'type', 'hold'],

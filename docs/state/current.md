@@ -1,13 +1,15 @@
 # Состояние проекта
 
-Обновлено: 2026-11-17 · Milestone: M3 (Animated Factory) + пилот UI-demo
-База: `main` @ `c4e5b05`. Ветка: `feat/m3-animated-factory`, HEAD `8ee7edd`.
+Обновлено: 2026-11-18 · Milestone: M3 (Animated Factory) + пилот UI-demo
+База: `main` @ `c4e5b05`. Ветка: `feat/m3-animated-factory`, HEAD `5f96fb6`.
 Рабочее дерево **грязное**: пилот отрендерен и проверен, но последние изменения не закоммичены.
 
 ## Активная работа
 
-Пилот интерфейсного видеоповествования: `apps/render-worker/src/ui-demo`. Production-путь
-(`render.ts`, `composition/`, контракты, `apps/worker`) не изменялся.
+Галерея примитивов в дашборде: `/gallery` (`apps/web/src/app/features/gallery`), playground —
+`apps/render-worker/src/ui-demo/gallery`. Сцена придумывается моделью, песочница показывает
+контракт и живое превью (`readme` галереи — `ui-demo/gallery/README.md`).
+Production-путь (`render.ts`, `composition/`, контракты, `apps/worker`) не изменялся.
 
 Следующий срез: `docs/workspace/plans/2026-11-17-ui-demo-story-loop.md` — цикл «концепт → сцена →
 рендер → дырка → возможность». Fidelity gate отложен (postponed), не удалён.
@@ -82,14 +84,19 @@ DOM-линтер, стоимость **$0.0082**. Визуально читае�
 ## Проверки
 
 - `pnpm check` — не перепроверялся в этой сессии.
-- `pnpm --filter @peertoreel/render-worker typecheck|lint|test` — зелёные, 213 тестов.
-- `ui:lint` по эталону, механизмам, spec и behaviors — 0 нарушений.
+- `pnpm --filter @peertoreel/render-worker typecheck|lint` — зелёные; `test` — 238 тестов.
+- `pnpm --filter @peertoreel/web typecheck|lint|build` — зелёные, initial 326.52 kB; `test` — 169 тестов.
+- `ui:gallery` собирает `catalog.json` и playground; `apps/web/public/gallery` — 1.9 MB.
+- Playground проверен в headless Chrome: монтируется, переключает примитив и тему по
+  `postMessage`, шрифт Onest загружается, ошибок в консоли нет.
 - Живой прогон TTS через очередь, визуальная приёмка человеком — `Not verified`.
 
 ## Не закоммичено (по запросу)
 
-- `src/ui-demo/{behaviors,fidelity,fidelity-cli,quality,...}.ts`, правки `catalog.ts`,
-  `SpecRenderer.tsx`, `package.json` (scripts `ui:fidelity`, `--verify`, `--stills`).
+- `ui-demo/gallery/**` (новый срез), правки `director/contract-brief.ts`, `catalog.ts`,
+  `devices/SpecRenderer.tsx`, `quality.ts`, `themes.ts`, `typography-rules.ts`, `fit/**`,
+  `film/**`, `verify/**`, `package.json` (`ui:gallery`).
+- Веб: `features/gallery/**`, `public/gallery/**`, `app.routes.ts`, `app.component.html`.
 
 ## Открытые решения
 

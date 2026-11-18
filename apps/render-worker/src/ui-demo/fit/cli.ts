@@ -1,67 +1,12 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { measureUiEpisode } from '../lint/render.js';
-import { uiEpisodeSchema, type UiEpisode } from '../spec.js';
-import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
-import { MIN_FONT_SCALE } from '../typography-rules.js';
+import { uiEpisodeSchema } from '../spec.js';
+import { repairEpisode } from './autofit.js';
 
 /**
- * Auto-fit: shrink a label's font until its text fits the declared box.
- *
- * The model cannot estimate glyph widths, and asking it to try harder is not an
- * engineering answer. This pass measures the rendered text, scales it down by
- * the measured ratio and stops at the contract floor (0.5). Whatever still does
- * not fit is reported — the linter will reject it, which is correct: the copy is
- * too long for the frame, not the font too big.
+ * Standalone repair for an existing episode. The director calls the same
+ * `repairEpisode` in-process; this CLI exists for re-fitting stored scenes.
  */
-
-const MAX_PASSES = 3;
-
-/**
- * Geometry repair: no element may sit under the platform rail or leave the
- * content bounds. The model places boxes by feel, so the same code that measures
- * the text also clamps the layout — otherwise every run ships two or three
- * rail violations that nobody can fix at generation time.
- */
-function clampLayout<T extends { layout: { x: number; y: number; width?: number; height?: number } }>(
-  element: T,
-): T {
-  const left = CRITICAL_SAFE_BOUNDS.left;
-  const top = CRITICAL_SAFE_BOUNDS.top;
-  const right = CRITICAL_SAFE_BOUNDS.right;
-  const bottom = CRITICAL_SAFE_BOUNDS.bottom;
-  const layout = { ...element.layout };
-
-  if (layout.width !== undefined) {
-    if (layout.x + layout.width > right) {
-      if (layout.width <= right - left) {
-        layout.x = right - layout.width;
-      } else {
-        layout.width = right - layout.x;
-      }
-    }
-
-    if (layout.x < left) {
-      layout.x = left;
-    }
-  }
-
-  if (layout.height !== undefined) {
-    if (layout.y + layout.height > bottom) {
-      if (layout.height <= bottom - top) {
-        layout.y = bottom - layout.height;
-      } else {
-        layout.height = bottom - layout.y;
-      }
-    }
-
-    if (layout.y < top) {
-      layout.y = top;
-    }
-  }
-
-  return { ...element, layout };
-}
 
 function optionValue(name: string): string | undefined {
   const inline = process.argv.find((argument) => argument.startsWith(`${name}=`));
@@ -85,113 +30,6 @@ function optionValue(name: string): string | undefined {
   return value;
 }
 
-function floorTo(value: number, step = 0.05): number {
-  return Math.floor(value / step) * step;
-}
-
-interface Fix {
-  readonly elementId: string;
-  readonly from: number;
-  readonly to: number;
-}
-
-export async function autofitEpisode(
-  episode: UiEpisode,
-  outDir: string,
-): Promise<{ episode: UiEpisode; fixes: Fix[]; remaining: string[] }> {
-  const clamped: UiEpisode = {
-    ...episode,
-    scenes: episode.scenes.map((scene) =>
-      scene.device !== 'spec'
-        ? scene
-        : {
-            ...scene,
-            spec: {
-              ...scene.spec,
-              elements: scene.spec.elements.map((element) =>
-                element.primitive === 'stage' ? element : clampLayout(element),
-              ),
-            },
-          },
-    ),
-  } as UiEpisode;
-  let current = clamped;
-  const fixes: Fix[] = [];
-  let remaining: string[] = [];
-
-  for (let pass = 1; pass <= MAX_PASSES; pass += 1) {
-    const measurement = await measureUiEpisode({
-      episode: current,
-      policy: 'settled',
-      outDir: path.join(outDir, `pass-${pass}`),
-    });
-    const overflowing = measurement.measurements
-      .flatMap((scene) => scene.boxes)
-      .filter(
-        (box) =>
-          box.overflowText === true &&
-          box.elementId !== undefined &&
-          box.boxHeight !== undefined &&
-          box.contentHeight !== undefined,
-      );
-
-    if (overflowing.length === 0) {
-      remaining = [];
-      break;
-    }
-
-    const scenes = current.scenes.map((scene) => {
-      if (scene.device !== 'spec') {
-        return scene;
-      }
-
-      return {
-        ...scene,
-        spec: {
-          ...scene.spec,
-          elements: scene.spec.elements.map((element) => {
-          const box = overflowing.find((item) => item.elementId === element.id);
-
-          if (box === undefined) {
-            return element;
-          }
-
-          const currentScale =
-            typeof element.params.fontScale === 'number'
-              ? element.params.fontScale
-              : 1;
-          const heightRatio =
-            (box.boxHeight ?? 0) / Math.max(1, box.contentHeight ?? 1);
-          const widthRatio =
-            (box.boxWidth ?? 0) / Math.max(1, box.contentWidth ?? 1);
-          const next = Math.max(
-            MIN_FONT_SCALE,
-            floorTo(currentScale * Math.min(heightRatio, widthRatio) * 0.95),
-          );
-
-          if (next >= currentScale) {
-            return element;
-          }
-
-          fixes.push({ elementId: element.id, from: currentScale, to: next });
-
-          return {
-            ...element,
-            params: { ...element.params, fontScale: Number(next.toFixed(2)) },
-          };
-          }),
-        },
-      };
-    });
-
-    current = { ...current, scenes } as UiEpisode;
-    remaining = overflowing.map((box) => box.elementId ?? 'unnamed');
-    void mkdir;
-  }
-
-  return { episode: current, fixes, remaining };
-}
-
 async function main(): Promise<void> {
   const input = optionValue('--input');
 
@@ -200,20 +38,14 @@ async function main(): Promise<void> {
   }
 
   const cwd = process.cwd();
-  const out = optionValue('--out');
-  const outPath = path.resolve(cwd, out ?? input);
-  const raw: unknown = JSON.parse(await readFile(path.resolve(cwd, input), 'utf8'));
+  const outPath = path.resolve(cwd, optionValue('--out') ?? input);
+  const raw: unknown = JSON.parse(
+    await readFile(path.resolve(cwd, input), 'utf8'),
+  );
   const episode = uiEpisodeSchema.parse(raw);
-  const result = await autofitEpisode(episode, path.resolve(cwd, 'out/ui-fit'));
-  const rechecked = await measureUiEpisode({
-    episode: result.episode,
-    policy: 'settled',
-    outDir: path.resolve(cwd, 'out/ui-fit/final'),
+  const result = await repairEpisode(episode, {
+    outDir: path.resolve(cwd, 'out/ui-fit'),
   });
-  const stillBroken = rechecked.measurements
-    .flatMap((scene) => scene.boxes)
-    .filter((box) => box.overflowText === true)
-    .map((box) => box.elementId ?? box.name);
 
   await writeFile(
     outPath,
@@ -225,15 +57,17 @@ async function main(): Promise<void> {
     console.log(`${fix.elementId}: font ${fix.from} → ${fix.to}`);
   }
 
+  if (result.overflowing.length > 0) {
+    console.log(`still overflowing (copy too long): ${result.overflowing.join(', ')}`);
+  }
+
   console.log(
-    stillBroken.length === 0
-      ? `fitted: text fits everywhere, written to ${outPath}`
-      : `still overflowing (copy too long): ${stillBroken.join(', ')} — ${outPath}`,
+    result.violations.length === 0
+      ? `clean: no technical violations — ${outPath}`
+      : `left ${result.violations.length} violation(s): ${result.violations.join('; ')} — ${outPath}`,
   );
 
-  if (stillBroken.length > 0) {
-    process.exitCode = 1;
-  }
+  process.exitCode = result.violations.length === 0 ? 0 : 1;
 }
 
 main().catch((error: unknown) => {
