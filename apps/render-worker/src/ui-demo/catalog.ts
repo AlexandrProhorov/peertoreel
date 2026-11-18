@@ -102,6 +102,8 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     parameters: {
       background: { type: 'color' },
       textColor: { type: 'color' },
+      /** Semantic ink, the same dictionary as `label`. One name for one idea. */
+      tone: { type: 'enum', values: ['ink', 'muted', 'accent', 'surface', 'accent-ink'] },
       radius: { type: 'number', min: 0, max: 999 },
       paddingX: { type: 'number', min: 0, max: 120 },
       paddingY: { type: 'number', min: 0, max: 80 },
@@ -123,6 +125,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       side: { type: 'enum', values: ['left', 'right'] },
       background: { type: 'color' },
       textColor: { type: 'color' },
+      tone: { type: 'enum', values: ['ink', 'muted', 'accent', 'surface', 'accent-ink'] },
       token: {
         type: 'enum',
         values: ['display', 'headline', 'card', 'body', 'bubble', 'selection', 'input', 'caption', 'label', 'name'],
@@ -161,6 +164,8 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     parameters: {
       text: { type: 'string', maxLength: 80 },
       tone: { type: 'enum', values: ['ink', 'muted', 'accent', 'surface', 'accent-ink'] },
+      /** Explicit ink, the same dictionary as `pill`/`bubble`. */
+      textColor: { type: 'color' },
       token: { type: 'enum', values: ['display', 'headline', 'card', 'body', 'bubble', 'selection', 'input', 'caption', 'label', 'name'] },
       weight: { type: 'enum', values: [400, 500, 600, 700, 800] },
       align: { type: 'enum', values: ['left', 'center', 'right'] },
@@ -179,7 +184,11 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       axis: { type: 'enum', values: ['x', 'y'] },
     },
     states: ['rest', 'dragging', 'released'],
-    transitions: ['appear', 'disappear', 'grab', 'drag', 'release'],
+    /**
+     * No `grab`: a press without movement is a silent no-op, and the renderer
+     * only implements drag/release. A tap is `drag` with a short layout box.
+     */
+    transitions: ['appear', 'disappear', 'drag', 'release'],
     operations: ['move', 'scale'],
     lifecycles: LIFECYCLE,
   },

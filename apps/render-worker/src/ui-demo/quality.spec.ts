@@ -116,6 +116,30 @@ describe('quality gate', () => {
     expect(codes(spec)).toContain('surface-visible');
   });
 
+  it('compares a surface to the declared stage, not to the theme', () => {
+    /* White card on a white stage inside the lime theme: against the theme
+       background the pair looks fine, on the frame it is invisible. */
+    const spec = baseSpec();
+    spec.elements[0] = {
+      ...spec.elements[0]!,
+      params: { background: '#FFFFFF' },
+    };
+    spec.elements.unshift({
+      id: 'bg',
+      primitive: 'stage',
+      layout: { x: 0, y: 0, width: 1080, height: 1920 },
+      params: { background: '#FFFFFF' },
+      states: [],
+      transitions: [],
+      operations: [],
+      links: [],
+    });
+
+    const issues = lintQuality(spec, 'studio-lime');
+
+    expect(issues.map((issue) => issue.code)).toContain('surface-visible');
+  });
+
   it('rejects low-contrast text', () => {
     const spec = baseSpec();
     spec.elements[0] = {

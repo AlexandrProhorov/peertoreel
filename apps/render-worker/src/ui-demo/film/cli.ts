@@ -11,6 +11,7 @@ import {
 } from '../director/contract-brief.js';
 import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
+import type { Repair } from '../fit/salvage.js';
 import { uiEpisodeSchema, type UiEpisode, type UiScene } from '../spec.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
@@ -133,7 +134,12 @@ async function generateScene(options: {
       continue;
     }
 
-    const episode = uiEpisodeSchema.safeParse(normalizeRawEpisode(parsed));
+    const repairs: Repair[] = [];
+    const episode = uiEpisodeSchema.safeParse(normalizeRawEpisode(parsed, repairs));
+
+    for (const repair of repairs) {
+      console.log(`salvaged ${repair.path}: ${repair.reason} (${repair.from} -> ${repair.to})`);
+    }
 
     if (!episode.success) {
       errors.splice(0, errors.length, ...issuesOf(episode.error));

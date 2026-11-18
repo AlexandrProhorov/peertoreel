@@ -139,6 +139,19 @@ export function lintQuality(
     add('accent-required', null, 'no declared surface: the scene will read as empty');
   }
 
+  /* The stage may declare its own colour; comparing a surface to the theme
+     background misses "white on white" when the model painted the stage white
+     in a lime theme. The declared stage wins, the theme is the fallback. */
+  const declaredStage = spec.elements.find(
+    (element) =>
+      element.primitive === 'stage' &&
+      typeof (element.params as Readonly<Record<string, unknown>>)['background'] === 'string',
+  );
+  const frameBackground =
+    declaredStage === undefined
+      ? theme.background
+      : String((declaredStage.params as Readonly<Record<string, unknown>>)['background']);
+
   for (const surface of surfaces) {
     /* The stage IS the background: comparing it to the theme background is
        always a 1.00 ratio. Checked by primitive, not by the element's id —
@@ -147,13 +160,13 @@ export function lintQuality(
       continue;
     }
 
-    const delta = contrast(surface.background, theme.background);
+    const delta = contrast(surface.background, frameBackground);
 
     if (delta !== null && delta < MIN_SURFACE_DELTA) {
       add(
         'surface-visible',
         surface.id,
-        `surface ${surface.background} is almost the stage colour ${theme.background} (${delta.toFixed(2)} < ${MIN_SURFACE_DELTA})`,
+        `surface ${surface.background} is almost the stage colour ${frameBackground} (${delta.toFixed(2)} < ${MIN_SURFACE_DELTA})`,
       );
     }
   }
@@ -190,7 +203,7 @@ export function lintQuality(
     const container = surfaces
       .filter((surface) => contains(surface.layout, element.layout))
       .pop();
-    const background = container?.background ?? theme.background;
+    const background = container?.background ?? frameBackground;
     const ratio = color === null ? null : contrast(color, background);
 
     if (ratio !== null) {

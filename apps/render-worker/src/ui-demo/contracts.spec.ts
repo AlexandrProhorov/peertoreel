@@ -294,6 +294,31 @@ describe('composition validation', () => {
     expect(result.spec).toBeNull();
     expect(result.issues.map((issue) => issue.code)).toContain('invalid-spec');
   });
+
+  it('accepts `tone` and `textColor` on every text primitive', () => {
+    /* One ink dictionary: a foreign author may name the theme ink or the hex,
+       on a label, a pill or a bubble. Neither name is an unknown parameter. */
+    const spec: CompositionSpec = {
+      kind: 'composition',
+      elements: [
+        element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+        element('e2', 'label', {
+          params: { text: 'текст', token: 'caption', textColor: '#FFFFFF' },
+        }),
+        element('e3', 'pill', {
+          params: { text: 'плашка', token: 'caption', tone: 'ink' },
+        }),
+        element('e4', 'bubble', {
+          params: { text: 'реплика', token: 'caption', tone: 'ink' },
+        }),
+      ],
+      sequence: [{ at: 0, element: 'e1', transition: 'appear' }],
+    };
+
+    expect(
+      validateComposition(spec).filter((issue) => issue.code === 'unknown-parameter'),
+    ).toEqual([]);
+  });
 });
 
 describe('candidate pre-filter', () => {

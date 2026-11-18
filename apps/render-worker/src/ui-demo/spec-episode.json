@@ -46,10 +46,10 @@
             "params": {
               "color": "#CCFF00",
               "width": 6,
-              "fromX": 0,
-              "fromY": 0,
-              "toX": 568,
-              "toY": 0
+              "fromX": 132,
+              "fromY": 980,
+              "toX": 700,
+              "toY": 980
             },
             "states": ["rest"],
             "transitions": ["appear"],

@@ -8,6 +8,7 @@ import { parseDeepSeekSvgEnv } from '../../provider-config.js';
 import { uiEpisodeSchema } from '../spec.js';
 import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
+import type { Repair } from '../fit/salvage.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import {
   DIRECTOR_SYSTEM_PROMPT,
@@ -132,7 +133,12 @@ async function directOne(options: {
       continue;
     }
 
-    const result = uiEpisodeSchema.safeParse(normalizeRawEpisode(parsed));
+    const repairs: Repair[] = [];
+    const result = uiEpisodeSchema.safeParse(normalizeRawEpisode(parsed, repairs));
+
+    for (const repair of repairs) {
+      console.log(`salvaged ${repair.path}: ${repair.reason} (${repair.from} -> ${repair.to})`);
+    }
 
     if (result.success) {
       /* Validation only says the spec is legal; it says nothing about whether

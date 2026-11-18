@@ -4,6 +4,7 @@ import { assetSrcByKey } from '../asset-src.js';
 import type { ASSET_KEYS } from '../assets.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { reveal } from '../timing.js';
+import { lineEndpoints } from './line-geometry.js';
 import {
   Avatar,
   Bubble,
@@ -288,6 +289,7 @@ export function SpecRenderer({
                 theme={theme}
                 token={tokenOf(params)}
                 tone={toneOf(params)}
+                color={str(params, 'textColor')}
                 weight={
                   typeof params.weight === 'number' ? params.weight : undefined
                 }
@@ -309,6 +311,7 @@ export function SpecRenderer({
                 text={text}
                 background={str(params, 'background')}
                 textColor={str(params, 'textColor')}
+                tone={toneOf(params)}
                 radius={num(params, 'radius', 999)}
                 paddingX={num(params, 'paddingX', 40)}
                 paddingY={num(params, 'paddingY', 18)}
@@ -337,6 +340,7 @@ export function SpecRenderer({
                 side={str(params, 'side') === 'left' ? 'left' : 'right'}
                 background={str(params, 'background')}
                 textColor={str(params, 'textColor')}
+                tone={toneOf(params)}
                 token={tokenOf(params)}
                 style={textStyle}
                 markers={{ critical: 'spec-text' }}
@@ -454,15 +458,11 @@ export function SpecRenderer({
             );
           }
           case 'line': {
-            /* Coordinates are local to the element's layout box, like every
-               other primitive: the model places the box, not the frame. */
-            const originX = element.layout.x;
-            const originY = element.layout.y;
-            const fromX = originX + num(params, 'fromX', 0);
-            const fromY = originY + num(params, 'fromY', 0);
-            const toX = originX + num(params, 'toX', 600);
-            const toY = originY + num(params, 'toY', 0);
+            /* Line coordinates are absolute frame points, like SVG: a foreign
+               author writes where the line is. `layout` stays the bounding box
+               (validated and used by the quality gate), never an offset. */
             const drawProgress = cueProgress(list, 'draw', frame);
+            const points = lineEndpoints(params, drawProgress);
 
             return (
               <Line
@@ -470,10 +470,10 @@ export function SpecRenderer({
                 color={str(params, 'color') ?? theme.accent}
                 width={num(params, 'width', 2)}
                 dashed={flag(params, 'dashed')}
-                fromX={fromX}
-                fromY={fromY}
-                toX={fromX + (toX - fromX) * drawProgress}
-                toY={fromY + (toY - fromY) * drawProgress}
+                fromX={points.fromX}
+                fromY={points.fromY}
+                toX={points.toX}
+                toY={points.toY}
                 /* The SVG covers the frame; only the line's own points move. */
                 style={{
                   position: 'absolute',

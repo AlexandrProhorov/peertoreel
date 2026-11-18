@@ -181,6 +181,18 @@
           "initial": ""
         },
         {
+          "name": "tone",
+          "type": "enum",
+          "values": [
+            "ink",
+            "muted",
+            "accent",
+            "surface",
+            "accent-ink"
+          ],
+          "initial": "ink"
+        },
+        {
           "name": "radius",
           "type": "number",
           "min": 0,
@@ -261,7 +273,7 @@
       ],
       "prompt": [
         "- pill — компактный маркированный текстовый элемент",
-        "    background: color\n    textColor: color\n    radius: number, 0..999\n    paddingX: number, 0..120\n    paddingY: number, 0..80\n    gap: number, 0..64\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 80 символов",
+        "    background: color\n    textColor: color\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    radius: number, 0..999\n    paddingX: number, 0..120\n    paddingY: number, 0..80\n    gap: number, 0..64\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 80 символов",
         "    переходы: appear, disappear, activate, type, hold",
         "    состояния: rest, active",
         "    операции: reveal, move, scale, type-on"
@@ -289,7 +301,19 @@
         {
           "name": "textColor",
           "type": "color",
-          "initial": ""
+          "initial": "#0B0B0C"
+        },
+        {
+          "name": "tone",
+          "type": "enum",
+          "values": [
+            "ink",
+            "muted",
+            "accent",
+            "surface",
+            "accent-ink"
+          ],
+          "initial": "ink"
         },
         {
           "name": "token",
@@ -332,7 +356,7 @@
       ],
       "prompt": [
         "- bubble — реплика или сообщение",
-        "    side: enum, одно из [\"left\",\"right\"]\n    background: color\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 160 символов",
+        "    side: enum, одно из [\"left\",\"right\"]\n    background: color\n    textColor: color\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 160 символов",
         "    переходы: appear, disappear, type, hold",
         "    состояния: rest, shown",
         "    операции: reveal, type-on, move"
@@ -446,6 +470,11 @@
           "initial": "ink"
         },
         {
+          "name": "textColor",
+          "type": "color",
+          "initial": "#FFFFFF"
+        },
+        {
           "name": "token",
           "type": "enum",
           "values": [
@@ -508,7 +537,7 @@
       ],
       "prompt": [
         "- label — текстовый смысловой акцент",
-        "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1",
+        "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1",
         "    переходы: appear, disappear, type, hold",
         "    состояния: rest",
         "    операции: reveal, type-on, move"
@@ -549,7 +578,6 @@
       "transitions": [
         "appear",
         "disappear",
-        "grab",
         "drag",
         "release"
       ],
@@ -560,7 +588,7 @@
       "prompt": [
         "- thumb — положение или указатель на шкале",
         "    size: number, 12..80\n    color: color\n    axis: enum, одно из [\"x\",\"y\"]",
-        "    переходы: appear, disappear, grab, drag, release",
+        "    переходы: appear, disappear, drag, release",
         "    состояния: rest, dragging, released",
         "    операции: move, scale"
       ]
@@ -692,7 +720,7 @@
     },
     {
       "id": "line",
-      "semantics": "связь, направление, траектория",
+      "semantics": "связь, направление, траектория; координаты точек — в кадре, как в SVG",
       "offeredToDirector": true,
       "parameters": [
         {
@@ -717,28 +745,28 @@
           "type": "number",
           "min": 0,
           "max": 1080,
-          "initial": 0
+          "initial": 200
         },
         {
           "name": "fromY",
           "type": "number",
           "min": 0,
           "max": 1920,
-          "initial": 0
+          "initial": 900
         },
         {
           "name": "toX",
           "type": "number",
           "min": 0,
           "max": 1080,
-          "initial": 600
+          "initial": 800
         },
         {
           "name": "toY",
           "type": "number",
           "min": 0,
           "max": 1920,
-          "initial": 120
+          "initial": 1020
         }
       ],
       "states": [
@@ -758,7 +786,7 @@
         "extend"
       ],
       "prompt": [
-        "- line — связь, направление, траектория",
+        "- line — связь, направление, траектория; координаты точек — в кадре, как в SVG",
         "    dashed: boolean\n    color: color\n    width: number, 1..12\n    fromX: number, 0..1080\n    fromY: number, 0..1920\n    toX: number, 0..1080\n    toY: number, 0..1920",
         "    переходы: appear, disappear, draw, break, reset",
         "    состояния: rest, drawing, broken",

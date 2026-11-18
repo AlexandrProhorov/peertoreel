@@ -137,6 +137,7 @@ export function Pill({
   theme,
   background,
   textColor,
+  tone,
   border,
   radius = 999,
   paddingX = 40,
@@ -153,6 +154,8 @@ export function Pill({
   theme: UiTheme;
   background?: string;
   textColor?: string;
+  /** Semantic ink; an explicit `textColor` wins over the tone. */
+  tone?: Tone;
   border?: string;
   radius?: number;
   paddingX?: number;
@@ -188,7 +191,7 @@ export function Pill({
              the inherited browser default, not the font the pill uses. */
           {...markerProps({ critical: markers?.critical })}
           style={{
-            ...textStyle(token, textColor ?? theme.surfaceInk),
+            ...textStyle(token, textColor ?? toneColor(theme, tone) ?? theme.surfaceInk),
             ...(weight === undefined ? {} : { fontWeight: weight }),
           }}
         >
@@ -253,6 +256,7 @@ export function Bubble({
   side = 'right',
   background,
   textColor,
+  tone,
   token = 'bubble',
   text,
   style,
@@ -263,6 +267,8 @@ export function Bubble({
   side?: 'left' | 'right';
   background?: string;
   textColor?: string;
+  /** Semantic ink; an explicit `textColor` wins over the tone. */
+  tone?: Tone;
   token?: TypeToken;
   text?: string;
 }) {
@@ -273,7 +279,7 @@ export function Bubble({
         width: 'fit-content',
         maxWidth: 700,
         background: background ?? theme.accent,
-        color: textColor ?? theme.accentInk,
+        color: textColor ?? toneColor(theme, tone) ?? theme.accentInk,
         padding: '26px 34px',
         borderRadius: 40,
         borderTopLeftRadius: side === 'left' ? 16 : 40,

@@ -1,0 +1,136 @@
+{
+  "thesis": "Каждая подписка стоит копейки, но их копится много, и ты платишь за всё, а пользуешься малым.",
+  "scenes": [
+    {
+      "id": "hook",
+      "role": "крючок",
+      "action": "Палец нажимает «Подписаться», и в один клик появляется «Готово». Крупное «Копейки.» набирается как оценка: это почти ничего не стоит.",
+      "seconds": 5,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": {"x":0,"y":0,"width":1080,"height":1920},
+            "params": {"background":"#0A0A0B","grid":false,"vignette":true} },
+          { "id": "title", "primitive": "label", "layout": {"x":72,"y":300,"width":818,"height":200},
+            "params": {"text":"Копейки.","token":"headline","tone":"ink","weight":800,"align":"left"} },
+          { "id": "sub", "primitive": "pill", "layout": {"x":72,"y":760,"width":560,"height":112},
+            "params": {"text":"Подписаться","token":"caption","background":"#CCFF00","textColor":"#0A0A0B","paddingX":36,"paddingY":20} },
+          { "id": "hand", "primitive": "thumb", "layout": {"x":380,"y":820,"width":72,"height":72},
+            "params": {"size":72,"color":"#FFFFFF","axis":"y"} },
+          { "id": "done", "primitive": "pill", "layout": {"x":550,"y":1060,"width":340,"height":112},
+            "params": {"text":"Готово","token":"caption","background":"#161618","textColor":"#FFFFFF","paddingX":36,"paddingY":20} }
+        ],
+        "sequence": [
+          {"element":"bg","transition":"appear"},
+          {"element":"title","transition":"appear"},
+          {"element":"title","transition":"type"},
+          {"element":"sub","transition":"appear"},
+          {"element":"hand","transition":"appear"},
+          {"element":"hand","transition":"grab"},
+          {"element":"hand","transition":"release"},
+          {"element":"done","transition":"appear"},
+          {"element":"hand","transition":"disappear"}
+        ]
+      }
+    },
+    {
+      "id": "pile",
+      "role": "накопление",
+      "action": "Подписки одна за другой ложатся в стопку ступенями снизу вверх и растут к заголовку «Их много». Последняя, «Ещё одна», залита акцентом.",
+      "seconds": 7,
+      "theme": "studio-light",
+      "spec": {
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": {"x":0,"y":0,"width":1080,"height":1920},
+            "params": {"background":"#FFFFFF","grid":false,"vignette":false} },
+          { "id": "title", "primitive": "label", "layout": {"x":72,"y":200,"width":818,"height":200},
+            "params": {"text":"Их много","token":"headline","tone":"ink","weight":800,"align":"left"} },
+          { "id": "p1", "primitive": "pill", "layout": {"x":72,"y":1420,"width":360,"height":112},
+            "params": {"text":"Музыка","token":"caption","background":"#F3F3F5","textColor":"#0B0B0C","paddingX":36,"paddingY":20} },
+          { "id": "p2", "primitive": "pill", "layout": {"x":330,"y":1270,"width":280,"height":112},
+            "params": {"text":"Кино","token":"caption","background":"#F3F3F5","textColor":"#0B0B0C","paddingX":36,"paddingY":20} },
+          { "id": "p3", "primitive": "pill", "layout": {"x":160,"y":1120,"width":360,"height":112},
+            "params": {"text":"Облако","token":"caption","background":"#F3F3F5","textColor":"#0B0B0C","paddingX":36,"paddingY":20} },
+          { "id": "p4", "primitive": "pill", "layout": {"x":440,"y":970,"width":430,"height":112},
+            "params": {"text":"Ещё одна","token":"caption","background":"#CCFF00","textColor":"#0B0B0C","paddingX":36,"paddingY":20} }
+        ],
+        "sequence": [
+          {"element":"bg","transition":"appear"},
+          {"element":"title","transition":"appear"},
+          {"element":"title","transition":"type"},
+          {"element":"p1","transition":"appear"},
+          {"element":"p2","transition":"appear"},
+          {"element":"p3","transition":"appear"},
+          {"element":"p4","transition":"appear"}
+        ]
+      }
+    },
+    {
+      "id": "waste",
+      "role": "перекос",
+      "action": "Палец нажимает только «Музыка», а «Забытое кино» остаётся нетронутым. Проступает «Одна.», затем реплика: «А плачу за обе.»",
+      "seconds": 8,
+      "theme": "studio-lime",
+      "spec": {
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": {"x":0,"y":0,"width":1080,"height":1920},
+            "params": {"background":"#CCFF00","grid":false,"vignette":false} },
+          { "id": "title", "primitive": "label", "layout": {"x":72,"y":240,"width":818,"height":220},
+            "params": {"text":"Одна.","token":"headline","tone":"ink","weight":800,"align":"left"} },
+          { "id": "used", "primitive": "pill", "layout": {"x":72,"y":720,"width":360,"height":112},
+            "params": {"text":"Музыка","token":"caption","background":"#FFFFFF","textColor":"#0B0B0C","paddingX":36,"paddingY":20} },
+          { "id": "forgotten", "primitive": "pill", "layout": {"x":72,"y":880,"width":620,"height":112},
+            "params": {"text":"Забытое кино","token":"caption","background":"#FFFFFF","textColor":"#0B0B0C","paddingX":36,"paddingY":20} },
+          { "id": "hand", "primitive": "thumb", "layout": {"x":360,"y":780,"width":72,"height":72},
+            "params": {"size":72,"color":"#0B0B0C","axis":"y"} },
+          { "id": "reply", "primitive": "bubble", "layout": {"x":210,"y":1240,"width":680,"height":100},
+            "params": {"side":"right","text":"А плачу за обе.","token":"body","tone":"ink","background":"#FFFFFF","textColor":"#0B0B0C"} }
+        ],
+        "sequence": [
+          {"element":"bg","transition":"appear"},
+          {"element":"used","transition":"appear"},
+          {"element":"forgotten","transition":"appear"},
+          {"element":"hand","transition":"appear"},
+          {"element":"hand","transition":"grab"},
+          {"element":"hand","transition":"release"},
+          {"element":"title","transition":"appear"},
+          {"element":"title","transition":"type"},
+          {"element":"reply","transition":"appear"},
+          {"element":"hand","transition":"disappear"}
+        ]
+      }
+    },
+    {
+      "id": "total",
+      "role": "итог",
+      "action": "Три тонкие линии, по одной на подписку, стекаются в одну плашку «Всё вместе». Под ней акцентом набирается «Дорого.»: мелкое по отдельности стало крупным в сумме.",
+      "seconds": 7,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": {"x":0,"y":0,"width":1080,"height":1920},
+            "params": {"background":"#0A0A0B","grid":false,"vignette":true} },
+          { "id": "l1", "primitive": "line", "layout": {"x":110,"y":240,"width":430,"height":560},
+            "params": {"fromX":110,"fromY":240,"toX":540,"toY":800,"width":6,"dashed":false} },
+          { "id": "l2", "primitive": "line", "layout": {"x":534,"y":240,"width":12,"height":560},
+            "params": {"fromX":540,"fromY":240,"toX":540,"toY":800,"width":6,"dashed":false} },
+          { "id": "l3", "primitive": "line", "layout": {"x":540,"y":240,"width":330,"height":560},
+            "params": {"fromX":870,"fromY":240,"toX":540,"toY":800,"width":6,"dashed":false} },
+          { "id": "sum", "primitive": "pill", "layout": {"x":270,"y":800,"width":540,"height":112},
+            "params": {"text":"Всё вместе","token":"caption","background":"#161618","textColor":"#FFFFFF","paddingX":36,"paddingY":20} },
+          { "id": "title", "primitive": "label", "layout": {"x":72,"y":1100,"width":818,"height":240},
+            "params": {"text":"Дорого.","token":"headline","tone":"accent","weight":800,"align":"left"} }
+        ],
+        "sequence": [
+          {"element":"bg","transition":"appear"},
+          {"element":"l1","transition":"draw"},
+          {"element":"l2","transition":"draw"},
+          {"element":"l3","transition":"draw"},
+          {"element":"sum","transition":"appear"},
+          {"element":"title","transition":"appear"},
+          {"element":"title","transition":"type"}
+        ]
+      }
+    }
+  ]
+}

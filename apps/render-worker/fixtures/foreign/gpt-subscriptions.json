@@ -1,0 +1,522 @@
+{
+  "thesis": "Подписки стали невыгодными, когда регулярные списания накопились быстрее реальной пользы от сервисов.",
+  "scenes": [
+    {
+      "id": "hook",
+      "role": "крючок",
+      "action": "В пустом пространстве появляется одна крупная карточка подписки. На ней возникает слово «УДОБНО»: одна подписка действительно кажется простой и безобидной.",
+      "seconds": 5,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 1080,
+              "height": 1920
+            },
+            "params": {
+              "background": "#0A0A0B"
+            }
+          },
+          {
+            "id": "single-card",
+            "primitive": "card",
+            "layout": {
+              "x": 130,
+              "y": 500,
+              "width": 780,
+              "height": 800
+            },
+            "params": {
+              "background": "#161618",
+              "radius": 36,
+              "padding": 48,
+              "border": "none",
+              "shadow": "none"
+            }
+          },
+          {
+            "id": "headline",
+            "primitive": "label",
+            "layout": {
+              "x": 170,
+              "y": 730,
+              "width": 700,
+              "height": 220
+            },
+            "params": {
+              "text": "ОДНА ПОДПИСКА",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 800,
+              "align": "center"
+            }
+          },
+          {
+            "id": "convenience",
+            "primitive": "pill",
+            "layout": {
+              "x": 300,
+              "y": 1050,
+              "width": 440,
+              "height": 130
+            },
+            "params": {
+              "text": "УДОБНО",
+              "token": "card",
+              "background": "#CCFF00",
+              "textColor": "#0A0A0B",
+              "paddingX": 32,
+              "paddingY": 20
+            }
+          }
+        ],
+        "sequence": [
+          {
+            "element": "stage",
+            "transition": "appear"
+          },
+          {
+            "element": "single-card",
+            "transition": "appear"
+          },
+          {
+            "element": "headline",
+            "transition": "type"
+          },
+          {
+            "element": "convenience",
+            "transition": "appear"
+          }
+        ]
+      }
+    },
+    {
+      "id": "accumulation",
+      "role": "развитие",
+      "action": "Вокруг первой мысли последовательно возникают карточки разных сервисов. Они занимают пространство кадра: одна удобная подписка превращается в целый набор регулярных платежей.",
+      "seconds": 7,
+      "theme": "studio-light",
+      "spec": {
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 1080,
+              "height": 1920
+            },
+            "params": {
+              "background": "#FFFFFF"
+            }
+          },
+          {
+            "id": "headline",
+            "primitive": "label",
+            "layout": {
+              "x": 90,
+              "y": 240,
+              "width": 760,
+              "height": 200
+            },
+            "params": {
+              "text": "А ПОТОМ ИХ БОЛЬШЕ",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 800,
+              "align": "left"
+            }
+          },
+          {
+            "id": "video",
+            "primitive": "pill",
+            "layout": {
+              "x": 110,
+              "y": 620,
+              "width": 330,
+              "height": 140
+            },
+            "params": {
+              "text": "ВИДЕО",
+              "token": "card",
+              "background": "#CCFF00",
+              "textColor": "#0B0B0C",
+              "paddingX": 28,
+              "paddingY": 22
+            }
+          },
+          {
+            "id": "music",
+            "primitive": "pill",
+            "layout": {
+              "x": 500,
+              "y": 760,
+              "width": 330,
+              "height": 140
+            },
+            "params": {
+              "text": "МУЗЫКА",
+              "token": "card",
+              "background": "#F3F3F5",
+              "textColor": "#0B0B0C",
+              "paddingX": 28,
+              "paddingY": 22
+            }
+          },
+          {
+            "id": "cloud",
+            "primitive": "pill",
+            "layout": {
+              "x": 110,
+              "y": 1010,
+              "width": 330,
+              "height": 140
+            },
+            "params": {
+              "text": "ОБЛАКО",
+              "token": "card",
+              "background": "#F3F3F5",
+              "textColor": "#0B0B0C",
+              "paddingX": 28,
+              "paddingY": 22
+            }
+          },
+          {
+            "id": "apps",
+            "primitive": "pill",
+            "layout": {
+              "x": 500,
+              "y": 1190,
+              "width": 330,
+              "height": 140
+            },
+            "params": {
+              "text": "ПРИЛОЖЕНИЯ",
+              "token": "card",
+              "background": "#F3F3F5",
+              "textColor": "#0B0B0C",
+              "paddingX": 28,
+              "paddingY": 22
+            }
+          }
+        ],
+        "sequence": [
+          {
+            "element": "stage",
+            "transition": "appear"
+          },
+          {
+            "element": "headline",
+            "transition": "type"
+          },
+          {
+            "element": "video",
+            "transition": "appear"
+          },
+          {
+            "element": "music",
+            "transition": "appear"
+          },
+          {
+            "element": "cloud",
+            "transition": "appear"
+          },
+          {
+            "element": "apps",
+            "transition": "appear"
+          }
+        ]
+      }
+    },
+    {
+      "id": "recurring",
+      "role": "проблема",
+      "action": "Под крупной надписью одно за другим возникают одинаковые списания. Они повторяются, хотя фактическое использование сервисов может прекратиться. Платёж живёт по своему расписанию.",
+      "seconds": 8,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 1080,
+              "height": 1920
+            },
+            "params": {
+              "background": "#0A0A0B"
+            }
+          },
+          {
+            "id": "headline",
+            "primitive": "label",
+            "layout": {
+              "x": 90,
+              "y": 220,
+              "width": 760,
+              "height": 250
+            },
+            "params": {
+              "text": "АВТОПРОДЛЕНИЕ",
+              "token": "display",
+              "tone": "ink",
+              "weight": 800,
+              "align": "left"
+            }
+          },
+          {
+            "id": "explanation",
+            "primitive": "label",
+            "layout": {
+              "x": 90,
+              "y": 520,
+              "width": 740,
+              "height": 150
+            },
+            "params": {
+              "text": "Даже без использования",
+              "token": "body",
+              "tone": "muted",
+              "weight": 600,
+              "align": "left"
+            }
+          },
+          {
+            "id": "charge-one",
+            "primitive": "pill",
+            "layout": {
+              "x": 130,
+              "y": 880,
+              "width": 600,
+              "height": 130
+            },
+            "params": {
+              "text": "СПИСАНИЕ",
+              "token": "card",
+              "background": "#CCFF00",
+              "textColor": "#0A0A0B",
+              "paddingX": 30,
+              "paddingY": 20
+            }
+          },
+          {
+            "id": "charge-two",
+            "primitive": "pill",
+            "layout": {
+              "x": 190,
+              "y": 1090,
+              "width": 600,
+              "height": 130
+            },
+            "params": {
+              "text": "СПИСАНИЕ",
+              "token": "card",
+              "background": "#CCFF00",
+              "textColor": "#0A0A0B",
+              "paddingX": 30,
+              "paddingY": 20
+            }
+          },
+          {
+            "id": "charge-three",
+            "primitive": "pill",
+            "layout": {
+              "x": 250,
+              "y": 1300,
+              "width": 600,
+              "height": 130
+            },
+            "params": {
+              "text": "СПИСАНИЕ",
+              "token": "card",
+              "background": "#CCFF00",
+              "textColor": "#0A0A0B",
+              "paddingX": 30,
+              "paddingY": 20
+            }
+          }
+        ],
+        "sequence": [
+          {
+            "element": "stage",
+            "transition": "appear"
+          },
+          {
+            "element": "headline",
+            "transition": "type"
+          },
+          {
+            "element": "explanation",
+            "transition": "appear"
+          },
+          {
+            "element": "charge-one",
+            "transition": "appear"
+          },
+          {
+            "element": "charge-two",
+            "transition": "appear"
+          },
+          {
+            "element": "charge-three",
+            "transition": "appear"
+          }
+        ]
+      }
+    },
+    {
+      "id": "decision",
+      "role": "развязка",
+      "action": "Появляются три варианта подписки. Две карточки постепенно исчезают, остаётся одна — та, которой действительно пользуешься. Финал превращает накопление платежей в осознанный выбор.",
+      "seconds": 7,
+      "theme": "studio-lime",
+      "spec": {
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 1080,
+              "height": 1920
+            },
+            "params": {
+              "background": "#CCFF00"
+            }
+          },
+          {
+            "id": "headline",
+            "primitive": "label",
+            "layout": {
+              "x": 90,
+              "y": 210,
+              "width": 760,
+              "height": 220
+            },
+            "params": {
+              "text": "ПЕРЕСМОТРИ СПИСОК",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 800,
+              "align": "left"
+            }
+          },
+          {
+            "id": "explanation",
+            "primitive": "label",
+            "layout": {
+              "x": 90,
+              "y": 480,
+              "width": 760,
+              "height": 150
+            },
+            "params": {
+              "text": "Оставь то, чем пользуешься",
+              "token": "body",
+              "tone": "ink",
+              "weight": 600,
+              "align": "left"
+            }
+          },
+          {
+            "id": "keep",
+            "primitive": "pill",
+            "layout": {
+              "x": 110,
+              "y": 850,
+              "width": 650,
+              "height": 140
+            },
+            "params": {
+              "text": "РЕАЛЬНО ПОЛЬЗУЮСЬ",
+              "token": "card",
+              "background": "#FFFFFF",
+              "textColor": "#0B0B0C",
+              "paddingX": 30,
+              "paddingY": 22
+            }
+          },
+          {
+            "id": "forget",
+            "primitive": "pill",
+            "layout": {
+              "x": 160,
+              "y": 1080,
+              "width": 650,
+              "height": 140
+            },
+            "params": {
+              "text": "УЖЕ НЕ ОТКРЫВАЮ",
+              "token": "card",
+              "background": "#FFFFFF",
+              "textColor": "#0B0B0C",
+              "paddingX": 30,
+              "paddingY": 22
+            }
+          },
+          {
+            "id": "maybe",
+            "primitive": "pill",
+            "layout": {
+              "x": 210,
+              "y": 1310,
+              "width": 650,
+              "height": 140
+            },
+            "params": {
+              "text": "НА ВСЯКИЙ СЛУЧАЙ",
+              "token": "card",
+              "background": "#FFFFFF",
+              "textColor": "#0B0B0C",
+              "paddingX": 30,
+              "paddingY": 22
+            }
+          }
+        ],
+        "sequence": [
+          {
+            "element": "stage",
+            "transition": "appear"
+          },
+          {
+            "element": "headline",
+            "transition": "type"
+          },
+          {
+            "element": "explanation",
+            "transition": "appear"
+          },
+          {
+            "element": "keep",
+            "transition": "appear"
+          },
+          {
+            "element": "forget",
+            "transition": "appear"
+          },
+          {
+            "element": "maybe",
+            "transition": "appear"
+          },
+          {
+            "element": "forget",
+            "transition": "disappear"
+          },
+          {
+            "element": "maybe",
+            "transition": "disappear"
+          }
+        ]
+      }
+    }
+  ]
+}

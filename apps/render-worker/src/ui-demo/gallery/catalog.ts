@@ -35,7 +35,7 @@ export const PRIMITIVE_SEMANTICS: Readonly<Record<PrimitiveId, string>> = {
   thumb: 'положение или указатель на шкале',
   track: 'заполнение, величина, прогресс',
   grid: 'регулярная пространственная структура',
-  line: 'связь, направление, траектория',
+  line: 'связь, направление, траектория; координаты точек — в кадре, как в SVG',
 };
 
 /**
@@ -57,13 +57,19 @@ export const PRIMITIVE_DEFAULTS: Readonly<
   pill: {
     text: 'нейросети',
     token: 'card',
+    tone: 'ink',
     radius: 999,
     paddingX: 40,
     paddingY: 18,
     gap: 18,
     shadow: 'soft',
   },
-  bubble: { text: 'Он ответил за секунду', side: 'left', token: 'bubble' },
+  bubble: {
+    text: 'Он ответил за секунду',
+    side: 'left',
+    token: 'bubble',
+    textColor: '#0B0B0C',
+  },
   avatar: { asset: 'owl', size: 96, ring: true },
   object: { asset: 'owl', size: 320, rotation: 0, shadow: true },
   label: {
@@ -73,15 +79,18 @@ export const PRIMITIVE_DEFAULTS: Readonly<
     weight: 800,
     align: 'left',
     fontScale: 1,
+    textColor: '#FFFFFF',
   },
   thumb: { size: 28, axis: 'x' },
   track: { length: 600, thickness: 8, fill: 0.6, breakAt: 0.7 },
   grid: { columns: 4, rows: 3, gap: 16, cell: 'dot' },
   line: {
-    fromX: 0,
-    fromY: 0,
-    toX: 600,
-    toY: 120,
+    /* Frame coordinates: the sandbox previews the line where the frame is, not
+       at an offset of the layout box. */
+    fromX: 200,
+    fromY: 900,
+    toX: 800,
+    toY: 1020,
     width: 3,
     dashed: false,
   },

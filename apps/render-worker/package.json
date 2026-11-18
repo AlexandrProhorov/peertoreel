@@ -19,6 +19,7 @@
     "ui:gallery": "tsx src/ui-demo/gallery/build.ts",
     "ui:film": "tsx src/ui-demo/film/cli.ts",
     "ui:assemble": "tsx src/ui-demo/film/assemble.ts",
+    "ui:import": "tsx src/ui-demo/film/import.ts",
     "ui:prompts": "tsx src/ui-demo/film/print-prompts.ts",
     "ui:visual": "tsx src/ui-demo/visual/cli.ts",
     "ui:fit": "tsx src/ui-demo/fit/cli.ts",
