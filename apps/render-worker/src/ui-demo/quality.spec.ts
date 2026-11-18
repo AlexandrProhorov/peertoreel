@@ -249,6 +249,58 @@ describe('quality gate', () => {
     expect(lintQuality(spec).map((issue) => issue.code)).not.toContain('empty-surface');
   });
 
+  it('accepts two blank shapes of different size as a size comparison', () => {
+    const spec = baseSpec();
+    spec.elements = [
+      ...baseSpec().elements.slice(0, 1).map((element) => ({
+        ...element,
+        params: { background: '#161618' },
+      })),
+      {
+        id: 'thin',
+        primitive: 'card',
+        layout: { x: 120, y: 300, width: 260, height: 320 },
+        params: { background: '#F3F3F5' },
+        states: [],
+        transitions: [],
+        operations: [],
+        links: [],
+      },
+      {
+        id: 'thick',
+        primitive: 'card',
+        layout: { x: 600, y: 300, width: 260, height: 400 },
+        params: { background: '#F3F3F5' },
+        states: [],
+        transitions: [],
+        operations: [],
+        links: [],
+      },
+    ];
+
+    expect(lintQuality(spec).map((issue) => issue.code)).not.toContain('empty-surface');
+  });
+
+  it('rejects two identical blank shapes: a stack of empty cards says nothing', () => {
+    const spec = baseSpec();
+    const blank = {
+      primitive: 'card',
+      layout: { x: 200, y: 1200, width: 300, height: 200 },
+      params: { background: '#F3F3F5' },
+      states: [],
+      transitions: [],
+      operations: [],
+      links: [],
+    };
+    spec.elements = [
+      ...baseSpec().elements.slice(0, 1),
+      { ...blank, id: 'blank-one' },
+      { ...blank, id: 'blank-two', layout: { ...blank.layout, x: 215, y: 1215 } },
+    ];
+
+    expect(lintQuality(spec).map((issue) => issue.code)).toContain('empty-surface');
+  });
+
   it('rejects an empty scene', () => {
     const spec = baseSpec();
     spec.elements = [spec.elements[0]!];

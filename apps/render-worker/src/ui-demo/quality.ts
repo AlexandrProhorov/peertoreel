@@ -193,12 +193,19 @@ export function lintQuality(
     }
   }
 
-  /* A surface with no copy and nothing inside is a hole in the frame: the model
-     uses it as a block, the viewer reads nothing. Nested surfaces are exempt —
+  /* A surface with no copy and nothing inside is a hole in the frame — unless
+     it is half of a comparison: two blank shapes of different size read as
+     "thin / thick" without a word. Two identical blanks are decoration and
+     stay rejected, a lone blank stays rejected. Nested surfaces are exempt:
      a list item inside a phone is a shape the container explains. */
   const parsedSurfaces = spec.elements.filter((element) =>
     ['card', 'pill', 'bubble'].includes(element.primitive),
   );
+  const blanks: Array<{
+    element: (typeof parsedSurfaces)[number];
+    width: number;
+    height: number;
+  }> = [];
 
   for (const element of parsedSurfaces) {
     const params = element.params as Readonly<Record<string, unknown>>;
@@ -217,16 +224,42 @@ export function lintQuality(
 
       return area > 0 && contains(element.layout, other.layout);
     });
-    /* A list item inside a phone is a shape the container explains. */
     const nested = parsedSurfaces.some(
       (other) => other !== element && contains(other.layout, element.layout),
     );
 
-    if (!filled && !nested) {
+    if (filled || nested) {
+      continue;
+    }
+
+    blanks.push({
+      element,
+      width: element.layout.width ?? 0,
+      height: element.layout.height ?? 0,
+    });
+  }
+
+  /* A comparison is a pair with one side equal and the other clearly different:
+     same width, different height ("thin / thick"). Two identical blanks or an
+     arbitrary pair stay rejected. */
+  const near = (a: number, b: number): boolean =>
+    Math.abs(a - b) <= Math.max(a, b) * 0.1;
+
+  for (const blank of blanks) {
+    const compared = blanks.some(
+      (other) =>
+        other.element !== blank.element &&
+        ((near(other.width, blank.width) &&
+          Math.abs(other.height - blank.height) > blank.height * 0.2) ||
+          (near(other.height, blank.height) &&
+            Math.abs(other.width - blank.width) > blank.width * 0.2)),
+    );
+
+    if (!compared) {
       add(
         'empty-surface',
-        element.id,
-        `"${element.id}" is a surface with no text and nothing inside: give it a label or remove it`,
+        blank.element.id,
+        `"${blank.element.id}" is a surface with no text and nothing inside: give it a label or make it half of a size comparison`,
       );
     }
   }
