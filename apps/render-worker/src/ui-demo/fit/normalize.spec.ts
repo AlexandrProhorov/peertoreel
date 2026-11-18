@@ -156,6 +156,54 @@ describe('surface separation', () => {
     expect(moved).toMatchObject({ x: 96, y: 470, width: 770 });
   });
 
+  it('shrinks the second card when two wide cards cannot fit side by side', () => {
+    const element = (id: string, x: number, width: number): Record<string, unknown> => ({
+      id,
+      primitive: 'card',
+      layout: { x, y: 300, width, height: 900 },
+      params: { background: '#F3F3F5' },
+    });
+    const raw = {
+      schemaVersion: 1,
+      themeId: 'studio-light',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'cards',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-light',
+          spec: {
+            kind: 'composition',
+            elements: [
+              element('left', 72, 420),
+              element('right', 470, 420),
+              {
+                id: 'leftTag',
+                primitive: 'label',
+                layout: { x: 104, y: 360, width: 356, height: 140 },
+                params: { text: 'Мои подписки', token: 'card', tone: 'ink' },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const normalized = normalizeRawEpisode(raw) as {
+      scenes: ReadonlyArray<{
+        spec: { elements: ReadonlyArray<{ id: string; layout: Record<string, number> }> };
+      }>;
+    };
+    const right = normalized.scenes[0]?.spec.elements.find((item) => item.id === 'right');
+
+    /* 72 + 420 + 16 + 420 = 928 > 890: the gap is impossible, so the later card
+       gives up width instead of sharing pixels with its neighbour. */
+    expect(right?.layout).toMatchObject({ x: 508, width: 382 });
+  });
+
   it('applies the card padding to a track and shortens its rail', () => {
     const raw = {
       schemaVersion: 1,

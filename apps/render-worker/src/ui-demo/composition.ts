@@ -107,6 +107,23 @@ function carriesText(element: CompositionSpec['elements'][number]): boolean {
   return ['pill', 'bubble', 'card'].includes(element.primitive) && typeof text === 'string' && text.trim() !== '';
 }
 
+/** A card with a label on it is text-bearing even without its own `text`. */
+function hasTextInside(
+  elements: readonly CompositionSpec['elements'][number][],
+  element: CompositionSpec['elements'][number],
+): boolean {
+  if (element.primitive !== 'card') {
+    return false;
+  }
+
+  return elements.some(
+    (other) =>
+      other !== element &&
+      ['label', 'pill', 'bubble'].includes(other.primitive) &&
+      contains(element.layout, other.layout),
+  );
+}
+
 function checkParameter(
   elementId: string,
   primitive: PrimitiveId,
@@ -323,7 +340,9 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
     }
   }
 
-  const textSurfaces = spec.elements.filter(carriesText);
+  const textSurfaces = spec.elements.filter(
+    (element) => carriesText(element) || hasTextInside(spec.elements, element),
+  );
 
   for (let i = 0; i < textSurfaces.length; i += 1) {
     for (let j = i + 1; j < textSurfaces.length; j += 1) {

@@ -88,7 +88,10 @@ function rawBox(element: Unknown): { x: number; y: number; width: number; height
   return { x, y, width, height };
 }
 
-function intersects(a: Boxed, b: Boxed): number {
+function intersects(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): number {
   const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
 
@@ -100,6 +103,27 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
   const boxes = result
     .map((element, index) => ({ index, box: asBoxed(element) }))
     .filter((item): item is { index: number; box: Boxed } => item.box !== null);
+  /* A card with a label on it is text-bearing even though the card itself has no
+     `text`: overlaps were judged by the card's own copy only, so two labelled
+     cards could share pixels. */
+  const textInside = result
+    .filter((element) => ['label', 'pill', 'bubble'].includes(String(element['primitive'])))
+    .map((element) => rawBox(element))
+    .filter((box): box is NonNullable<ReturnType<typeof rawBox>> => box !== null);
+
+  const coveredByText = (box: Boxed): boolean => {
+    if (carriesText(box.element)) {
+      return true;
+    }
+
+    return textInside.some((text) => {
+      if (text.x === box.x && text.y === box.y && text.width === box.width) {
+        return false;
+      }
+
+      return intersects(text, box) >= text.width * text.height * 0.5;
+    });
+  };
 
   for (let i = 0; i < boxes.length; i += 1) {
     for (let j = i + 1; j < boxes.length; j += 1) {
@@ -121,8 +145,7 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
         continue;
       }
 
-      const textBearing =
-        carriesText(first.box.element) || carriesText(second.box.element);
+      const textBearing = coveredByText(first.box) || coveredByText(second.box);
       const smaller = Math.min(
         first.box.width * first.box.height,
         second.box.width * second.box.height,
@@ -156,6 +179,27 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
           : null;
 
       if (next === null) {
+        /* No room to the right or below: shrink the later card to the width
+           that is left. Two 420px cards never fit side by side in the safe
+           zone, and keeping the overlap is worse than losing 40px of a card. */
+        const available = CRITICAL_SAFE_BOUNDS.right - rightX;
+
+        if (available >= 120 && available < second.box.width) {
+          result[second.index] = {
+            ...target,
+            layout: {
+              ...layout,
+              x: rightX,
+              y: second.box.y,
+              width: available,
+            },
+          };
+          boxes[j] = {
+            ...second,
+            box: { ...second.box, x: rightX, width: available },
+          };
+        }
+
         continue;
       }
 
