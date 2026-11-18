@@ -167,7 +167,7 @@ export function visualTimeline(scene: UiScene, fps: number): VisualTimeline {
         titleFrame: TITLE_FRAME,
         revealFrame,
         revealWindowFrames,
-        stepFrames: scene.spec.sequence.map((step) => Math.round(step.at * fps)),
+        stepFrames: scene.spec.sequence.map((step) => Math.round((step.at ?? 0) * fps)),
       };
   }
 }

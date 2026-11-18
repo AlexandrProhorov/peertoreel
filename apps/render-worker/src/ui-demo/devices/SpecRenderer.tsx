@@ -99,6 +99,7 @@ function behaviorStyle(
     case 'fill':
     case 'type':
     case 'break':
+    case 'activate':
     case 'hold':
       return {};
     default:
@@ -108,6 +109,31 @@ function behaviorStyle(
 
 /** Typing speed: a full line takes this long, regardless of its length. */
 const TYPE_FRAMES = 24;
+
+/**
+ * Geometry has one owner: the cue that animates it.
+ *
+ * A primitive that declares a `fill`, `draw`, `break` or `release` cue starts
+ * empty and animates from zero at that cue — the appearance cue owns opacity and
+ * nothing else. Previously the track showed full at `appear`, then reset to zero
+ * and filled: the same "initialise, then animate" bug the text had.
+ */
+function cueProgress(
+  cues: ReadonlyArray<{ start: number; transition: string }>,
+  transition: string,
+  frame: number,
+  frames = 24,
+  /** State when the cue is absent: full for fill/draw, empty for break/release. */
+  absent = 1,
+): number {
+  const cue = cues.find((item) => item.transition === transition);
+
+  if (cue === undefined) {
+    return absent;
+  }
+
+  return Math.min(1, Math.max(0, (frame - cue.start) / Math.max(1, frames)));
+}
 
 interface TextState {
   readonly text: string | undefined;
@@ -176,7 +202,7 @@ export function SpecRenderer({
     const list = cues.get(step.element) ?? [];
 
     list.push({
-      start: Math.round(step.at * fps),
+      start: Math.round((step.at ?? 0) * fps),
       transition: step.transition,
       ...(step.text === undefined ? {} : { text: step.text }),
     });
@@ -201,15 +227,8 @@ export function SpecRenderer({
         );
         const cue = index < 0 ? undefined : list[index];
         const start = cue?.start ?? list[0]?.start ?? 0;
-        const end =
-          list[index + 1]?.start ?? Math.max(start + 1, Math.round(scene.durationSec * fps));
         const transition = cue?.transition;
         const progress = reveal(frame, start, 6);
-        /* Motion runs from its own cue to the next one, not over a fixed 6 frames. */
-        const motion = Math.min(
-          1,
-          Math.max(0, (frame - start) / Math.max(1, end - start)),
-        );
         const params = element.params as Params;
         /* A cue can carry its own copy: counters, prices and totals change with
            the sequence instead of spawning one element per value. */
@@ -304,8 +323,7 @@ export function SpecRenderer({
                   /* The surface wraps its text instead of cutting it: the
                      declared width is a minimum, the frame is the maximum. */
                   width: 'auto',
-                  maxWidth:
-                    CRITICAL_SAFE_BOUNDS.right - element.layout.x,
+                  maxWidth: CRITICAL_SAFE_BOUNDS.right - CRITICAL_SAFE_BOUNDS.left,
                 }}
                 markers={{ critical: 'spec-text', surface: element.id }}
               />
@@ -347,17 +365,16 @@ export function SpecRenderer({
             );
           case 'thumb': {
             const size = num(params, 'size', 28);
-            /* `drag` reads the travel from the declared layout box instead of a
-               fixed offset, so a knob can cross a rail of any length. The move
-               runs from its own cue to the next one. */
+            /* `drag` reads the travel from the declared layout box; the knob is
+               at the start until its drag cue, then travels, then drops. */
             const travel =
-              (transition === 'drag' || transition === 'release') &&
-              element.layout.width !== undefined
-                ? Math.max(0, element.layout.width - size)
-                : null;
-            /* A released knob keeps its end position and drops out of frame. */
-            const moved = transition === 'release' ? 1 : motion;
-            const fall = transition === 'release' ? motion : 0;
+              element.layout.width === undefined
+                ? null
+                : Math.max(0, element.layout.width - size);
+            const dragged = cueProgress(list, 'drag', frame, 30, 0);
+            const released = cueProgress(list, 'release', frame, 20, 0);
+            const moved = Math.max(dragged, released > 0 ? 1 : 0);
+            const fall = released;
 
             return (
               <Thumb
@@ -380,7 +397,8 @@ export function SpecRenderer({
             );
           }
           case 'track': {
-            const breakProgress = transition === 'break' ? motion : 0;
+            const fill = num(params, 'fill', 0) * cueProgress(list, 'fill', frame);
+            const breakProgress = cueProgress(list, 'break', frame, 24, 0);
 
             return (
               <Track
@@ -393,11 +411,7 @@ export function SpecRenderer({
                   typeof params.breakAt === 'number' ? params.breakAt : undefined
                 }
                 breakProgress={breakProgress}
-                fill={
-                  transition === 'fill'
-                    ? num(params, 'fill', 0) * motion
-                    : num(params, 'fill', 0)
-                }
+                fill={fill}
                 style={style}
               />
             );
@@ -417,10 +431,13 @@ export function SpecRenderer({
                 markers={{ surface: element.id }}
               >
                 {cells.map((index) => {
-                  const cellIn =
-                    transition === 'fill'
-                      ? reveal(frame, start + index * 2, 4)
-                      : progress;
+                  /* A grid with a fill cue is empty until that cue reaches the
+                     cell, then fills in order. The entrance never fills it. */
+                  const filled = cueProgress(list, 'fill', frame, 24);
+                  const cellIn = Math.min(
+                    1,
+                    Math.max(0, (filled * cells.length - index) / 2),
+                  );
 
                   return (
                     <div
@@ -445,7 +462,7 @@ export function SpecRenderer({
             const fromY = originY + num(params, 'fromY', 0);
             const toX = originX + num(params, 'toX', 600);
             const toY = originY + num(params, 'toY', 0);
-            const drawProgress = transition === 'draw' ? progress : 1;
+            const drawProgress = cueProgress(list, 'draw', frame);
 
             return (
               <Line

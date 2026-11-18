@@ -37,7 +37,7 @@ export const compositionSpecSchema = z.object({
   sequence: z
     .array(
       z.object({
-        at: z.number().finite().nonnegative(),
+        at: z.number().finite().nonnegative().optional(),
         element: z.string().min(1).max(24),
         transition: z.string().min(1).max(32),
         /** A cue may replace the element's text; an empty string clears it. */
