@@ -57,3 +57,27 @@ export function deriveTiming(steps: readonly OrderedStep[]): DerivedTiming {
 
   return { cues, durationSec };
 }
+
+/**
+ * A planned scene may be longer than its action: the arc asks for seven seconds,
+ * the model writes four. Keeping `max(planned, action)` leaves a dead tail that
+ * reads as a frozen frame; stretching the cue list keeps the plan and removes
+ * the hang. The last animation still ends before the tail.
+ */
+export function stretchTiming(timing: DerivedTiming, targetSec: number): DerivedTiming {
+  if (!(targetSec > timing.durationSec)) {
+    return timing;
+  }
+
+  const endContent = Math.max(0.1, timing.durationSec - TAIL_SECONDS);
+  const targetEnd = Math.max(endContent, targetSec - TAIL_SECONDS);
+  const factor = targetEnd / endContent;
+
+  return {
+    durationSec: Number(targetSec.toFixed(2)),
+    cues: timing.cues.map((cue) => ({
+      ...cue,
+      at: Number((cue.at * factor).toFixed(2)),
+    })),
+  };
+}

@@ -98,6 +98,20 @@ function contains(
   );
 }
 
+function intersects(
+  a: { x: number; y: number; width?: number; height?: number },
+  b: { x: number; y: number; width?: number; height?: number },
+): boolean {
+  const overlapX = Math.min(a.x + (a.width ?? 0), b.x + (b.width ?? 0)) - Math.max(a.x, b.x);
+  const overlapY =
+    Math.min(a.y + (a.height ?? 0), b.y + (b.height ?? 0)) - Math.max(a.y, b.y);
+
+  return overlapX > 0 && overlapY > 0;
+}
+
+/** Smallest distance from the label to a card edge; negative means it hangs out. */
+
+
 interface Surface {
   readonly id: string;
   readonly primitive: string;
@@ -152,6 +166,11 @@ export function lintQuality(
       ? theme.background
       : String((declaredStage.params as Readonly<Record<string, unknown>>)['background']);
 
+  /* A grid paints its cells in the accent colour: a surface standing on a grid
+     is compared to the cells, not to the stage. A lime card on lime cells has
+     no edge and reads as a hole in the pattern. */
+  const grids = spec.elements.filter((element) => element.primitive === 'grid');
+
   for (const surface of surfaces) {
     /* The stage IS the background: comparing it to the theme background is
        always a 1.00 ratio. Checked by primitive, not by the element's id —
@@ -160,13 +179,15 @@ export function lintQuality(
       continue;
     }
 
-    const delta = contrast(surface.background, frameBackground);
+    const onGrid = grids.some((grid) => intersects(grid.layout, surface.layout));
+    const behind = onGrid ? theme.accent : frameBackground;
+    const delta = contrast(surface.background, behind);
 
     if (delta !== null && delta < MIN_SURFACE_DELTA) {
       add(
         'surface-visible',
         surface.id,
-        `surface ${surface.background} is almost the stage colour ${frameBackground} (${delta.toFixed(2)} < ${MIN_SURFACE_DELTA})`,
+        `surface ${surface.background} is almost the background ${behind} (${delta.toFixed(2)} < ${MIN_SURFACE_DELTA})`,
       );
     }
   }

@@ -117,8 +117,6 @@ describe('quality gate', () => {
   });
 
   it('compares a surface to the declared stage, not to the theme', () => {
-    /* White card on a white stage inside the lime theme: against the theme
-       background the pair looks fine, on the frame it is invisible. */
     const spec = baseSpec();
     spec.elements[0] = {
       ...spec.elements[0]!,
@@ -134,6 +132,40 @@ describe('quality gate', () => {
       operations: [],
       links: [],
     });
+
+    const issues = lintQuality(spec, 'studio-lime');
+
+    expect(issues.map((issue) => issue.code)).toContain('surface-visible');
+  });
+
+  it('rejects a surface painted the cell colour of the grid it stands on', () => {
+    const spec = baseSpec();
+    spec.elements = [
+      {
+        id: 'cells',
+        primitive: 'grid',
+        layout: { x: 72, y: 300, width: 600, height: 400 },
+        params: { columns: 4, rows: 3, gap: 16 },
+        states: [],
+        transitions: [],
+        operations: [],
+        links: [],
+      },
+      {
+        id: 'plate',
+        primitive: 'card',
+        layout: { x: 120, y: 380, width: 300, height: 200 },
+        params: { background: '#CCFF00' },
+        states: [],
+        transitions: [],
+        operations: [],
+        links: [],
+      },
+      ...baseSpec().elements.slice(1).map((element) => ({
+        ...element,
+        layout: { ...element.layout, x: 72, y: 100 },
+      })),
+    ];
 
     const issues = lintQuality(spec, 'studio-lime');
 

@@ -66,12 +66,45 @@ export type CompositionIssueCode =
   | 'element-budget'
   | 'primitive-budget'
   | 'sequence-unknown-element'
-  | 'text-not-supported';
+  | 'text-not-supported'
+  | 'grid-overlap'
+  | 'surface-overlap';
 
 export interface CompositionIssue {
   readonly code: CompositionIssueCode;
   readonly element: string | null;
   readonly message: string;
+}
+
+interface Box {
+  readonly x: number;
+  readonly y: number;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+function intersection(a: Box, b: Box): number {
+  const overlapX = Math.min(a.x + (a.width ?? 0), b.x + (b.width ?? 0)) - Math.max(a.x, b.x);
+  const overlapY =
+    Math.min(a.y + (a.height ?? 0), b.y + (b.height ?? 0)) - Math.max(a.y, b.y);
+
+  return overlapX > 0 && overlapY > 0 ? overlapX * overlapY : 0;
+}
+
+function contains(outer: Box, inner: Box): boolean {
+  return (
+    inner.x >= outer.x - 0.5 &&
+    inner.y >= outer.y - 0.5 &&
+    inner.x + (inner.width ?? 0) <= outer.x + (outer.width ?? 0) + 0.5 &&
+    inner.y + (inner.height ?? 0) <= outer.y + (outer.height ?? 0) + 0.5
+  );
+}
+
+/** A surface that carries its own copy: two of them cannot share pixels. */
+function carriesText(element: CompositionSpec['elements'][number]): boolean {
+  const text = (element.params as Readonly<Record<string, unknown>>)['text'];
+
+  return ['pill', 'bubble', 'card'].includes(element.primitive) && typeof text === 'string' && text.trim() !== '';
 }
 
 function checkParameter(
@@ -264,6 +297,55 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
         'primitive-budget',
         primitive,
         `${count} × ${primitive} (max ${MAX_INSTANCES_PER_PRIMITIVE})`,
+      );
+    }
+  }
+
+  /* A grid paints its cells as content; text on cells is unreadable. A surface
+     may sit on a grid (a screen over a pattern) — that is a composition, and
+     the contrast gate decides whether it is visible at all. */
+  const grids = spec.elements.filter((element) => element.primitive === 'grid');
+  const TEXT = ['label', 'pill', 'bubble'];
+
+  for (const grid of grids) {
+    for (const element of spec.elements) {
+      if (!TEXT.includes(element.primitive)) {
+        continue;
+      }
+
+      if (intersection(grid.layout, element.layout) > 0) {
+        fail(
+          'grid-overlap',
+          element.id,
+          `"${element.id}" stands on the grid "${grid.id}": a grid is a background pattern, text on cells is unreadable`,
+        );
+      }
+    }
+  }
+
+  const textSurfaces = spec.elements.filter(carriesText);
+
+  for (let i = 0; i < textSurfaces.length; i += 1) {
+    for (let j = i + 1; j < textSurfaces.length; j += 1) {
+      const first = textSurfaces[i];
+      const second = textSurfaces[j];
+
+      if (first === undefined || second === undefined) {
+        continue;
+      }
+
+      if (
+        intersection(first.layout, second.layout) === 0 ||
+        contains(first.layout, second.layout) ||
+        contains(second.layout, first.layout)
+      ) {
+        continue;
+      }
+
+      fail(
+        'surface-overlap',
+        second.id,
+        `"${second.id}" overlaps "${first.id}" and both carry text`,
       );
     }
   }

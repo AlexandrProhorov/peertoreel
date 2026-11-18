@@ -295,6 +295,82 @@ describe('composition validation', () => {
     expect(result.issues.map((issue) => issue.code)).toContain('invalid-spec');
   });
 
+  it('rejects text standing on a grid', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('g', 'grid', {
+        layout: { x: 72, y: 400, width: 600, height: 400 },
+        params: { columns: 4, rows: 3 },
+      }),
+      element('t', 'label', {
+        layout: { x: 100, y: 500, width: 400, height: 120 },
+        params: { text: 'много', token: 'caption', tone: 'ink' },
+      }),
+    ];
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain(
+      'grid-overlap',
+    );
+  });
+
+  it('allows a surface on a grid: a screen over a pattern is a composition', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('g', 'grid', {
+        layout: { x: 72, y: 400, width: 600, height: 400 },
+        params: { columns: 4, rows: 3 },
+      }),
+      element('c', 'card', {
+        layout: { x: 200, y: 500, width: 300, height: 200 },
+        params: { background: '#FFFFFF' },
+      }),
+    ];
+
+    expect(
+      validateComposition(spec).filter((issue) => issue.code === 'grid-overlap'),
+    ).toEqual([]);
+  });
+
+  it('rejects two text surfaces that share pixels', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('a', 'pill', {
+        layout: { x: 72, y: 300, width: 300, height: 90 },
+        params: { text: 'одна', token: 'caption' },
+      }),
+      element('b', 'pill', {
+        layout: { x: 300, y: 300, width: 300, height: 90 },
+        params: { text: 'другая', token: 'caption' },
+      }),
+    ];
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain(
+      'surface-overlap',
+    );
+  });
+
+  it('allows a chip nested inside a card', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('c', 'card', {
+        layout: { x: 72, y: 300, width: 600, height: 400 },
+        params: { background: '#161618' },
+      }),
+      element('p', 'pill', {
+        layout: { x: 120, y: 420, width: 300, height: 90 },
+        params: { text: 'один', token: 'caption' },
+      }),
+    ];
+
+    expect(
+      validateComposition(spec).filter((issue) => issue.code === 'surface-overlap'),
+    ).toEqual([]);
+  });
+
   it('accepts `tone` and `textColor` on every text primitive', () => {
     /* One ink dictionary: a foreign author may name the theme ink or the hex,
        on a label, a pill or a bubble. Neither name is an unknown parameter. */

@@ -1,6 +1,6 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
-import { deriveTiming } from '../timing-plan.js';
+import { deriveTiming, stretchTiming } from '../timing-plan.js';
 import { clampLayout } from './clamp.js';
 import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
 
@@ -35,15 +35,44 @@ interface Boxed {
   readonly height: number;
 }
 
+/** A surface with its own copy: overlapping it means clipped text. */
+function carriesText(element: Unknown): boolean {
+  const params = element['params'];
+  const primitive = element['primitive'];
+
+  if (!isObject(params) || !['pill', 'bubble'].includes(String(primitive))) {
+    return false;
+  }
+
+  const text = params['text'];
+
+  return typeof text === 'string' && text.trim() !== '';
+}
+
+function containsBox(outer: Boxed, inner: Boxed): boolean {
+  return (
+    inner.x >= outer.x - 0.5 &&
+    inner.y >= outer.y - 0.5 &&
+    inner.x + inner.width <= outer.x + outer.width + 0.5 &&
+    inner.y + inner.height <= outer.y + outer.height + 0.5
+  );
+}
+
 function asBoxed(element: Unknown): Boxed | null {
   const primitive = element['primitive'];
+  const box = rawBox(element);
+
+  if (typeof primitive !== 'string' || !SURFACE_PRIMITIVES.has(primitive) || box === null) {
+    return null;
+  }
+
+  return { element, ...box };
+}
+
+function rawBox(element: Unknown): { x: number; y: number; width: number; height: number } | null {
   const layout = element['layout'];
 
-  if (
-    typeof primitive !== 'string' ||
-    !SURFACE_PRIMITIVES.has(primitive) ||
-    !isObject(layout)
-  ) {
+  if (!isObject(layout)) {
     return null;
   }
 
@@ -56,7 +85,7 @@ function asBoxed(element: Unknown): Boxed | null {
     return null;
   }
 
-  return { element, x, y, width, height };
+  return { x, y, width, height };
 }
 
 function intersects(a: Boxed, b: Boxed): number {
@@ -82,12 +111,26 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
       }
 
       const overlap = intersects(first.box, second.box);
+
+      if (overlap === 0) {
+        continue;
+      }
+
+      /* A chip inside a card is a design, not an overlap. */
+      if (containsBox(first.box, second.box) || containsBox(second.box, first.box)) {
+        continue;
+      }
+
+      const textBearing =
+        carriesText(first.box.element) || carriesText(second.box.element);
       const smaller = Math.min(
         first.box.width * first.box.height,
         second.box.width * second.box.height,
       );
 
-      if (overlap === 0 || overlap > smaller * INTENTIONAL_OVERLAP) {
+      /* Plain shapes may collage; a text surface cannot share pixels with
+         another text surface — the copy gets clipped by the neighbour. */
+      if (!textBearing && overlap > smaller * INTENTIONAL_OVERLAP) {
         continue;
       }
 
@@ -121,6 +164,95 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
         ...second,
         box: { ...second.box, x: next.x, y: next.y },
       };
+    }
+  }
+
+  return result;
+}
+
+/** Air between a label and the card it sits on. */
+const MIN_TEXT_INSET = 24;
+
+/**
+ * A label on a card is placed by coordinates, so the card's `padding` never
+ * moves it: the model puts the text on the rounded edge and the frame reads as
+ * a missing inset. Shifting the label inside keeps the composition and fixes
+ * the edge. Text wider than the card minus the inset is left alone.
+ */
+function applyInsets(elements: readonly Unknown[]): Unknown[] {
+  const result = elements.map((element) => ({ ...element }));
+  const cards = result
+    .map((element) => ({ element, box: rawBox(element) }))
+    .filter(
+      (item): item is { element: Unknown; box: NonNullable<ReturnType<typeof rawBox>> } =>
+        item.box !== null && item.element['primitive'] === 'card',
+    );
+
+  for (const element of result) {
+    if (element['primitive'] !== 'label') {
+      continue;
+    }
+
+    const box = rawBox(element);
+
+    if (box === null) {
+      continue;
+    }
+
+    for (const card of cards) {
+      const cardBox = card.box;
+      const overlapX =
+        Math.min(box.x + box.width, cardBox.x + cardBox.width) - Math.max(box.x, cardBox.x);
+      const overlapY =
+        Math.min(box.y + box.height, cardBox.y + cardBox.height) - Math.max(box.y, cardBox.y);
+
+      if (overlapX <= 0 || overlapY <= 0) {
+        continue;
+      }
+
+      /* A label that merely grazes a card is not "inside" it. */
+      if (overlapX * overlapY < box.width * box.height * 0.5) {
+        continue;
+      }
+
+      const layout = element['layout'];
+
+      if (!isObject(layout)) {
+        continue;
+      }
+
+      const next = { ...layout };
+      const maxWidth = cardBox.width - MIN_TEXT_INSET * 2;
+
+      /* Text wider than the card's inner area is narrowed: padding means the
+         copy stops before the edge, and the renderer wraps it. */
+      if (maxWidth > 0) {
+        const width = Math.min(box.width, maxWidth);
+
+        next['width'] = width;
+        next['x'] = Math.min(
+          Math.max(box.x, cardBox.x + MIN_TEXT_INSET),
+          cardBox.x + cardBox.width - MIN_TEXT_INSET - width,
+        );
+      }
+
+      if (cardBox.height >= box.height + MIN_TEXT_INSET * 2) {
+        next['y'] = Math.min(
+          Math.max(box.y, cardBox.y + MIN_TEXT_INSET),
+          cardBox.y + cardBox.height - MIN_TEXT_INSET - box.height,
+        );
+      }
+
+      if (
+        next['x'] !== layout['x'] ||
+        next['y'] !== layout['y'] ||
+        next['width'] !== layout['width']
+      ) {
+        element['layout'] = next;
+        box.x = Number(next['x']);
+        box.y = Number(next['y']);
+        box.width = Number(next['width'] ?? box.width);
+      }
     }
   }
 
@@ -185,37 +317,32 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         return scene;
       }
 
-      /* Timing: an ordered list without `at` becomes absolute cues here, and the
-         scene length follows from them — the model no longer guesses seconds. */
+      /* Timing: an ordered list without `at` becomes absolute cues here. The
+         cue list fills the planned scene instead of leaving a frozen tail. */
       const sequence = spec['sequence'];
       const ordered = Array.isArray(sequence) ? sequence.filter(isObject) : [];
       const needsTiming = ordered.some((step) => step['at'] === undefined);
+      const planned = typeof scene['durationSec'] === 'number' ? scene['durationSec'] : 0;
       const timing = needsTiming
-        ? deriveTiming(
-            ordered.map((step) => ({
-              element: String(step['element'] ?? ''),
-              transition: String(step['transition'] ?? ''),
-              ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
-            })),
+        ? stretchTiming(
+            deriveTiming(
+              ordered.map((step) => ({
+                element: String(step['element'] ?? ''),
+                transition: String(step['transition'] ?? ''),
+                ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
+              })),
+            ),
+            planned,
           )
         : null;
 
       return {
         ...scene,
-        ...(timing === null
-          ? {}
-          : {
-              /* The plan says how long the scene should feel, the steps say how
-                 long the action takes. Never shorter than the action. */
-              durationSec: Math.max(
-                typeof scene['durationSec'] === 'number' ? scene['durationSec'] : 0,
-                timing.durationSec,
-              ),
-            }),
+        ...(timing === null ? {} : { durationSec: timing.durationSec }),
         spec: {
           ...spec,
           ...(timing === null ? {} : { sequence: timing.cues }),
-          elements: separateSurfaces(elements.map(normalizeElement)),
+          elements: applyInsets(separateSurfaces(elements.map(normalizeElement))),
         },
       };
     }),

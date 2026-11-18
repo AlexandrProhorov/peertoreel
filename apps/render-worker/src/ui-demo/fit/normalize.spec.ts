@@ -73,4 +73,86 @@ describe('surface separation', () => {
        overlap is smaller than a lost surface. */
     expect(kept).toMatchObject({ x: 560, y: 1320 });
   });
+
+  it('separates two text chips even above the collage share', () => {
+    const raw = {
+      schemaVersion: 1,
+      themeId: 'studio-dark',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'chips',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            elements: [
+              {
+                id: 'first',
+                primitive: 'pill',
+                layout: { x: 400, y: 300, width: 300, height: 90 },
+                params: { text: 'одна', token: 'caption' },
+              },
+              {
+                id: 'second',
+                primitive: 'pill',
+                layout: { x: 590, y: 300, width: 300, height: 90 },
+                params: { text: 'другая', token: 'caption' },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const moved = layoutOf(raw, 'second');
+
+    /* 37 % of the smaller chip: a collage of plain shapes is fine, text under
+       text is not — the chip moves below. */
+    expect(moved).toMatchObject({ x: 590, y: 406 });
+  });
+
+  it('moves a label off the card edge and narrows it to the inner width', () => {
+    const raw = {
+      schemaVersion: 1,
+      themeId: 'studio-dark',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'inset',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            elements: [
+              {
+                id: 'card',
+                primitive: 'card',
+                layout: { x: 72, y: 420, width: 818, height: 520 },
+                params: { background: '#161618' },
+              },
+              {
+                id: 'label',
+                primitive: 'label',
+                layout: { x: 72, y: 470, width: 818, height: 200 },
+                params: { text: 'Цена товара', token: 'headline', tone: 'ink' },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const moved = layoutOf(raw, 'label');
+
+    /* The card's `padding` never moved the label: the copy sat on the rounded
+       edge. Code puts it inside and narrows the box so the padding is real. */
+    expect(moved).toMatchObject({ x: 96, y: 470, width: 770 });
+  });
 });

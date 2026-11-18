@@ -5,6 +5,7 @@ import type { ASSET_KEYS } from '../assets.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { reveal } from '../timing.js';
 import { lineEndpoints } from './line-geometry.js';
+import { paintOrder } from './paint-order.js';
 import {
   Avatar,
   Bubble,
@@ -220,7 +221,7 @@ export function SpecRenderer({
       data-ui-scene={scene.id}
       style={{ position: 'absolute', inset: 0 }}
     >
-      {scene.spec.elements.map((element) => {
+      {paintOrder(scene.spec.elements).map((element) => {
         const list = cues.get(element.id) ?? [];
         const index = list.reduce(
           (active, cue, cueIndex) => (cue.start <= frame ? cueIndex : active),
