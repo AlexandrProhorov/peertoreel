@@ -18,6 +18,7 @@
     "ui:direct": "tsx src/ui-demo/director/cli.ts",
     "ui:gallery": "tsx src/ui-demo/gallery/build.ts",
     "ui:film": "tsx src/ui-demo/film/cli.ts",
+    "ui:assemble": "tsx src/ui-demo/film/assemble.ts",
     "ui:visual": "tsx src/ui-demo/visual/cli.ts",
     "ui:fit": "tsx src/ui-demo/fit/cli.ts",
     "recolor:starter": "tsx src/recolor-starter.ts",
