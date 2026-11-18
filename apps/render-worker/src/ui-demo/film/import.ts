@@ -40,6 +40,7 @@ interface ForeignScene {
   readonly id?: unknown;
   readonly seconds?: unknown;
   readonly theme?: unknown;
+  readonly themeId?: unknown;
   readonly spec?: unknown;
 }
 
@@ -60,13 +61,16 @@ function stripFence(raw: string): string {
 
 function sceneToOurShape(scene: ForeignScene, index: number): unknown {
   const spec = isObject(scene.spec) ? scene.spec : {};
+  /* A foreign answer names the theme in `theme`; our own episodes use
+     `themeId`. Reading both keeps an episode re-importable. */
+  const theme = typeof scene.theme === 'string' ? scene.theme : scene.themeId;
 
   return {
     id: typeof scene.id === 'string' && scene.id.length > 0 ? scene.id : `scene-${index + 1}`,
     device: 'spec',
     durationSec: typeof scene.seconds === 'number' ? scene.seconds : 6,
     revealSec: 2,
-    themeId: typeof scene.theme === 'string' ? scene.theme : 'studio-dark',
+    themeId: typeof theme === 'string' ? theme : 'studio-dark',
     spec: { kind: 'composition', ...spec },
   };
 }
@@ -89,8 +93,10 @@ export function importForeignEpisode(raw: unknown): ImportResult {
     const mapped = sceneToOurShape(scene, index);
     const id = (mapped as { readonly id: string }).id;
 
-    if (index === 0 && typeof scene.theme === 'string') {
-      themeId = scene.theme;
+    const sceneTheme = typeof scene.theme === 'string' ? scene.theme : scene.themeId;
+
+    if (index === 0 && typeof sceneTheme === 'string') {
+      themeId = sceneTheme;
     }
 
     const normalized = normalizeRawEpisode(

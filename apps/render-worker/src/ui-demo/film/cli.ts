@@ -235,7 +235,7 @@ async function main(): Promise<void> {
       await writeFile(path.join(dir, `arc-attempt-${attempt}.json`), `${raw}\n`, 'utf8');
 
       try {
-        arc = arcSchema.parse(JSON.parse(raw));
+        arc = arcSchema.parse(parseJsonResponse(raw));
       } catch (error: unknown) {
         arcErrors.splice(0, arcErrors.length, ...issuesOf(error));
       }
@@ -243,6 +243,9 @@ async function main(): Promise<void> {
 
     if (arc === null) {
       console.log(`${entry.slug}: arc FAILED`);
+      for (const message of arcErrors) {
+        console.log(`  ${message}`);
+      }
       report.push({ slug: entry.slug, status: 'arc-failed', errors: arcErrors });
       continue;
     }

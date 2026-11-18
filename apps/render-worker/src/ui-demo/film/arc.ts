@@ -14,10 +14,11 @@ export const arcSceneSchema = z.object({
   /**
    * The visual action, chosen before any primitive: accumulation, loss,
    * competition, split, transformation, comparison, disappearance…
+   * The model describes it in a sentence or two; a hard 200 cut the direction.
    */
-  action: z.string().min(1).max(200).optional(),
+  action: z.string().min(1).max(600).optional(),
   /** One sentence the viewer must understand after this scene. */
-  intent: z.string().min(1).max(200),
+  intent: z.string().min(1).max(300),
   seconds: z.number().min(1).max(12),
   theme: z.enum(['studio-dark', 'studio-light', 'studio-lime']),
 });
@@ -25,7 +26,7 @@ export const arcSceneSchema = z.object({
 export const arcSchema = z
   .object({
     /** The through-line of the film in one sentence. */
-    thesis: z.string().min(1).max(200),
+    thesis: z.string().min(1).max(300),
     scenes: z.array(arcSceneSchema).min(3).max(5),
   })
   .refine(
