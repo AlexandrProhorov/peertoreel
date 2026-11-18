@@ -371,6 +371,34 @@ describe('composition validation', () => {
     ).toEqual([]);
   });
 
+  it('rejects two labelled cards that share pixels', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('left', 'card', {
+        layout: { x: 72, y: 300, width: 420, height: 900 },
+        params: { background: '#F3F3F5' },
+      }),
+      element('right', 'card', {
+        layout: { x: 470, y: 300, width: 420, height: 900 },
+        params: { background: '#F3F3F5' },
+      }),
+      element('left-tag', 'label', {
+        layout: { x: 104, y: 360, width: 356, height: 140 },
+        params: { text: 'Мои подписки', token: 'card', tone: 'ink' },
+      }),
+      element('right-tag', 'label', {
+        layout: { x: 502, y: 360, width: 356, height: 140 },
+        params: { text: 'Не пользуюсь', token: 'card', tone: 'ink' },
+      }),
+    ];
+
+    const issues = validateComposition(spec);
+    const overlap = issues.find((issue) => issue.code === 'surface-overlap');
+
+    expect(overlap?.message).toContain('make them narrower');
+  });
+
   it('accepts `tone` and `textColor` on every text primitive', () => {
     /* One ink dictionary: a foreign author may name the theme ink or the hex,
        on a label, a pill or a bubble. Neither name is an unknown parameter. */

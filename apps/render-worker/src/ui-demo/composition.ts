@@ -6,6 +6,7 @@ import {
   type PrimitiveId,
 } from './catalog.js';
 import { checkTextBox } from './typography-rules.js';
+import { CRITICAL_SAFE_BOUNDS } from './platform.js';
 
 const specValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 
@@ -364,7 +365,7 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
       fail(
         'surface-overlap',
         second.id,
-        `"${second.id}" overlaps "${first.id}" and both carry text`,
+        `"${second.id}" overlaps "${first.id}" and both carry text: make them narrower so they fit side by side (max ${Math.floor((CRITICAL_SAFE_BOUNDS.right - CRITICAL_SAFE_BOUNDS.left - 16) / 2)} px each)`,
       );
     }
   }

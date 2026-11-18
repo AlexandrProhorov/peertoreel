@@ -31,7 +31,7 @@ const topicsSchema = z.array(
   z.object({ slug: z.string().min(1).max(40), topic: z.string().min(1).max(300) }),
 );
 
-const SCENE_ATTEMPTS = 3;
+const SCENE_ATTEMPTS = 4;
 
 function optionValue(name: string): string | undefined {
   const inline = process.argv.find((argument) => argument.startsWith(`${name}=`));

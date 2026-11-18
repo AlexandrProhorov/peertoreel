@@ -156,7 +156,7 @@ describe('surface separation', () => {
     expect(moved).toMatchObject({ x: 96, y: 470, width: 770 });
   });
 
-  it('shrinks the second card when two wide cards cannot fit side by side', () => {
+  it('leaves an impossible side-by-side overlap for the validator', () => {
     const element = (id: string, x: number, width: number): Record<string, unknown> => ({
       id,
       primitive: 'card',
@@ -199,9 +199,9 @@ describe('surface separation', () => {
     };
     const right = normalized.scenes[0]?.spec.elements.find((item) => item.id === 'right');
 
-    /* 72 + 420 + 16 + 420 = 928 > 890: the gap is impossible, so the later card
-       gives up width instead of sharing pixels with its neighbour. */
-    expect(right?.layout).toMatchObject({ x: 508, width: 382 });
+    /* 72 + 420 + 16 + 420 = 928 > 890: the gap is impossible. Shrinking would
+       squeeze the copy, so the overlap stays and the contract rejects it. */
+    expect(right?.layout).toMatchObject({ x: 470, width: 420 });
   });
 
   it('applies the card padding to a track and shortens its rail', () => {

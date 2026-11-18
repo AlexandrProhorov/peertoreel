@@ -179,27 +179,10 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
           : null;
 
       if (next === null) {
-        /* No room to the right or below: shrink the later card to the width
-           that is left. Two 420px cards never fit side by side in the safe
-           zone, and keeping the overlap is worse than losing 40px of a card. */
-        const available = CRITICAL_SAFE_BOUNDS.right - rightX;
-
-        if (available >= 120 && available < second.box.width) {
-          result[second.index] = {
-            ...target,
-            layout: {
-              ...layout,
-              x: rightX,
-              y: second.box.y,
-              width: available,
-            },
-          };
-          boxes[j] = {
-            ...second,
-            box: { ...second.box, x: rightX, width: available },
-          };
-        }
-
+        /* No room to the right or below: the overlap stays and the validator
+           rejects it for text surfaces. Shrinking the card here looked helpful
+           but narrowed the copy inside and turned a layout problem into a text
+           overflow. The model has to make the cards narrower itself. */
         continue;
       }
 
