@@ -157,6 +157,15 @@ async function generateScene(options: {
     const repaired = await repairEpisode(wrapScene(first, planned.theme), {
       outDir: path.join(options.dir, `fit-${options.index + 1}`),
     });
+
+    if (repaired.overflowing.length > 0) {
+      errors.splice(
+        0,
+        errors.length,
+        `текст не влезает даже на минимальном кегле (${repaired.overflowing.join(', ')}): сократи текст или увеличь бокс`,
+      );
+      continue;
+    }
     const motion = await checkVisibleChange(
       repaired.episode,
       path.join(options.dir, `motion-${options.index + 1}`),

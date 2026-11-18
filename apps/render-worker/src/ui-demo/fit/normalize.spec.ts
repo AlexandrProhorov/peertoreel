@@ -155,4 +155,56 @@ describe('surface separation', () => {
        edge. Code puts it inside and narrows the box so the padding is real. */
     expect(moved).toMatchObject({ x: 96, y: 470, width: 770 });
   });
+
+  it('applies the card padding to a track and shortens its rail', () => {
+    const raw = {
+      schemaVersion: 1,
+      themeId: 'studio-dark',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'track',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            elements: [
+              {
+                id: 'card',
+                primitive: 'card',
+                layout: { x: 72, y: 300, width: 818, height: 620 },
+                params: { background: '#FFFFFF', padding: 32 },
+              },
+              {
+                id: 'bar',
+                primitive: 'track',
+                layout: { x: 72, y: 560, width: 818, height: 24 },
+                params: { length: 840, thickness: 14, fill: 1 },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const normalized = normalizeRawEpisode(raw) as {
+      scenes: ReadonlyArray<{
+        spec: {
+          elements: ReadonlyArray<{
+            id: string;
+            layout: Record<string, number>;
+            params: Record<string, unknown>;
+          }>;
+        };
+      }>;
+    };
+    const bar = normalized.scenes[0]?.spec.elements.find((element) => element.id === 'bar');
+
+    /* The rail is a parameter: narrowing the box alone leaves it overrunning. */
+    expect(bar?.layout).toMatchObject({ x: 104, width: 754 });
+    expect(bar?.params['length']).toBe(754);
+  });
 });

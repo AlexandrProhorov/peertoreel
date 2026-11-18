@@ -148,6 +148,16 @@ async function directOne(options: {
       const repaired = await repairEpisode(result.data, {
         outDir: path.join(dir, 'fit'),
       });
+
+      if (repaired.overflowing.length > 0) {
+        errors.splice(
+          0,
+          errors.length,
+          `text does not fit even at the minimum scale (${repaired.overflowing.join(', ')}): shorten the copy or enlarge the box`,
+        );
+        continue;
+      }
+
       const motion = await checkVisibleChange(
         repaired.episode,
         path.join(dir, 'motion'),

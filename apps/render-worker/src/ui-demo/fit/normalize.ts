@@ -170,14 +170,25 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
   return result;
 }
 
-/** Air between a label and the card it sits on. */
-const MIN_TEXT_INSET = 24;
+/** Air between content and the card edge when the card declares none. */
+const MIN_INSET = 24;
+/** Elements placed on a card by coordinates, not laid out inside it. */
+const INSET_PRIMITIVES = new Set(['label', 'pill', 'bubble', 'track', 'thumb']);
+
+function cardPadding(card: Unknown): number {
+  const params = card['params'];
+  const padding = isObject(params) ? params['padding'] : undefined;
+
+  return typeof padding === 'number' && Number.isFinite(padding)
+    ? Math.max(MIN_INSET, Math.round(padding))
+    : MIN_INSET;
+}
 
 /**
- * A label on a card is placed by coordinates, so the card's `padding` never
- * moves it: the model puts the text on the rounded edge and the frame reads as
- * a missing inset. Shifting the label inside keeps the composition and fixes
- * the edge. Text wider than the card minus the inset is left alone.
+ * A child of a card is placed by coordinates, so the card's `padding` never
+ * moves it: the model puts a label on the rounded edge or a track across the
+ * whole card. Code applies the padding to the box, narrows text to the inner
+ * width and shortens a track to it. Geometry repair, not a new composition.
  */
 function applyInsets(elements: readonly Unknown[]): Unknown[] {
   const result = elements.map((element) => ({ ...element }));
@@ -189,7 +200,9 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
     );
 
   for (const element of result) {
-    if (element['primitive'] !== 'label') {
+    const primitive = element['primitive'];
+
+    if (typeof primitive !== 'string' || !INSET_PRIMITIVES.has(primitive)) {
       continue;
     }
 
@@ -200,17 +213,21 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
     }
 
     for (const card of cards) {
+      if (card.element === element) {
+        continue;
+      }
+
       const cardBox = card.box;
       const overlapX =
         Math.min(box.x + box.width, cardBox.x + cardBox.width) - Math.max(box.x, cardBox.x);
       const overlapY =
         Math.min(box.y + box.height, cardBox.y + cardBox.height) - Math.max(box.y, cardBox.y);
 
+      /* An element that merely grazes a card is not inside it. */
       if (overlapX <= 0 || overlapY <= 0) {
         continue;
       }
 
-      /* A label that merely grazes a card is not "inside" it. */
       if (overlapX * overlapY < box.width * box.height * 0.5) {
         continue;
       }
@@ -221,37 +238,55 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
         continue;
       }
 
-      const next = { ...layout };
-      const maxWidth = cardBox.width - MIN_TEXT_INSET * 2;
+      const pad = cardPadding(card.element);
+      const innerX = cardBox.x + pad;
+      const innerY = cardBox.y + pad;
+      const innerWidth = cardBox.width - pad * 2;
+      const innerHeight = cardBox.height - pad * 2;
 
-      /* Text wider than the card's inner area is narrowed: padding means the
-         copy stops before the edge, and the renderer wraps it. */
-      if (maxWidth > 0) {
-        const width = Math.min(box.width, maxWidth);
-
-        next['width'] = width;
-        next['x'] = Math.min(
-          Math.max(box.x, cardBox.x + MIN_TEXT_INSET),
-          cardBox.x + cardBox.width - MIN_TEXT_INSET - width,
-        );
+      if (innerWidth <= 0 || innerHeight <= 0) {
+        continue;
       }
 
-      if (cardBox.height >= box.height + MIN_TEXT_INSET * 2) {
-        next['y'] = Math.min(
-          Math.max(box.y, cardBox.y + MIN_TEXT_INSET),
-          cardBox.y + cardBox.height - MIN_TEXT_INSET - box.height,
-        );
+      const next = { ...layout };
+      const width = Math.min(box.width, innerWidth);
+      const height = Math.min(box.height, innerHeight);
+
+      next['x'] = Math.min(Math.max(box.x, innerX), innerX + innerWidth - width);
+      next['y'] = Math.min(Math.max(box.y, innerY), innerY + innerHeight - height);
+
+      if (width !== box.width) {
+        next['width'] = width;
+
+        /* A track's rail is a parameter, not the box: shorten it too, or the
+           bar still runs past the padding. */
+        if (primitive === 'track') {
+          const params = element['params'];
+
+          if (isObject(params) && typeof params['length'] === 'number') {
+            element['params'] = {
+              ...params,
+              length: Math.min(params['length'], innerWidth),
+            };
+          }
+        }
+      }
+
+      if (height !== box.height && primitive !== 'track') {
+        next['height'] = height;
       }
 
       if (
         next['x'] !== layout['x'] ||
         next['y'] !== layout['y'] ||
-        next['width'] !== layout['width']
+        next['width'] !== layout['width'] ||
+        next['height'] !== layout['height']
       ) {
         element['layout'] = next;
         box.x = Number(next['x']);
         box.y = Number(next['y']);
         box.width = Number(next['width'] ?? box.width);
+        box.height = Number(next['height'] ?? box.height);
       }
     }
   }
