@@ -159,7 +159,7 @@ async function directOne(options: {
         errors.splice(
           0,
           errors.length,
-          `scene is static: frames ${motion.earlyFrame} and ${motion.lateFrame} are identical — show a visible change`,
+          `scene is static: frames ${motion.earlyFrame} and ${motion.lateFrame} are identical — add an action from the contract (type, fill, draw, break, drag, disappear); element entrances are not an action`,
         );
         continue;
       }

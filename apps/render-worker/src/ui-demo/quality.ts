@@ -199,7 +199,7 @@ export function lintQuality(
       hasAccent = true;
     }
 
-    const color = toneColor(theme, tone ?? undefined) ?? explicitColor;
+    const color = explicitColor ?? toneColor(theme, tone ?? undefined);
     const container = surfaces
       .filter((surface) => contains(surface.layout, element.layout))
       .pop();

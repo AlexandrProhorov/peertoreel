@@ -185,6 +185,38 @@ describe('salvage', () => {
     expect(repairs[0]).toMatchObject({ path: 'schemaVersion', to: '1' });
   });
 
+  it('drops the tone when an explicit text colour is declared', () => {
+    const value = {
+      id: 'ink',
+      spec: {
+        kind: 'composition',
+        elements: [
+          {
+            id: 'title',
+            primitive: 'label',
+            layout: { x: 72, y: 600, width: 700, height: 160 },
+            params: {
+              text: 'заголовок',
+              token: 'headline',
+              tone: 'surface',
+              textColor: '#FFFFFF',
+            },
+          },
+        ],
+        sequence: [],
+      },
+    };
+    const repairs: Repair[] = [];
+    const result = salvageScene(value, repairs) as {
+      spec: { elements: ReadonlyArray<{ params: Record<string, unknown> }> };
+    };
+    const params = result.spec.elements[0]?.params ?? {};
+
+    expect(params['tone']).toBeUndefined();
+    expect(params['textColor']).toBe('#FFFFFF');
+    expect(repairs[0]).toMatchObject({ path: 'label.tone', from: 'surface' });
+  });
+
   it('infers a type token and a default ink for text without style', () => {
     const value = {
       id: 'style',

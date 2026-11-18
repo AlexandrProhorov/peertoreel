@@ -166,7 +166,7 @@ async function generateScene(options: {
       errors.splice(
         0,
         errors.length,
-        `сцена статична: кадры ${motion.earlyFrame} и ${motion.lateFrame} совпадают — покажи изменение`,
+        `сцена статична: кадры ${motion.earlyFrame} и ${motion.lateFrame} совпадают — добавь действие из контракта (type, fill, draw, break, drag, disappear); входы элементов действием не считаются`,
       );
       continue;
     }

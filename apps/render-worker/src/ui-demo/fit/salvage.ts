@@ -185,14 +185,32 @@ function salvageTextStyle(
   primitive: PrimitiveId,
   repairs: Repair[],
 ): Unknown {
-  const text = params['text'];
-
-  if (!TEXT_PRIMITIVES.has(primitive) || typeof text !== 'string' || text.trim() === '') {
+  if (!TEXT_PRIMITIVES.has(primitive)) {
     return params;
   }
 
   const next: Unknown = { ...params };
   const layout = element['layout'];
+
+  /* Two names for one ink: an explicit colour is the author's choice, the tone
+     is a theme name. Keeping both lets the renderer and the gate disagree — the
+     renderer painted `textColor`, the gate read `tone` and rejected the scene. */
+  if (next['tone'] !== undefined && next['textColor'] !== undefined) {
+    repairs.push({
+      element: id,
+      path: `${primitive}.tone`,
+      reason: 'explicit textColor wins',
+      from: String(next['tone']),
+      to: '(removed)',
+    });
+    delete next['tone'];
+  }
+
+  const text = next['text'];
+
+  if (typeof text !== 'string' || text.trim() === '') {
+    return next;
+  }
 
   if (
     next['token'] === undefined &&

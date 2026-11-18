@@ -154,6 +154,31 @@ describe('quality gate', () => {
     expect(codes(spec)).toContain('text-contrast');
   });
 
+  it('trusts an explicit text colour over a tone', () => {
+    /* Lime frame: the `surface` tone is light and unreadable there, the explicit
+       ink is dark and readable. The renderer paints the explicit one, so the
+       gate must read the same. */
+    const spec = baseSpec();
+    spec.elements[1] = {
+      ...spec.elements[1]!,
+      layout: { x: 72, y: 200, width: 700, height: 90 },
+      params: {
+        text: 'главная мысль',
+        token: 'headline',
+        tone: 'surface',
+        textColor: '#0B0B0C',
+      },
+    };
+    spec.elements[2] = {
+      ...spec.elements[2]!,
+      params: { text: 'деталь', token: 'label', textColor: '#FFFFFF' },
+    };
+
+    const issues = lintQuality(spec, 'studio-lime');
+
+    expect(issues.map((issue) => issue.code)).not.toContain('text-contrast');
+  });
+
   it('rejects an empty scene', () => {
     const spec = baseSpec();
     spec.elements = [spec.elements[0]!];
