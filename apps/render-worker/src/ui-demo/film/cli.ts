@@ -17,6 +17,7 @@ import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
 import { degradeScene, fallbackScene } from './degraded.js';
+import { enforceEntranceVariety } from './entrances.js';
 import { assignmentFor } from './forms.js';
 import { sceneContext } from './scene-context.js';
 
@@ -369,6 +370,10 @@ async function main(): Promise<void> {
 
     const usd = (tokens.prompt * rates.input + tokens.completion * rates.output) / 1_000_000;
     const totalSeconds = scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
+    /* Fade is the default entrance; a whole film of fades stops reading as
+       separate beats. The quota is applied here because a scene prompt cannot
+       see its neighbours' choices. */
+    const variety = enforceEntranceVariety(scenes);
 
     /* A film is never written short. The arc's scenes are a promise to the
        voiceover and the subtitles: a missing scene is a hole in speech, so an
@@ -398,7 +403,7 @@ async function main(): Promise<void> {
           themeId: arc.scenes[0]?.theme ?? 'studio-dark',
           captions: false,
           speech: [],
-          scenes,
+          scenes: variety.scenes,
         },
         null,
         2,
@@ -413,6 +418,7 @@ async function main(): Promise<void> {
       planned: arc.scenes.length,
       produced: scenes.length,
       degraded: degradedCount,
+      entrancesAdjusted: variety.changed.map((index) => index + 1),
       seconds: Number(totalSeconds.toFixed(1)),
       scenes: sceneReport,
       usd: Number(usd.toFixed(4)),
@@ -421,6 +427,10 @@ async function main(): Promise<void> {
     console.log(
       `${entry.slug}: ${scenes.length}/${arc.scenes.length} scenes, ${totalSeconds.toFixed(1)}s, $${usd.toFixed(4)}${
         degradedCount === 0 ? '' : `, ${degradedCount} degraded`
+      }${
+        variety.changed.length === 0
+          ? ''
+          : `, entrances ${variety.changed.map((index) => index + 1).join(',')}`
       }`,
     );
 
