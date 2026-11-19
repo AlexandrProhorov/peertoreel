@@ -16,6 +16,14 @@ describe('frame review', () => {
     expect(report.deadFrames).toBe(2);
     expect(report.deadSeconds).toBe(1);
     expect(report.longestStillSeconds).toBe(1.5);
+    expect(report.tailSeconds).toBe(0.5);
+  });
+
+  it('measures how long the film lives past its last change', () => {
+    const report = reviewDiffs([10, 10, 0.2, 0.2, 0.1, 0.1]);
+
+    /* The last visible change is the second frame: four still samples follow. */
+    expect(report.tailSeconds).toBe(2.5);
   });
 
   it('counts a film that always moves as having no dead time', () => {

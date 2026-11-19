@@ -26,6 +26,8 @@ export interface DeadReport {
   readonly deadFrames: number;
   readonly deadSeconds: number;
   readonly longestStillSeconds: number;
+  /** Seconds after the last visible change: how long the film lives past its point. */
+  readonly tailSeconds: number;
 }
 
 /** Pure: a run of `true` is a stretch of the film that does not change. */
@@ -55,12 +57,20 @@ export function stillRuns(diffs: readonly number[], threshold = STILL_THRESHOLD)
 export function reviewDiffs(diffs: readonly number[]): DeadReport {
   const runs = stillRuns(diffs);
   const deadFrames = diffs.filter((diff) => diff < STILL_THRESHOLD).length;
+  let lastChange = -1;
+
+  for (let index = 0; index < diffs.length; index += 1) {
+    if ((diffs[index] ?? 0) >= STILL_THRESHOLD) {
+      lastChange = index;
+    }
+  }
 
   return {
     sampledFrames: diffs.length + 1,
     deadFrames,
     deadSeconds: Number((deadFrames / SAMPLE_FPS).toFixed(1)),
     longestStillSeconds: Number(((Math.max(0, ...runs) + 1) / SAMPLE_FPS).toFixed(1)),
+    tailSeconds: Number(((diffs.length - lastChange) / SAMPLE_FPS).toFixed(1)),
   };
 }
 
