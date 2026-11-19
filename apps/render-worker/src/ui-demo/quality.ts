@@ -260,7 +260,7 @@ export function lintQuality(
       add(
         'empty-surface',
         blank.element.id,
-        `"${blank.element.id}" is a surface with no text and nothing inside: give it a label or make it half of a size comparison`,
+        `"${blank.element.id}" is a surface with no text and nothing inside: a blank shape shows no idea — give it a label, a number or a track, or make it half of a size comparison`,
       );
     }
   }
