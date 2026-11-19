@@ -1,5 +1,5 @@
 import {
-  MAX_ELEMENTS_PER_SCENE,
+  MAX_CONTENT_ELEMENTS,
   MAX_INSTANCES_PER_PRIMITIVE,
 } from '../catalog.js';
 import {
@@ -138,7 +138,9 @@ export function buildUserPrompt(
     '',
     'Жёсткие границы (их проверяет код):',
     `- ровно одна сцена, device всегда "spec", длительность ${length} секунд;`,
-    `- от 2 до ${MAX_ELEMENTS_PER_SCENE} элементов, не больше ${MAX_INSTANCES_PER_PRIMITIVE} экземпляров одного примитива;`,
+    `- от 2 до ${MAX_CONTENT_ELEMENTS} единиц контента (stage не считается), не больше ${MAX_INSTANCES_PER_PRIMITIVE} экземпляров одного примитива;`,
+    '- подпись поверхности — её собственный text (card, pill, bubble): отдельный label поверх',
+    '  карточки не нужен;',
     '- первым элементом всегда stage с фоном выбранной темы;',
     '- текст живёт только в label, pill и bubble, остальные — форма и поверхность;',
     `- важный текст и объекты: x ${safe.left}..${safe.right}, y ${safe.top}..${safe.bottom}; кадр ${CANVAS.width}×${CANVAS.height};`,

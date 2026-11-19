@@ -141,6 +141,46 @@
           "name": "shadowColor",
           "type": "color",
           "initial": ""
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "maxLength": 80,
+          "initial": ""
+        },
+        {
+          "name": "token",
+          "type": "enum",
+          "values": [
+            "display",
+            "headline",
+            "card",
+            "body",
+            "bubble",
+            "selection",
+            "input",
+            "caption",
+            "label",
+            "name"
+          ],
+          "initial": "display"
+        },
+        {
+          "name": "fontScale",
+          "type": "number",
+          "min": 0.85,
+          "max": 1,
+          "initial": 0.85
+        },
+        {
+          "name": "align",
+          "type": "enum",
+          "values": [
+            "left",
+            "center",
+            "right"
+          ],
+          "initial": "left"
         }
       ],
       "states": [
@@ -159,7 +199,7 @@
       ],
       "prompt": [
         "- card — видимая поверхность, контейнер или объект",
-        "    background: color\n    radius: number, 0..48\n    padding: number, 0..80\n    border: color\n    elevation: enum, одно из [\"low\",\"high\"]\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    shadowColor: color",
+        "    background: color\n    radius: number, 0..48\n    padding: number, 0..80\n    border: color\n    elevation: enum, одно из [\"low\",\"high\"]\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    shadowColor: color\n    text: string, до 80 символов\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    fontScale: number, 0.85..1\n    align: enum, одно из [\"left\",\"center\",\"right\"]",
         "    переходы: appear, disappear, hold",
         "    состояния: rest, highlighted",
         "    операции: reveal, move, scale"

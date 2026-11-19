@@ -274,6 +274,12 @@ export function SpecRenderer({
                 radius={num(params, 'radius', 40)}
                 padding={num(params, 'padding', 40)}
                 border={str(params, 'border')}
+                text={str(params, 'text')}
+                token={tokenOf(params)}
+                fontScale={num(params, 'fontScale', 1)}
+                align={
+                  (str(params, 'align') as 'left' | 'center' | 'right' | undefined) ?? undefined
+                }
                 shadow={
                   (str(params, 'shadow') as 'none' | 'soft' | 'strong' | undefined) ??
                   'none'

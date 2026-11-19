@@ -49,7 +49,10 @@ function carriesText(element: Unknown): boolean {
   return typeof text === 'string' && text.trim() !== '';
 }
 
-function containsBox(outer: Boxed, inner: Boxed): boolean {
+function containsBox(
+  outer: { x: number; y: number; width: number; height: number },
+  inner: { x: number; y: number; width: number; height: number },
+): boolean {
   return (
     inner.x >= outer.x - 0.5 &&
     inner.y >= outer.y - 0.5 &&
@@ -198,8 +201,7 @@ function separateSurfaces(elements: readonly Unknown[]): Unknown[] {
 }
 
 /** Air between content and the card edge when the card declares none. */
-const MIN_INSET = 24;
-/** Elements placed on a card by coordinates, not laid out inside it. */
+const MIN_INSET = 24;/** Elements placed on a card by coordinates, not laid out inside it. */
 const INSET_PRIMITIVES = new Set(['label', 'pill', 'bubble', 'track', 'thumb']);
 
 function cardPadding(card: Unknown): number {
@@ -321,8 +323,95 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
   return result;
 }
 
-function normalizeElement(element: Unknown): Unknown {
-  const primitive = element['primitive'];
+/**
+ * The bridge before `card.text` reaches every caller: a surface with no copy and
+ * nothing inside is removed instead of rejecting the scene. The repair carries
+ * its own code, so "accepted without repairs" stays honest.
+ */
+function dropEmptySurfaces(
+  elements: readonly Unknown[],
+  repairs: Repair[],
+): { elements: Unknown[]; dropped: Set<string> } {
+  const surfaces = elements
+    .filter((element) => ['card', 'pill', 'bubble'].includes(String(element['primitive'])))
+    .map((element) => ({ element, box: rawBox(element) }))
+    .filter(
+      (item): item is { element: Unknown; box: NonNullable<ReturnType<typeof rawBox>> } =>
+        item.box !== null,
+    );
+  const hasOwnText = (element: Unknown): boolean => {
+    const params = element['params'];
+
+    return (
+      isObject(params) &&
+      typeof params['text'] === 'string' &&
+      params['text'].trim() !== ''
+    );
+  };
+  const containsSomething = (surface: Unknown, box: NonNullable<ReturnType<typeof rawBox>>): boolean =>
+    elements.some((other) => {
+      if (other === surface || other['primitive'] === 'stage') {
+        return false;
+      }
+
+      const inner = rawBox(other);
+
+      return inner !== null && containsBox(box, inner);
+    });
+  const blanks = surfaces.filter((candidate) => {
+    if (hasOwnText(candidate.element) || containsSomething(candidate.element, candidate.box)) {
+      return false;
+    }
+
+    return !surfaces.some(
+      (other) =>
+        other.element !== candidate.element && containsBox(other.box, candidate.box),
+    );
+  });
+  const near = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(a, b) * 0.1;
+  const compared = (blank: (typeof blanks)[number]): boolean =>
+    blanks.some(
+      (other) =>
+        other.element !== blank.element &&
+        ((near(other.box.width, blank.box.width) &&
+          Math.abs(other.box.height - blank.box.height) > blank.box.height * 0.2) ||
+          (near(other.box.height, blank.box.height) &&
+            Math.abs(other.box.width - blank.box.width) > blank.box.width * 0.2)),
+    );
+  const droppedElements = new Set<Unknown>();
+  const dropped = new Set<string>();
+
+  for (const blank of blanks) {
+    if (compared(blank)) {
+      continue;
+    }
+
+    const id = blank.element['id'];
+
+    repairs.push({
+      element: typeof id === 'string' ? id : null,
+      path: 'surface-removed',
+      reason: 'empty surface',
+      from: String(blank.element['primitive'] ?? 'surface'),
+      to: '(removed)',
+    });
+    droppedElements.add(blank.element);
+
+    if (typeof id === 'string') {
+      dropped.add(id);
+    }
+  }
+
+  return {
+    elements: elements.filter((element) => !droppedElements.has(element)),
+    dropped,
+  };
+}
+
+/**
+ * Box containment for raw boxes (the repair works before types are known).
+ */
+function normalizeElement(element: Unknown): Unknown {  const primitive = element['primitive'];
   const layout = element['layout'];
 
   if (typeof primitive !== 'string' || !isObject(layout) || primitive === 'stage') {
@@ -379,10 +468,17 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         return scene;
       }
 
+      /* Geometry first: insets and separation decide the final boxes, and only
+         then can "empty" be judged — a card may have received its label. */
+      const prepared = applyInsets(separateSurfaces(elements.map(normalizeElement)));
+      const { elements: kept, dropped } = dropEmptySurfaces(prepared, repairs);
+
       /* Timing: an ordered list without `at` becomes absolute cues here. The
          cue list fills the planned scene instead of leaving a frozen tail. */
       const sequence = spec['sequence'];
-      const ordered = Array.isArray(sequence) ? sequence.filter(isObject) : [];
+      const ordered = (Array.isArray(sequence) ? sequence.filter(isObject) : []).filter(
+        (step) => !dropped.has(String(step['element'])),
+      );
       const needsTiming = ordered.some((step) => step['at'] === undefined);
       const planned = typeof scene['durationSec'] === 'number' ? scene['durationSec'] : 0;
       const timing = needsTiming
@@ -404,7 +500,10 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         spec: {
           ...spec,
           ...(timing === null ? {} : { sequence: timing.cues }),
-          elements: applyInsets(separateSurfaces(elements.map(normalizeElement))),
+          ...(timing !== null ? {} : dropped.size === 0 ? {} : {
+            sequence: ordered,
+          }),
+          elements: kept,
         },
       };
     }),

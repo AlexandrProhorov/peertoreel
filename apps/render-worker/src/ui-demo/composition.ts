@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  MAX_ELEMENTS_PER_SCENE,
+  MAX_CONTENT_ELEMENTS,
   MAX_INSTANCES_PER_PRIMITIVE,
   PRIMITIVES,
   type PrimitiveId,
@@ -217,11 +217,17 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
     issues.push({ code, element, message });
   };
 
-  if (spec.elements.length > MAX_ELEMENTS_PER_SCENE) {
+  /* The stage is mandatory, so it does not spend a content slot: a scene with a
+     stage, a title and two captioned cards is three units, not five. */
+  const contentElements = spec.elements.filter(
+    (element) => element.primitive !== 'stage',
+  ).length;
+
+  if (contentElements > MAX_CONTENT_ELEMENTS) {
     fail(
       'element-budget',
       null,
-      `composition has ${spec.elements.length} elements (max ${MAX_ELEMENTS_PER_SCENE})`,
+      `composition has ${contentElements} content units (max ${MAX_CONTENT_ELEMENTS}); the stage is free`,
     );
   }
 

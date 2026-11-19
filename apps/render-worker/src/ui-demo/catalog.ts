@@ -12,6 +12,8 @@
 import { MIN_FONT_SCALE } from './typography-rules.js';
 
 export const MAX_ELEMENTS_PER_SCENE = 6;
+/** The stage is mandatory, so it never spends a slot of its own. */
+export const MAX_CONTENT_ELEMENTS = MAX_ELEMENTS_PER_SCENE - 1;
 /** A row of four chips is a normal interface; five means the scene repeats itself. */
 export const MAX_INSTANCES_PER_PRIMITIVE = 4;
 
@@ -92,6 +94,11 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       elevation: { type: 'enum', values: ['low', 'high'] },
       shadow: { type: 'enum', values: ['none', 'soft', 'strong'] },
       shadowColor: { type: 'color' },
+      /** A caption belongs to the surface: one element, one padding, one slot. */
+      text: { type: 'string', maxLength: 80 },
+      token: { type: 'enum', values: ['display', 'headline', 'card', 'body', 'bubble', 'selection', 'input', 'caption', 'label', 'name'] },
+      fontScale: { type: 'number', min: MIN_FONT_SCALE, max: 1 },
+      align: { type: 'enum', values: ['left', 'center', 'right'] },
     },
     states: ['rest', 'highlighted'],
     transitions: ['appear', 'disappear', 'hold'],

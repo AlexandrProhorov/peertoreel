@@ -157,11 +157,11 @@ describe('surface separation', () => {
   });
 
   it('leaves an impossible side-by-side overlap for the validator', () => {
-    const element = (id: string, x: number, width: number): Record<string, unknown> => ({
+    const element = (id: string, x: number, width: number, text: string): Record<string, unknown> => ({
       id,
       primitive: 'card',
       layout: { x, y: 300, width, height: 900 },
-      params: { background: '#F3F3F5' },
+      params: { background: '#F3F3F5', text },
     });
     const raw = {
       schemaVersion: 1,
@@ -178,8 +178,8 @@ describe('surface separation', () => {
           spec: {
             kind: 'composition',
             elements: [
-              element('left', 72, 420),
-              element('right', 470, 420),
+              element('left', 72, 420, 'Мои подписки'),
+              element('right', 470, 420, 'Не пользуюсь'),
               {
                 id: 'leftTag',
                 primitive: 'label',

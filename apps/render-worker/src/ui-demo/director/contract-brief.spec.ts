@@ -49,7 +49,7 @@ describe('director prompt covers the catalogue', () => {
 
     expect(prompt).toContain('x 72..890');
     expect(prompt).toContain('y 80..1620');
-    expect(prompt).toContain('от 2 до 6 элементов');
+    expect(prompt).toContain('от 2 до 5 единиц контента');
   });
 
   it('asks for one spec scene with a sequence', () => {

@@ -30,20 +30,15 @@ describe('foreign model import', () => {
     });
   }
 
-  it('deepseek: rejects the scenes built on empty surfaces', () => {
-    /* The answer predates the empty-surface rule: a fan of three blank cards and
-       a wallet card that holds nothing. The rule rejects both scenes; the other
-       two survive, so the fixture documents the boundary instead of hiding it. */
+  it('deepseek: removes empty surfaces instead of losing the scene', () => {
+    /* The answer predates `card.text`: a fan of three blank cards and a wallet
+       card that holds nothing. The bridge drops the blanks and keeps the scenes. */
     const result = importForeignEpisode(foreign('deepseek-subscriptions.json'));
-    const reasons = result.statuses
-      .filter((status) => !status.ok)
-      .flatMap((status) => status.reasons)
-      .join(' ');
 
     expect(result.statuses).toHaveLength(4);
-    expect(result.lost).toBe(2);
-    expect(reasons).toContain('empty-surface');
-    expect(result.episode?.scenes).toHaveLength(2);
+    expect(result.lost).toBe(0);
+    expect(result.repairs.map((repair) => repair.path)).toContain('surface-removed');
+    expect(uiEpisodeSchema.safeParse(result.episode).success).toBe(true);
   });
 
   it('reports what it salvaged instead of hiding the repair', () => {
@@ -112,7 +107,7 @@ describe('foreign model import', () => {
                 id: 'card',
                 primitive: 'card',
                 layout: { x: 72, y: 600, width: 480, height: 320 },
-                params: { background: '#FFFFFF' },
+                params: { background: '#FFFFFF', text: 'белая карточка' },
               },
               {
                 id: 'title',

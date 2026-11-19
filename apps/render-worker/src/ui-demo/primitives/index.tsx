@@ -93,6 +93,28 @@ export function Stage({
   );
 }
 
+/** Ink for a caption follows the surface it sits on; the model never picks it. */
+function inkOn(background: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(background);
+
+  if (match?.[1] === undefined) {
+    return '#0B0B0C';
+  }
+
+  const value = Number.parseInt(match[1], 16);
+  const channel = (raw: number): number => {
+    const value255 = raw / 255;
+
+    return value255 <= 0.03928 ? value255 / 12.92 : ((value255 + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance =
+    0.2126 * channel((value >> 16) & 255) +
+    0.7152 * channel((value >> 8) & 255) +
+    0.0722 * channel(value & 255);
+
+  return luminance > 0.35 ? '#0B0B0C' : '#FFFFFF';
+}
+
 export function Card({
   theme,
   background,
@@ -101,6 +123,10 @@ export function Card({
   border,
   shadow = 'none',
   shadowColor,
+  text,
+  token = 'card',
+  fontScale = 1,
+  align,
   style,
   children,
   markers,
@@ -112,12 +138,21 @@ export function Card({
   border?: string;
   shadow?: keyof typeof SHADOWS;
   shadowColor?: string;
+  /** The caption belongs to the surface, so the padding applies to it. */
+  text?: string;
+  token?: TypeToken;
+  fontScale?: number;
+  align?: 'left' | 'center' | 'right';
 }) {
+  const fill = background ?? theme.surface;
+  const base = textStyle(token, inkOn(fill));
+  const { fontSize, ...rest } = base;
+
   return (
     <div
       {...markerProps(markers)}
       style={{
-        background: background ?? theme.surface,
+        background: fill,
         borderRadius: radius,
         padding,
         border: border === undefined ? undefined : `2px solid ${border}`,
@@ -128,7 +163,21 @@ export function Card({
         ...style,
       }}
     >
-      {children}
+      {children ?? (text === undefined ? null : (
+        <span
+          {...markerProps({ critical: 'spec-text' })}
+          style={{
+            ...rest,
+            /* The card's height is not the line's height: the token sets the
+               size and fontScale is the repair lever. */
+            ...(typeof fontSize === 'number' ? { fontSize: fontSize * fontScale } : {}),
+            display: 'block',
+            ...(align === undefined ? {} : { textAlign: align }),
+          }}
+        >
+          {text}
+        </span>
+      ))}
     </div>
   );
 }
