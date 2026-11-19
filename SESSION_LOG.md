@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-20 | Сцена не теряется: degraded-сцены, длина из действий, инвариант полноты | [2026-11-20-03](docs/sessions/2026-11/2026-11-20-03-ui-demo-degraded-scenes.md) |
 | 2026-11-21 | UI-demo: два ролика по текущей политике длины, генерация + рендер до mp4 | [2026-11-21-01](docs/sessions/2026-11/2026-11-21-01-ui-film-two-topics.md) |
 | 2026-11-20 | UI-demo: читаемость кадра под нагрузкой модели (наслоения, паддинг, пустые блоки) | [2026-11-20-02](docs/sessions/2026-11/2026-11-20-02-ui-demo-readability.md) |
 | 2026-11-20 | UI-demo: приёмка чужих ответов, salvage, абсолютные линии | [2026-11-20-01](docs/sessions/2026-11/2026-11-20-01-ui-foreign-import.md) |
