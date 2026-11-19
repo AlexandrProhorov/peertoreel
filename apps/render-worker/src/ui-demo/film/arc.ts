@@ -71,7 +71,7 @@ export const ARC_SYSTEM_PROMPT = [
 
 export function buildArcPrompt(
   topic: string,
-  options: { readonly action?: boolean } = {},
+  options: { readonly action?: boolean; readonly form?: string; readonly carrier?: string } = {},
 ): string {
   const themes = Object.keys(UI_THEMES).join(', ');
   const withAction = options.action !== false;
@@ -81,6 +81,11 @@ export function buildArcPrompt(
 
   return [
     `Тема: ${topic}`,
+    '',
+    ...(options.form === undefined ? [] : [`Драматургическая форма: ${options.form}.`]),
+    ...(options.carrier === undefined
+      ? []
+      : [`Носитель величины: ${options.carrier} — через него показывай «больше/меньше».`]),
     '',
     'Верни JSON строго такой формы:',
     `{

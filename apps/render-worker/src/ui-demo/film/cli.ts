@@ -16,6 +16,7 @@ import { uiEpisodeSchema, type UiEpisode, type UiScene } from '../spec.js';
 import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
+import { assignmentFor } from './forms.js';
 import { sceneContext } from './scene-context.js';
 
 /**
@@ -217,6 +218,7 @@ async function main(): Promise<void> {
   const report: unknown[] = [];
 
   for (const entry of topics) {
+    const assignment = assignmentFor(entry.slug);
     const dir = path.join(outRoot, entry.slug);
     const tokens = { prompt: 0, completion: 0 };
 
@@ -229,7 +231,11 @@ async function main(): Promise<void> {
       const response = await client.complete({
         system: ARC_SYSTEM_PROMPT,
         user:
-          buildArcPrompt(entry.topic, { action: withAction }) +
+          buildArcPrompt(entry.topic, {
+            action: withAction,
+            form: assignment.form,
+            carrier: assignment.carrier,
+          }) +
           (arcErrors.length === 0
             ? ''
             : `\n\nОтклонено валидатором:\n${arcErrors.map((line) => `- ${line}`).join('\n')}`),
