@@ -45,8 +45,20 @@ describe('derived timing', () => {
     expect(times).toEqual([...times].sort((left, right) => left - right));
   });
 
-  it('stretches a short action across a longer planned scene', () => {
-    const action = deriveTiming([
+  it('a heavier step keeps the frame longer', () => {
+    const light = deriveTiming([
+      { element: 'a', transition: 'appear' },
+      { element: 'a', transition: 'type' },
+    ]);
+    const heavy = deriveTiming([
+      { element: 'a', transition: 'appear', weight: 3 },
+      { element: 'a', transition: 'type' },
+    ]);
+
+    expect(heavy.cues[1]?.at ?? 0).toBeGreaterThan(light.cues[1]?.at ?? 0);
+  });
+
+  it('stretches a short action across a longer planned scene', () => {    const action = deriveTiming([
       { element: 'a', transition: 'appear' },
       { element: 'a', transition: 'type' },
     ]);

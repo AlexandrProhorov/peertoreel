@@ -33,6 +33,8 @@ export interface OrderedStep {
   readonly element: string;
   readonly transition: string;
   readonly text?: string;
+  /** 1..3: a heavier step keeps the frame longer before the next one. */
+  readonly weight?: number;
 }
 
 export interface DerivedTiming {
@@ -46,9 +48,10 @@ export function deriveTiming(steps: readonly OrderedStep[]): DerivedTiming {
 
   for (const step of steps) {
     const seconds = TRANSITION_SECONDS[step.transition] ?? 0.4;
+    const weight = Math.min(3, Math.max(1, Math.round(step.weight ?? 1)));
 
     cues.push({ ...step, at: Number(cursor.toFixed(2)) });
-    cursor += seconds + STEP_GAP_SECONDS;
+    cursor += seconds + STEP_GAP_SECONDS * weight;
   }
 
   /* After the loop the cursor sits one gap past the end of the last animation. */

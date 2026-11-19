@@ -5,6 +5,7 @@ import type { ASSET_KEYS } from '../assets.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { reveal } from '../timing.js';
 import { lineEndpoints } from './line-geometry.js';
+import { behaviorStyle } from './motion.js';
 import { paintOrder } from './paint-order.js';
 import {
   Avatar,
@@ -69,6 +70,9 @@ export const RENDERED_TRANSITIONS = [
   'break',
   'release',
   'hold',
+  'move',
+  'scale',
+  'highlight',
 ] as const;
 
 /**
@@ -76,39 +80,6 @@ export const RENDERED_TRANSITIONS = [
  * the fade: the element is already on screen, and `opacity: progress` made it
  * blink — visible, gone, visible again.
  */
-function behaviorStyle(
-  transition: string | undefined,
-  progress: number,
-): CSSProperties {
-  switch (transition) {
-    case 'disappear':
-      return { opacity: 1 - progress };
-    case 'appear':
-      return {
-        opacity: progress,
-        transform: `translateY(${(1 - progress) * 24}px)`,
-      };
-    case 'move':
-    case 'scale':
-      /* Positional nudges read as a twitch mid-scene. Animation belongs to the
-         entrance and the exit; a real action comes from the primitive that owns
-         it — fill, draw, type, break, drag. */
-      return {};
-    case 'drag':
-      return { transform: `translateX(${(1 - progress) * -240}px)` };
-    /* draw / fill / type / break animate their own geometry, not opacity. */
-    case 'draw':
-    case 'fill':
-    case 'type':
-    case 'break':
-    case 'activate':
-    case 'hold':
-      return {};
-    default:
-      return { opacity: progress };
-  }
-}
-
 /** Typing speed: a full line takes this long, regardless of its length. */
 const TYPE_FRAMES = 24;
 

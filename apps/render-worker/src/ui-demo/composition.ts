@@ -43,6 +43,8 @@ export const compositionSpecSchema = z.object({
         at: z.number().finite().nonnegative().optional(),
         element: z.string().min(1).max(24),
         transition: z.string().min(1).max(32),
+        /** 1..3: how long the event holds the frame before the next one. */
+        weight: z.number().int().min(1).max(3).optional(),
         /** A cue may replace the element's text; an empty string clears it. */
         text: z.string().max(80).optional(),
       }),

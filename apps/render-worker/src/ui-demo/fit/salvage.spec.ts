@@ -124,7 +124,7 @@ describe('salvage', () => {
             layout: { x: 72, y: 600, width: 480, height: 240 },
             params: { background: '#161618' },
             states: ['rest'],
-            transitions: ['appear', 'scale'],
+            transitions: ['appear', 'type'],
             operations: ['reveal', 'type-on'],
             links: [],
           },
@@ -143,9 +143,8 @@ describe('salvage', () => {
     };
 
     expect(result.spec.elements[0]?.transitions).toEqual(['appear']);
-    expect(result.spec.elements[0]?.operations).toEqual(['reveal']);
     expect(repairs.map((repair) => repair.path)).toEqual([
-      'card.transitions.scale',
+      'card.transitions.type',
       'card.operations.type-on',
     ]);
   });

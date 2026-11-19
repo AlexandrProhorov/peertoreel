@@ -190,7 +190,10 @@
       "transitions": [
         "appear",
         "disappear",
-        "hold"
+        "hold",
+        "move",
+        "scale",
+        "highlight"
       ],
       "operations": [
         "reveal",
@@ -200,7 +203,7 @@
       "prompt": [
         "- card — видимая поверхность, контейнер или объект",
         "    background: color\n    radius: number, 0..48\n    padding: number, 0..80\n    border: color\n    elevation: enum, одно из [\"low\",\"high\"]\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    shadowColor: color\n    text: string, до 80 символов\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    fontScale: number, 0.85..1\n    align: enum, одно из [\"left\",\"center\",\"right\"]",
-        "    переходы: appear, disappear, hold",
+        "    переходы: appear, disappear, hold, move, scale, highlight",
         "    состояния: rest, highlighted",
         "    операции: reveal, move, scale"
       ]
@@ -573,7 +576,10 @@
         "appear",
         "disappear",
         "type",
-        "hold"
+        "hold",
+        "move",
+        "scale",
+        "highlight"
       ],
       "operations": [
         "reveal",
@@ -583,7 +589,7 @@
       "prompt": [
         "- label — текстовый смысловой акцент",
         "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1\n    mark: boolean",
-        "    переходы: appear, disappear, type, hold",
+        "    переходы: appear, disappear, type, hold, move, scale, highlight",
         "    состояния: rest",
         "    операции: reveal, type-on, move"
       ]

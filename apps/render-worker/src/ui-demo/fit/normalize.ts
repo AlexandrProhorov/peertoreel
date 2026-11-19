@@ -626,6 +626,7 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
               ordered.map((step) => ({
                 element: String(step['element'] ?? ''),
                 transition: String(step['transition'] ?? ''),
+                ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
                 ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
               })),
             ),
