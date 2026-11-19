@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeRawEpisode } from './normalize.js';
+import type { Repair } from './salvage.js';
 
 /**
  * Surface separation moves a box that overlaps its neighbour by a few pixels.
@@ -202,6 +203,58 @@ describe('surface separation', () => {
     /* 72 + 420 + 16 + 420 = 928 > 890: the gap is impossible. Shrinking would
        squeeze the copy, so the overlap stays and the contract rejects it. */
     expect(right?.layout).toMatchObject({ x: 470, width: 420 });
+  });
+
+  it('moves the accent to a captioned surface before removing an empty one', () => {
+    const raw = {
+      schemaVersion: 1,
+      themeId: 'studio-dark',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'accent',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            elements: [
+              {
+                id: 'accent-block',
+                primitive: 'card',
+                layout: { x: 72, y: 1200, width: 300, height: 200 },
+                params: { background: '#CCFF00' },
+              },
+              {
+                id: 'kept',
+                primitive: 'card',
+                layout: { x: 72, y: 300, width: 400, height: 300 },
+                params: { background: '#161618', text: 'осталось' },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const repairs: Repair[] = [];
+    const normalized = normalizeRawEpisode(raw, repairs) as {
+      scenes: ReadonlyArray<{
+        spec: {
+          elements: ReadonlyArray<{ id: string; params: Record<string, unknown> }>;
+        };
+      }>;
+    };
+    const kept = normalized.scenes[0]?.spec.elements.find((item) => item.id === 'kept');
+
+    expect(normalized.scenes[0]?.spec.elements.map((item) => item.id)).toEqual(['kept']);
+    expect(kept?.params['background']).toBe('#CCFF00');
+    expect(repairs.map((repair) => repair.path)).toEqual([
+      'accent-transferred',
+      'surface-removed',
+    ]);
   });
 
   it('applies the card padding to a track and shortens its rail', () => {

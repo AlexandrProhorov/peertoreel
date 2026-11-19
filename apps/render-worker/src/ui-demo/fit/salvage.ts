@@ -27,6 +27,23 @@ export interface Repair {
   readonly to: string;
 }
 
+/**
+ * Repairs that change what the viewer sees, as opposed to pixel bookkeeping.
+ * "Accepted without repairs" is a weak signal while colour names are rewritten
+ * on every card; the semantic share is what measures whether the model learned
+ * the contract.
+ */
+export const SEMANTIC_REPAIRS: ReadonlySet<string> = new Set([
+  'surface-removed',
+  'accent-transferred',
+  'caption-attached',
+  'grid',
+]);
+
+export function isSemanticRepair(path: string): boolean {
+  return SEMANTIC_REPAIRS.has(path);
+}
+
 type Unknown = Record<string, unknown>;
 type SpecValue = string | number | boolean;
 

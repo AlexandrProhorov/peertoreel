@@ -1,6 +1,7 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { deriveTiming, stretchTiming } from '../timing-plan.js';
+import { UI_THEME_IDS, themeById, type UiThemeId } from '../themes.js';
 import { clampLayout } from './clamp.js';
 import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
 
@@ -331,6 +332,7 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
 function dropEmptySurfaces(
   elements: readonly Unknown[],
   repairs: Repair[],
+  themeId: string,
 ): { elements: Unknown[]; dropped: Set<string> } {
   const surfaces = elements
     .filter((element) => ['card', 'pill', 'bubble'].includes(String(element['primitive'])))
@@ -380,6 +382,21 @@ function dropEmptySurfaces(
     );
   const droppedElements = new Set<Unknown>();
   const dropped = new Set<string>();
+  const theme = (UI_THEME_IDS as readonly string[]).includes(themeId)
+    ? themeById(themeId as UiThemeId)
+    : null;
+  const accent = theme?.accent.toLowerCase() ?? null;
+  const accentInk = theme?.accentInk ?? '#0B0B0C';
+  const carriesAccent = (element: Unknown): boolean => {
+    const params = element['params'];
+
+    return (
+      accent !== null &&
+      isObject(params) &&
+      typeof params['background'] === 'string' &&
+      params['background'].toLowerCase() === accent
+    );
+  };
 
   for (const blank of blanks) {
     if (compared(blank)) {
@@ -387,6 +404,40 @@ function dropEmptySurfaces(
     }
 
     const id = blank.element['id'];
+
+    /* The accent is a property of a surface, not a block: before the empty card
+       goes, its lime fill moves to a captioned surface that stays. */
+    if (carriesAccent(blank.element)) {
+      const target = surfaces
+        .filter(
+          (candidate) =>
+            candidate.element !== blank.element &&
+            !droppedElements.has(candidate.element) &&
+            hasOwnText(candidate.element),
+        )
+        .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height)[0];
+
+      if (target !== undefined) {
+        const primitive = target.element['primitive'];
+        const params = target.element['params'];
+        const targetId = target.element['id'];
+
+        if (isObject(params)) {
+          target.element['params'] = {
+            ...params,
+            background: theme?.accent,
+            ...(primitive === 'card' ? {} : { textColor: accentInk }),
+          };
+          repairs.push({
+            element: typeof targetId === 'string' ? targetId : null,
+            path: 'accent-transferred',
+            reason: `accent moves from the removed "${String(id)}"`,
+            from: String(id),
+            to: String(targetId),
+          });
+        }
+      }
+    }
 
     repairs.push({
       element: typeof id === 'string' ? id : null,
@@ -471,7 +522,13 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       /* Geometry first: insets and separation decide the final boxes, and only
          then can "empty" be judged — a card may have received its label. */
       const prepared = applyInsets(separateSurfaces(elements.map(normalizeElement)));
-      const { elements: kept, dropped } = dropEmptySurfaces(prepared, repairs);
+      const sceneTheme =
+        typeof scene['themeId'] === 'string'
+          ? scene['themeId']
+          : typeof salvaged['themeId'] === 'string'
+            ? salvaged['themeId']
+            : 'studio-dark';
+      const { elements: kept, dropped } = dropEmptySurfaces(prepared, repairs, sceneTheme);
 
       /* Timing: an ordered list without `at` becomes absolute cues here. The
          cue list fills the planned scene instead of leaving a frozen tail. */
