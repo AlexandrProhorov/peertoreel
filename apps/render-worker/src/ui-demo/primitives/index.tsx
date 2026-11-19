@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Img } from 'remotion';
-import type { UiTheme } from '../themes.js';
+import { accentPlate, accentPlateInk, type UiTheme } from '../themes.js';
 import { textStyle, type TypeToken } from '../typography.js';
 
 /**
@@ -301,8 +301,8 @@ export function Label({
       {children ?? (mark === true && text !== undefined ? (
         <span
           style={{
-            background: theme.accent,
-            color: theme.accentInk,
+            background: accentPlate(theme),
+            color: accentPlateInk(theme),
             padding: '4px 18px',
             borderRadius: 14,
           }}

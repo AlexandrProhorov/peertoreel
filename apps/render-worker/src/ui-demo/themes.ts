@@ -67,8 +67,24 @@ export const UI_THEMES: Record<UiThemeId, UiTheme> = {
   },
 };
 
-/** Gradient stages for `object-reveal`; the object itself stays a local asset. */
-export const OBJECT_TONES = {
+/**
+ * The accent as a plate. On the lime theme the background IS the accent, so an
+ * accent plate would be invisible: the plate flips to the dark ink instead.
+ */
+export function accentPlate(theme: UiTheme): string {
+  return theme.background.toLowerCase() === theme.accent.toLowerCase()
+    ? theme.accentInk
+    : theme.accent;
+}
+
+/** Ink that reads on `accentPlate`. */
+export function accentPlateInk(theme: UiTheme): string {
+  return theme.background.toLowerCase() === theme.accent.toLowerCase()
+    ? theme.accent
+    : theme.accentInk;
+}
+
+/** Gradient stages for `object-reveal`; the object itself stays a local asset. */export const OBJECT_TONES = {
   warm: { from: '#FFA24A', to: '#F0561A', ink: '#FFFFFF' },
   lime: { from: '#DCFF57', to: '#C6F800', ink: '#0B0B0C' },
   dark: { from: '#1A1A1E', to: '#050506', ink: '#FFFFFF' },

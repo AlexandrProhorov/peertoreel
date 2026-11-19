@@ -1,7 +1,14 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { deriveTiming, stretchTiming } from '../timing-plan.js';
-import { UI_THEME_IDS, themeById, type UiThemeId } from '../themes.js';
+import {
+  accentPlate,
+  accentPlateInk,
+  UI_THEME_IDS,
+  themeById,
+  type UiTheme,
+  type UiThemeId,
+} from '../themes.js';
 import { clampLayout } from './clamp.js';
 import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
 
@@ -466,7 +473,7 @@ function dropEmptySurfaces(
 function applyFocus(
   elements: readonly Unknown[],
   focus: unknown,
-  theme: { accent: string; accentInk: string } | null,
+  theme: UiTheme | null,
 ): Unknown[] {
   if (typeof focus !== 'string' || theme === null) {
     return [...elements];
@@ -483,10 +490,10 @@ function applyFocus(
     if (primitive === 'label') {
       params['mark'] = true;
     } else if (primitive === 'pill' || primitive === 'bubble') {
-      params['background'] = theme.accent;
-      params['textColor'] = theme.accentInk;
+      params['background'] = accentPlate(theme);
+      params['textColor'] = accentPlateInk(theme);
     } else if (primitive === 'card') {
-      params['background'] = theme.accent;
+      params['background'] = accentPlate(theme);
     }
 
     return { ...element, params };
