@@ -18,8 +18,9 @@ const SAMPLE_FPS = 2;
 const WIDTH = 32;
 const HEIGHT = 56;
 const BYTES = WIDTH * HEIGHT;
-/** Mean absolute difference below this is a still frame, not a slow move. */
-const STILL_THRESHOLD = 1.5;
+/** Max change of one 8x8 block below this means nothing visibly moved. */
+const STILL_THRESHOLD = 8;
+const BLOCK = 8;
 
 export interface DeadReport {
   readonly sampledFrames: number;
@@ -94,15 +95,30 @@ async function sampleFrames(mp4: string): Promise<number[]> {
   const diffs: number[] = [];
 
   for (let index = 1; index < frames; index += 1) {
-    let sum = 0;
+    /* A typed letter or a small chip changes a few pixels only: a full-frame
+       average would call that "still". The maximum over 8x8 blocks keeps a
+       local change visible while flat frames stay at zero. */
+    let peak = 0;
 
-    for (let pixel = 0; pixel < BYTES; pixel += 1) {
-      sum += Math.abs(
-        stdout[index * BYTES + pixel]! - stdout[(index - 1) * BYTES + pixel]!,
-      );
+    for (let by = 0; by + BLOCK <= HEIGHT; by += BLOCK) {
+      for (let bx = 0; bx + BLOCK <= WIDTH; bx += BLOCK) {
+        let sum = 0;
+
+        for (let y = 0; y < BLOCK; y += 1) {
+          for (let x = 0; x < BLOCK; x += 1) {
+            const offset = (by + y) * WIDTH + (bx + x);
+
+            sum += Math.abs(
+              stdout[index * BYTES + offset]! - stdout[(index - 1) * BYTES + offset]!,
+            );
+          }
+        }
+
+        peak = Math.max(peak, sum / (BLOCK * BLOCK));
+      }
     }
 
-    diffs.push(sum / BYTES);
+    diffs.push(peak);
   }
 
   return diffs;
