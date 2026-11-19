@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ASSET_KEYS, resolveAsset } from './assets.js';
 import { compositionSpecSchema, parseComposition } from './composition.js';
 import { lintQuality } from './quality.js';
+import { ENTER_IDS } from './scene-enter.js';
 import { UI_THEME_IDS } from './themes.js';
 
 /**
@@ -58,10 +59,8 @@ export type UiDevice = z.infer<typeof uiDeviceSchema>;
 
 const sceneBaseShape = {
   id: z.string().min(1).max(64),
-  /** How this scene arrives: a cut by default, or a slide from one side. */
-  enter: z
-    .enum(['cut', 'slide-left', 'slide-right', 'slide-up', 'slide-down'])
-    .optional(),
+  /** How this scene arrives: a cut by default, a slide, a fade, a zoom or a wipe. */
+  enter: z.enum(ENTER_IDS).optional(),
   /** Clip-local duration; the composition sums the rounded frame counts. */
   durationSec: z.number().finite().min(0.5).max(20),
   /** Overrides the episode theme for one scene (background switches carry rhythm). */

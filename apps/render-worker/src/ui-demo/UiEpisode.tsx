@@ -13,6 +13,7 @@ import {
   PLATFORM_OVERLAY,
 } from './platform.js';
 import { uiSceneFrames, type UiEpisodeInputProps } from './spec.js';
+import { sceneEnterStyle } from './scene-enter.js';
 import { sceneSpeechTrack, SpeechCaption } from './SpeechCaption.js';
 import { FONT_FAMILY, FONT_LOAD_SPECS } from './typography.js';
 import { UiSceneView } from './UiScene.js';
@@ -76,16 +77,8 @@ function SafeZones() {
   );
 }
 
-/** A scene slides in from the chosen side; the cut itself becomes motion. */
-const SLIDE_FRAMES = 9;
-const SLIDE_FROM: Readonly<Record<string, readonly [number, number]>> = {
-  'slide-left': [CANVAS.width, 0],
-  'slide-right': [-CANVAS.width, 0],
-  'slide-up': [0, CANVAS.height],
-  'slide-down': [0, -CANVAS.height],
-};
-
-function SceneSlide({
+/** A scene arrives with the transition the model chose; the cut becomes motion. */
+function SceneEnter({
   enter,
   children,
 }: {
@@ -93,21 +86,9 @@ function SceneSlide({
   children: React.ReactNode;
 }) {
   const frame = useCurrentFrame();
-  const from = SLIDE_FROM[enter];
+  const style = sceneEnterStyle(enter, frame);
 
-  if (from === undefined) {
-    return <AbsoluteFill>{children}</AbsoluteFill>;
-  }
-
-  const progress = Math.min(1, frame / SLIDE_FRAMES);
-  const x = from[0] * (1 - progress);
-  const y = from[1] * (1 - progress);
-
-  return (
-    <AbsoluteFill style={{ transform: `translate(${x}px, ${y}px)` }}>
-      {children}
-    </AbsoluteFill>
-  );
+  return <AbsoluteFill style={style}>{children}</AbsoluteFill>;
 }
 
 /**
@@ -173,13 +154,13 @@ export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
             durationInFrames={durationInFrames}
             name={`${scene.device}:${scene.id}`}
           >
-            <SceneSlide enter={first ? 'cut' : (scene.enter ?? 'cut')}>
+            <SceneEnter enter={first ? 'cut' : (scene.enter ?? 'cut')}>
               <UiSceneView
                 episode={episode}
                 scene={scene}
                 durationInFrames={durationInFrames}
               />
-            </SceneSlide>
+            </SceneEnter>
             {track === null ? null : <SpeechCaption track={track} />}
             {scene.degraded === undefined ? null : <DegradedMark />}
           </Sequence>
