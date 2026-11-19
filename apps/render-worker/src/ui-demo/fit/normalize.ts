@@ -1,6 +1,6 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
-import { deriveTiming } from '../timing-plan.js';
+import { deriveTiming, sceneDurationSec, sceneFloorSec } from '../timing-plan.js';
 import {
   accentPlate,
   accentPlateInk,
@@ -634,22 +634,26 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
             })),
           )
         : null;
-      /* The arc's seconds are a ceiling, not a sentence: a scene lives as long as
-         its action plus a short tail, and the rest is cut. */
-      const timing =
-        derived === null
-          ? null
-          : {
-              cues: derived.cues,
-              durationSec:
-                planned > 0
-                  ? Number(Math.min(planned, derived.durationSec + 1).toFixed(2))
-                  : derived.durationSec,
-            };
+      /* The arc's seconds are intent, not a cap: a scene lives until its action
+         finishes and holds long enough to be read. Compaction applies only when
+         cue times are derived here — re-fitting an already timed scene must not
+         cut it twice. */
+      const cues = derived === null
+        ? ordered.map((step) => ({
+            at: typeof step['at'] === 'number' ? step['at'] : 0,
+            transition: String(step['transition'] ?? ''),
+          }))
+        : derived.cues;
+      const durationSec = cues.length === 0
+        ? planned
+        : derived === null
+          ? Math.max(planned, sceneFloorSec(cues))
+          : sceneDurationSec({ plannedSec: planned, cues });
+      const timing = derived === null ? null : { cues: derived.cues, durationSec };
 
       return {
         ...scene,
-        ...(timing === null ? {} : { durationSec: timing.durationSec }),
+        ...(durationSec > 0 ? { durationSec } : {}),
         spec: {
           ...spec,
           ...(timing === null ? {} : { sequence: timing.cues }),
