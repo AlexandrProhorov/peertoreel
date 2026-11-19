@@ -1,0 +1,23 @@
+{
+  "thesis": "Калибровка: медленное и быстрое изменение размера.",
+  "scenes": [
+    {
+      "id": "scale",
+      "seconds": 6,
+      "theme": "studio-light",
+      "spec": { "focus": "spot",
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 }, "params": { "background": "#FFFFFF" } },
+          { "id": "plate", "primitive": "card", "layout": { "x": 240, "y": 600, "width": 600, "height": 400 }, "params": { "background": "#F3F3F5", "text": "размер" } },
+          { "id": "spot", "primitive": "label", "layout": { "x": 72, "y": 1200, "width": 818, "height": 160 }, "params": { "text": "масштаб", "token": "headline", "tone": "ink" } }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "plate", "transition": "appear" },
+          { "element": "spot", "transition": "type" },
+          { "element": "plate", "transition": "scale", "weight": 3 }
+        ]
+      }
+    }
+  ]
+}

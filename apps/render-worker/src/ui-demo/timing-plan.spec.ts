@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { TRANSITION_SECONDS, deriveTiming, stretchTiming } from './timing-plan.js';
+import {
+  PLAN_COMPACTION,
+  TRANSITION_SECONDS,
+  deriveTiming,
+  endOfActionSec,
+  sceneDurationSec,
+  stretchTiming,
+} from './timing-plan.js';
 
 /**
  * Time is computed, not guessed: an ordered step list becomes cue times and a
@@ -45,7 +52,7 @@ describe('derived timing', () => {
     expect(times).toEqual([...times].sort((left, right) => left - right));
   });
 
-  it('a heavier step keeps the frame longer', () => {
+  it('a heavier step does not buy silence', () => {
     const light = deriveTiming([
       { element: 'a', transition: 'appear' },
       { element: 'a', transition: 'type' },
@@ -55,7 +62,9 @@ describe('derived timing', () => {
       { element: 'a', transition: 'type' },
     ]);
 
-    expect(heavy.cues[1]?.at ?? 0).toBeGreaterThan(light.cues[1]?.at ?? 0);
+    /* The weight marks the beat; the gap between events stays constant, because
+       a pause is exactly the dead time the frame review measures. */
+    expect(heavy.cues[1]?.at).toBe(light.cues[1]?.at);
   });
 
   it('stretches a short action across a longer planned scene', () => {    const action = deriveTiming([
@@ -78,5 +87,60 @@ describe('derived timing', () => {
     ]);
 
     expect(stretchTiming(action, 2)).toBe(action);
+  });
+});
+
+/**
+ * A scene must finish. The plan is intent; the action and the time to read it
+ * are the floor. These cases encode the accepted stable run and the defect in
+ * `03-discount`, scene 1, which ended on the last frame of its animation.
+ */
+describe('scene duration', () => {
+  it('ends after the last action, not on its final frame', () => {
+    const cues = [{ at: 1.6, transition: 'scale' }];
+
+    /* `scale` is not in the transition table, so the renderer treats it as 0.4 s
+       and the action ends at 2.0 s. The plan says 2 s — the defect. */
+    expect(endOfActionSec(cues)).toBe(2);
+    expect(sceneDurationSec({ plannedSec: 2, cues })).toBe(2.8);
+  });
+
+  it('holds longer when the last step leaves text to read', () => {
+    const text = sceneDurationSec({ plannedSec: 0, cues: [{ at: 4.9, transition: 'fill' }] });
+    const motion = sceneDurationSec({ plannedSec: 0, cues: [{ at: 4.9, transition: 'move' }] });
+
+    expect(text).toBeGreaterThan(motion);
+    expect(motion).toBe(6.1);
+  });
+
+  it('packs a long plan by ten percent', () => {
+    const cues = [{ at: 7.6, transition: 'move' }];
+
+    /* The action ends at 8.0 s and the hold adds 0.8 s; the plan's nine seconds
+       still win, but ten seconds are packed down to nine. */
+    expect(sceneDurationSec({ plannedSec: 10, cues })).toBe(
+      Number((10 * PLAN_COMPACTION).toFixed(2)),
+    );
+  });
+
+  it('does not leave a long static tail behind the plan', () => {
+    const cues = [
+      { at: 0, transition: 'appear' },
+      { at: 2.6, transition: 'scale' },
+    ];
+
+    /* A ten-second plan for an action that ends at 3.0 s used to stand still for
+       five seconds. The plan may add one second; the rest is not filmed. */
+    expect(sceneDurationSec({ plannedSec: 10, cues })).toBe(4.8);
+  });
+
+  it('never compresses the plan below the action', () => {
+    const cues = [
+      { at: 0, transition: 'appear' },
+      { at: 2.6, transition: 'scale' },
+    ];
+
+    /* Ten percent of two seconds is 1.8 s, but the action ends at 3.0 s. */
+    expect(sceneDurationSec({ plannedSec: 2, cues })).toBe(3.8);
   });
 });

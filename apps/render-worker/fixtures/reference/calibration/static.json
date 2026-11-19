@@ -1,0 +1,20 @@
+{
+  "thesis": "Калибровка: заведомо неподвижная композиция.",
+  "scenes": [
+    {
+      "id": "static",
+      "seconds": 6,
+      "theme": "studio-light",
+      "spec": { "focus": "plate",
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 }, "params": { "background": "#FFFFFF" } },
+          { "id": "plate", "primitive": "card", "layout": { "x": 120, "y": 700, "width": 840, "height": 500 }, "params": { "background": "#F3F3F5", "text": "неподвижно" } }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "plate", "transition": "appear" }
+        ]
+      }
+    }
+  ]
+}

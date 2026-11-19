@@ -1,6 +1,6 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
-import { deriveTiming, stretchTiming } from '../timing-plan.js';
+import { deriveTiming, sceneDurationSec, sceneFloorSec } from '../timing-plan.js';
 import {
   accentPlate,
   accentPlateInk,
@@ -265,7 +265,11 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
         continue;
       }
 
-      if (overlapX * overlapY < box.width * box.height * 0.5) {
+      /* Text must sit inside the padding; a track or a line that merely crosses
+         the edge still has to respect it. */
+      const minimal = primitive === 'track' || primitive === 'line' ? 1 : box.width * box.height * 0.5;
+
+      if (overlapX * overlapY < minimal) {
         continue;
       }
 
@@ -620,23 +624,36 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       );
       const needsTiming = ordered.some((step) => step['at'] === undefined);
       const planned = typeof scene['durationSec'] === 'number' ? scene['durationSec'] : 0;
-      const timing = needsTiming
-        ? stretchTiming(
-            deriveTiming(
-              ordered.map((step) => ({
-                element: String(step['element'] ?? ''),
-                transition: String(step['transition'] ?? ''),
-                ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
-                ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
-              })),
-            ),
-            planned,
+      const derived = needsTiming
+        ? deriveTiming(
+            ordered.map((step) => ({
+              element: String(step['element'] ?? ''),
+              transition: String(step['transition'] ?? ''),
+              ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
+              ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
+            })),
           )
         : null;
+      /* The arc's seconds are intent, not a cap: a scene lives until its action
+         finishes and holds long enough to be read. Compaction applies only when
+         cue times are derived here — re-fitting an already timed scene must not
+         cut it twice. */
+      const cues = derived === null
+        ? ordered.map((step) => ({
+            at: typeof step['at'] === 'number' ? step['at'] : 0,
+            transition: String(step['transition'] ?? ''),
+          }))
+        : derived.cues;
+      const durationSec = cues.length === 0
+        ? planned
+        : derived === null
+          ? Math.max(planned, sceneFloorSec(cues))
+          : sceneDurationSec({ plannedSec: planned, cues });
+      const timing = derived === null ? null : { cues: derived.cues, durationSec };
 
       return {
         ...scene,
-        ...(timing === null ? {} : { durationSec: timing.durationSec }),
+        ...(durationSec > 0 ? { durationSec } : {}),
         spec: {
           ...spec,
           ...(timing === null ? {} : { sequence: timing.cues }),

@@ -256,6 +256,7 @@ export function SpecRenderer({
                 text={str(params, 'text')}
                 token={tokenOf(params)}
                 fontScale={num(params, 'fontScale', 1)}
+                elementId={element.id}
                 align={
                   (str(params, 'align') as 'left' | 'center' | 'right' | undefined) ?? undefined
                 }

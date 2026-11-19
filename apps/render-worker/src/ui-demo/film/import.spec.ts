@@ -51,13 +51,15 @@ describe('foreign model import', () => {
     expect(deepseek.repairs.map((repair) => repair.path)).toContain('card.shadow');
   });
 
-  it('keeps every scene duration from the model, not a default', () => {
+  it('keeps a scene open until its action finishes and holds', () => {
     const result = importForeignEpisode(foreign('claude-subscriptions.json'));
     const durations = result.episode?.scenes.map((scene) => scene.durationSec) ?? [];
 
-    /* The scene never gets shorter than the action it contains; the first one
-       gains 0.1s from its typed title and its steps. */
-    expect(durations).toEqual([5.1, 7, 8, 7]);
+    /* The arc plans 5/7/8/7 seconds. A scene may not end on its last frame:
+       it lasts until the action finishes plus the hold (1.6 s — the last step is
+       text in every scene), the plan is packed by ten percent, and the plan may
+       add at most one second of air. */
+    expect(durations).toEqual([5.5, 5.6, 7, 6.9]);
   });
 
   it('rejects a scene the contract cannot repair', () => {

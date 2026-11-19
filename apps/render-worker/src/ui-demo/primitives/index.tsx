@@ -127,6 +127,7 @@ export function Card({
   token = 'card',
   fontScale = 1,
   align,
+  elementId,
   style,
   children,
   markers,
@@ -143,6 +144,8 @@ export function Card({
   token?: TypeToken;
   fontScale?: number;
   align?: 'left' | 'center' | 'right';
+  /** Gives the measurement pass an owner for the caption's overflow. */
+  elementId?: string;
 }) {
   const fill = background ?? theme.surface;
   const base = textStyle(token, inkOn(fill));
@@ -166,6 +169,7 @@ export function Card({
       {children ?? (text === undefined ? null : (
         <span
           {...markerProps({ critical: 'spec-text' })}
+          {...(elementId === undefined ? {} : { 'data-ui-element': elementId })}
           style={{
             ...rest,
             /* The card's height is not the line's height: the token sets the

@@ -3,6 +3,7 @@ import {
   MAX_CONTENT_ELEMENTS,
   MAX_INSTANCES_PER_PRIMITIVE,
   PRIMITIVES,
+  TEXT_PRIMITIVES,
   type PrimitiveId,
 } from './catalog.js';
 import { checkTextBox } from './typography-rules.js';
@@ -111,7 +112,7 @@ function contains(outer: Box, inner: Box): boolean {
 function carriesText(element: CompositionSpec['elements'][number]): boolean {
   const text = (element.params as Readonly<Record<string, unknown>>)['text'];
 
-  return ['pill', 'bubble', 'card'].includes(element.primitive) && typeof text === 'string' && text.trim() !== '';
+  return TEXT_PRIMITIVES.has(element.primitive as PrimitiveId) && typeof text === 'string' && text.trim() !== '';
 }
 
 /** A card with a label on it is text-bearing even without its own `text`. */

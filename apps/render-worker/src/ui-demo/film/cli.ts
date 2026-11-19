@@ -12,10 +12,11 @@ import {
 import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
 import type { Repair } from '../fit/salvage.js';
-import { uiEpisodeSchema, type UiEpisode, type UiScene } from '../spec.js';
+import { uiEpisodeSchema, type UiEpisode, type SpecScene, type UiScene } from '../spec.js';
 import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
+import { degradeScene, fallbackScene } from './degraded.js';
 import { assignmentFor } from './forms.js';
 import { sceneContext } from './scene-context.js';
 
@@ -83,6 +84,11 @@ function wrapScene(scene: UiScene, themeId: string): UiEpisode {
   } as UiEpisode;
 }
 
+/** Only the spec device reaches this path; the union is for the other devices. */
+function asSpecScene(scene: UiScene | undefined): SpecScene | null {
+  return scene !== undefined && scene.device === 'spec' ? scene : null;
+}
+
 async function generateScene(options: {
   topic: string;
   arc: Arc;
@@ -90,14 +96,24 @@ async function generateScene(options: {
   client: ReturnType<typeof createDeepSeekJsonClient>;
   dir: string;
   tokens: { prompt: number; completion: number };
-}): Promise<{ scene: UiScene | null; attempts: number; errors: string[] }> {
+}): Promise<{
+  scene: UiScene | null;
+  attempts: number;
+  errors: string[];
+  degraded: boolean;
+  reasons: string[];
+}> {
   const planned = options.arc.scenes[options.index];
 
   if (planned === undefined) {
-    return { scene: null, attempts: 0, errors: ['arc has no such scene'] };
+    return { scene: null, attempts: 0, errors: ['arc has no such scene'], degraded: false, reasons: [] };
   }
 
   const errors: string[] = [];
+  /* The last attempt that produced a renderable composition, kept so the film
+     never loses a scene: a weak scene is marked, not removed. */
+  let lastRepaired: SpecScene | null = null;
+  let lastReasons: string[] = [];
 
   for (let attempt = 1; attempt <= SCENE_ATTEMPTS; attempt += 1) {
     const correction =
@@ -159,7 +175,15 @@ async function generateScene(options: {
       outDir: path.join(options.dir, `fit-${options.index + 1}`),
     });
 
+    const candidate = asSpecScene(repaired.episode.scenes[0]);
+
+    if (candidate !== null) {
+      lastRepaired = candidate;
+      lastReasons = [];
+    }
+
     if (repaired.overflowing.length > 0) {
+      lastReasons = [`переполнение: ${repaired.overflowing.join(', ')}`];
       errors.splice(
         0,
         errors.length,
@@ -173,6 +197,7 @@ async function generateScene(options: {
     );
 
     if (!motion.changed) {
+      lastReasons = ['сцена статична'];
       errors.splice(
         0,
         errors.length,
@@ -181,10 +206,44 @@ async function generateScene(options: {
       continue;
     }
 
-    return { scene: repaired.episode.scenes[0] ?? null, attempts: attempt, errors: [] };
+    return {
+      scene: candidate,
+      attempts: attempt,
+      errors: [],
+      degraded: false,
+      reasons: [],
+    };
   }
 
-  return { scene: null, attempts: SCENE_ATTEMPTS, errors };
+  if (lastRepaired !== null) {
+    return {
+      scene: degradeScene(lastRepaired, planned.seconds, lastReasons),
+      attempts: SCENE_ATTEMPTS,
+      errors,
+      degraded: true,
+      reasons: lastReasons,
+    };
+  }
+
+  /* Every attempt failed before a valid composition existed. The scene keeps
+     its place on the timeline as the arc's own sentence, marked as a fallback. */
+  const plannedScene = { id: planned.id, seconds: planned.seconds, theme: planned.theme, intent: planned.intent };
+  const fallback = uiEpisodeSchema.safeParse(
+    normalizeRawEpisode(wrapScene(fallbackScene(plannedScene), planned.theme)),
+  );
+  const fallbackFirst = fallback.success ? asSpecScene(fallback.data.scenes[0]) : null;
+
+  if (fallbackFirst === null) {
+    return { scene: null, attempts: SCENE_ATTEMPTS, errors, degraded: false, reasons: [] };
+  }
+
+  return {
+    scene: degradeScene(fallbackFirst, planned.seconds, ['fallback: no valid composition']),
+    attempts: SCENE_ATTEMPTS,
+    errors,
+    degraded: true,
+    reasons: ['fallback: no valid composition'],
+  };
 }
 
 async function main(): Promise<void> {
@@ -273,6 +332,7 @@ async function main(): Promise<void> {
 
     const scenes: UiScene[] = [];
     const sceneReport: unknown[] = [];
+    let degradedCount = 0;
 
     for (let index = 0; index < arc.scenes.length; index += 1) {
       const result = await generateScene({
@@ -287,23 +347,48 @@ async function main(): Promise<void> {
       if (result.scene === null) {
         sceneReport.push({
           index: index + 1,
-          status: 'failed',
+          status: 'missing',
           attempts: result.attempts,
           errors: result.errors,
         });
         continue;
       }
 
+      if (result.degraded) {
+        degradedCount += 1;
+      }
+
       scenes.push(result.scene);
       sceneReport.push({
         index: index + 1,
-        status: 'ok',
+        status: result.degraded ? 'degraded' : 'ok',
         attempts: result.attempts,
+        ...(result.degraded ? { reasons: result.reasons } : {}),
       });
     }
 
     const usd = (tokens.prompt * rates.input + tokens.completion * rates.output) / 1_000_000;
     const totalSeconds = scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
+
+    /* A film is never written short. The arc's scenes are a promise to the
+       voiceover and the subtitles: a missing scene is a hole in speech, so an
+       incomplete run stops here instead of producing a shorter video. */
+    if (scenes.length !== arc.scenes.length) {
+      report.push({
+        slug: entry.slug,
+        status: 'incomplete',
+        thesis: arc.thesis,
+        planned: arc.scenes.length,
+        produced: scenes.length,
+        scenes: sceneReport,
+        usd: Number(usd.toFixed(4)),
+      });
+      console.error(
+        `${entry.slug}: INCOMPLETE — ${scenes.length} of ${arc.scenes.length} scenes; episode not written`,
+      );
+      process.exitCode = 1;
+      continue;
+    }
 
     await writeFile(
       path.join(dir, 'episode.json'),
@@ -323,22 +408,29 @@ async function main(): Promise<void> {
 
     report.push({
       slug: entry.slug,
-      status: scenes.length === arc.scenes.length ? 'complete' : 'partial',
+      status: degradedCount === 0 ? 'complete' : 'degraded',
       thesis: arc.thesis,
       planned: arc.scenes.length,
       produced: scenes.length,
+      degraded: degradedCount,
       seconds: Number(totalSeconds.toFixed(1)),
       scenes: sceneReport,
       usd: Number(usd.toFixed(4)),
     });
 
     console.log(
-      `${entry.slug}: ${scenes.length}/${arc.scenes.length} scenes, ${totalSeconds.toFixed(1)}s, $${usd.toFixed(4)}`,
+      `${entry.slug}: ${scenes.length}/${arc.scenes.length} scenes, ${totalSeconds.toFixed(1)}s, $${usd.toFixed(4)}${
+        degradedCount === 0 ? '' : `, ${degradedCount} degraded`
+      }`,
     );
 
     for (const item of sceneReport as Array<Record<string, unknown>>) {
       if (item['status'] !== 'ok') {
-        console.log(`  scene ${item['index']}: FAILED — ${String(item['errors'])}`);
+        console.log(
+          `  scene ${item['index']}: ${String(item['status']).toUpperCase()} — ${JSON.stringify(
+            item['reasons'] ?? item['errors'] ?? null,
+          )}`,
+        );
       }
     }
   }

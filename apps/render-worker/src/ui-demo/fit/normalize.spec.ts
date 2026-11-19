@@ -357,3 +357,65 @@ describe('surface separation', () => {
     expect(bar?.params['length']).toBe(754);
   });
 });
+
+/**
+ * A scene finishes before the cut. The plan is intent, not a cap, and a scene
+ * that already carries cue times must not be compacted a second time.
+ */
+function timedEpisode(durationSec: number): unknown {
+  return {
+    schemaVersion: 1,
+    themeId: 'studio-dark',
+    captions: false,
+    speech: [],
+    scenes: [
+      {
+        id: 'timed',
+        device: 'spec',
+        durationSec,
+        themeId: 'studio-dark',
+        spec: {
+          kind: 'composition',
+          elements: [
+            {
+              id: 'card',
+              primitive: 'card',
+              layout: { x: 200, y: 800, width: 600, height: 400 },
+              params: { background: '#161618', text: 'готово' },
+            },
+          ],
+          sequence: [
+            { element: 'card', transition: 'appear', at: 0 },
+            { element: 'card', transition: 'scale', at: 2.6 },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+function durationOf(raw: unknown): number {
+  const normalized = normalizeRawEpisode(raw) as {
+    scenes: ReadonlyArray<{ durationSec: number }>;
+  };
+
+  return normalized.scenes[0]?.durationSec ?? 0;
+}
+
+describe('scene end', () => {
+  it('extends a scene that ends on its last animation', () => {
+    /* The action stops at 3.0 s and the plan says 2 s: the scene holds 0.8 s. */
+    expect(durationOf(timedEpisode(2))).toBe(3.8);
+  });
+
+  it('keeps a scene that already has room after the action', () => {
+    expect(durationOf(timedEpisode(8))).toBe(8);
+  });
+
+  it('does not shrink a scene when it is normalised twice', () => {
+    const once = normalizeRawEpisode(timedEpisode(8));
+
+    expect(durationOf(once)).toBe(8);
+    expect(durationOf(once)).toBe(durationOf(normalizeRawEpisode(once)));
+  });
+});

@@ -1,0 +1,21 @@
+{
+  "thesis": "Калибровка: плавное появление и исчезновение.",
+  "scenes": [
+    {
+      "id": "fade",
+      "seconds": 6,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 }, "params": { "background": "#0A0A0B" } },
+          { "id": "note", "primitive": "pill", "layout": { "x": 200, "y": 800, "width": 680, "height": 140 }, "params": { "text": "затухание", "token": "card", "background": "#CCFF00", "textColor": "#0B0B0C" } }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "note", "transition": "appear", "weight": 2 },
+          { "element": "note", "transition": "disappear", "weight": 3 }
+        ]
+      }
+    }
+  ]
+}
