@@ -194,10 +194,10 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     },
     states: ['rest', 'dragging', 'released'],
     /**
-     * No `grab`: a press without movement is a silent no-op, and the renderer
-     * only implements drag/release. A tap is `drag` with a short layout box.
+     * A tap carries its target: the cursor travels to it and the target reacts.
+     * `grab` stays out — a press with no target and no reaction is a no-op.
      */
-    transitions: ['appear', 'disappear', 'drag', 'release'],
+    transitions: ['appear', 'disappear', 'tap', 'drag', 'release'],
     operations: ['move', 'scale'],
     lifecycles: LIFECYCLE,
   },

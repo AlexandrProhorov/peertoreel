@@ -168,7 +168,7 @@ export function SpecRenderer({
      latest cue that has already started drives the visible behaviour. */
   const cues = new Map<
     string,
-    Array<{ start: number; transition: string; text?: string }>
+    Array<{ start: number; transition: string; text?: string; target?: string }>
   >();
 
   for (const step of scene.spec.sequence) {
@@ -178,6 +178,7 @@ export function SpecRenderer({
       start: Math.round((step.at ?? 0) * fps),
       transition: step.transition,
       ...(step.text === undefined ? {} : { text: step.text }),
+      ...(step.target === undefined ? {} : { target: step.target }),
     });
     cues.set(step.element, list);
   }
@@ -207,12 +208,19 @@ export function SpecRenderer({
            the sequence instead of spawning one element per value. */
         const textState = resolveText(list, frame, str(params, 'text'));
         const text = textState.text;
+        /* A tap flashes its target: the press has a visible answer. */
+        const tapped = [...cues.values()]
+          .flat()
+          .filter((item) => item.transition === 'tap' && item.target === element.id)
+          .map((item) => Math.sin(reveal(frame, item.start, 12) * Math.PI) * 0.3)
+          .reduce((max, value) => Math.max(max, value), 0);
         const style: CSSProperties = {
           position: 'absolute',
           left: element.layout.x,
           top: element.layout.y,
           ...(element.layout.width === undefined ? {} : { width: element.layout.width }),
           ...(element.layout.height === undefined ? {} : { height: element.layout.height }),
+          ...(tapped > 0 ? { filter: `brightness(${1 + tapped})` } : {}),
           ...behaviorStyle(transition, progress),
         };
         /* Typing owns the entrance: the element must not fade in as a block and
@@ -358,6 +366,23 @@ export function SpecRenderer({
             const released = cueProgress(list, 'release', frame, 20, 0);
             const moved = Math.max(dragged, released > 0 ? 1 : 0);
             const fall = released;
+            /* A tap travels to its target and presses it; the target flashes in
+               the tap handler above. Before its first cue the thumb is hidden. */
+            const tapCue = list.find((item) => item.transition === 'tap');
+            const target =
+              tapCue?.target === undefined
+                ? undefined
+                : scene.spec.elements.find((item) => item.id === tapCue.target);
+            const tapped = tapCue === undefined ? 0 : cueProgress(list, 'tap', frame, 24, 0);
+            const dx =
+              target === undefined
+                ? 0
+                : target.layout.x + (target.layout.width ?? 0) / 2 - (element.layout.x + size / 2);
+            const dy =
+              target === undefined
+                ? 0
+                : target.layout.y + (target.layout.height ?? 0) / 2 - (element.layout.y + size / 2);
+            const hidden = list.length === 0 ? 0 : frame >= (list[0]?.start ?? 0) ? 1 : 0;
 
             return (
               <Thumb
@@ -369,11 +394,11 @@ export function SpecRenderer({
                   /* The layout box is the travel range, not the knob size. */
                   width: size,
                   height: size,
-                  opacity: 1 - fall,
+                  opacity: Math.min(hidden, 1 - fall),
                   ...(travel === null
                     ? {}
                     : {
-                        transform: `translateX(${moved * travel}px) translateY(${fall * 560}px) rotate(${fall * 24}deg)`,
+                        transform: `translateX(${moved * travel + tapped * dx}px) translateY(${fall * 560 + tapped * dy}px) rotate(${fall * 24}deg)`,
                       }),
                 }}
               />

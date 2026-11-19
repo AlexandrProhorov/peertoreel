@@ -629,6 +629,7 @@
       "transitions": [
         "appear",
         "disappear",
+        "tap",
         "drag",
         "release"
       ],
@@ -639,7 +640,7 @@
       "prompt": [
         "- thumb — положение или указатель на шкале",
         "    size: number, 12..80\n    color: color\n    axis: enum, одно из [\"x\",\"y\"]",
-        "    переходы: appear, disappear, drag, release",
+        "    переходы: appear, disappear, tap, drag, release",
         "    состояния: rest, dragging, released",
         "    операции: move, scale"
       ]

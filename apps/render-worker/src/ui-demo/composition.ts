@@ -45,6 +45,8 @@ export const compositionSpecSchema = z.object({
         transition: z.string().min(1).max(32),
         /** 1..3: how long the event holds the frame before the next one. */
         weight: z.number().int().min(1).max(3).optional(),
+        /** `tap`: which element receives the press and reacts. */
+        target: z.string().min(1).max(24).optional(),
         /** A cue may replace the element's text; an empty string clears it. */
         text: z.string().max(80).optional(),
       }),
@@ -408,6 +410,16 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
         element.id,
         `sequence: ${element.primitive} has no transition "${step.transition}"; allowed: ${(contract?.transitions ?? []).join(', ')}`,
       );
+    }
+
+    /* A tap needs its target: a press without a reaction is a gesture with no
+       meaning, and the renderer cannot invent what was pressed. */
+    if (step.transition === 'tap') {
+      if (step.target === undefined) {
+        fail('sequence-unknown-element', element.id, `tap: "${element.id}" needs a target`);
+      } else if (!ids.has(step.target)) {
+        fail('dangling-link', element.id, `tap: unknown target "${step.target}"`);
+      }
     }
 
     /* A cue may replace the text of a text element. On a container that text is

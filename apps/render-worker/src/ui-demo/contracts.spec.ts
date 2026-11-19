@@ -399,6 +399,34 @@ describe('composition validation', () => {
     expect(overlap?.message).toContain('make them narrower');
   });
 
+  it('requires a tap to name an existing target', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('thumb', 'thumb', {
+        layout: { x: 72, y: 300, width: 300, height: 72 },
+        params: { size: 72 },
+      }),
+      element('btn', 'pill', { params: { text: 'ок', token: 'caption' } }),
+    ];
+    spec.sequence = [
+      { at: 0, element: 'e1', transition: 'appear' },
+      { at: 0.4, element: 'thumb', transition: 'tap' },
+    ];
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain(
+      'sequence-unknown-element',
+    );
+
+    spec.sequence[1] = { at: 0.4, element: 'thumb', transition: 'tap', target: 'ghost' };
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain('dangling-link');
+
+    spec.sequence[1] = { at: 0.4, element: 'thumb', transition: 'tap', target: 'btn' };
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toEqual([]);
+  });
+
   it('accepts `tone` and `textColor` on every text primitive', () => {
     /* One ink dictionary: a foreign author may name the theme ink or the hex,
        on a label, a pill or a bubble. Neither name is an unknown parameter. */
