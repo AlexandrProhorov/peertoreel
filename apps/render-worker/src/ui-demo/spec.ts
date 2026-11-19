@@ -71,6 +71,16 @@ const sceneBaseShape = {
    * content. This is not speech time (see `speech` in the episode).
    */
   revealSec: z.number().finite().min(0.2).max(6).default(1.8),
+  /**
+   * Set when the scene was kept after its attempts ran out: the film never
+   * loses a scene, so the frame carries a visible mark and the reasons travel
+   * with the episode instead of disappearing into a log.
+   */
+  degraded: z
+    .object({
+      reasons: z.array(z.string().min(1).max(200)).min(1).max(8),
+    })
+    .optional(),
 };
 
 export const promptCardSceneSchema = z.object({
