@@ -36,6 +36,19 @@ export interface Assignment {
 
 /** Same slug → same assignment: a rerun of a topic keeps its brief. */
 export function assignmentFor(slug: string): Assignment {
+  const index = /^(\d+)/.exec(slug)?.[1];
+
+  if (index !== undefined) {
+    /* A numbered batch rotates forms and carriers, so five topics get five
+       different briefs instead of whatever a hash happens to collide on. */
+    const position = Number(index) - 1;
+    const form = DRAMATIC_FORMS[position % DRAMATIC_FORMS.length] ?? DRAMATIC_FORMS[0];
+    const carrier =
+      MAGNITUDE_CARRIERS[(position + 2) % MAGNITUDE_CARRIERS.length] ?? MAGNITUDE_CARRIERS[0];
+
+    return { form, carrier };
+  }
+
   let hash = 7;
 
   for (const char of slug) {

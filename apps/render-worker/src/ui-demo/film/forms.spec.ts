@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UiEpisode } from '../spec.js';
-import { DRAMATIC_FORMS, assignmentFor, structuralSignature } from './forms.js';
+import { assignmentFor, structuralSignature } from './forms.js';
 
 /**
  * Diversity is assigned at the input and measured on the output: the same topic
@@ -12,15 +12,12 @@ describe('forms and carriers', () => {
     expect(assignmentFor('01-subscriptions')).toEqual(assignmentFor('01-subscriptions'));
   });
 
-  it('spreads forms across topics', () => {
-    const forms = new Set(
-      ['01-subscriptions', '02-doctor', '03-discount', '04-features', '05-delivery'].map(
-        (slug) => assignmentFor(slug).form,
-      ),
+  it('rotates forms across a numbered batch', () => {
+    const forms = ['01-subscriptions', '02-doctor', '03-discount', '04-features', '05-delivery'].map(
+      (slug) => assignmentFor(slug).form,
     );
 
-    expect(forms.size).toBeGreaterThan(1);
-    expect(DRAMATIC_FORMS).toContain(assignmentFor('01-subscriptions').form);
+    expect(new Set(forms).size).toBe(5);
   });
 
   it('separates two films by primitives and motion, not by copy', () => {
