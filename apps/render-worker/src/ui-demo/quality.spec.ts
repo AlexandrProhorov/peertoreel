@@ -301,6 +301,18 @@ describe('quality gate', () => {
     expect(lintQuality(spec).map((issue) => issue.code)).toContain('empty-surface');
   });
 
+  it('accepts a scene whose focus is declared instead of an accent block', () => {
+    const spec = baseSpec();
+    spec.elements[2] = {
+      ...spec.elements[2]!,
+      params: { text: 'деталь', token: 'label', tone: 'muted' },
+    };
+    spec.focus = 'e2';
+
+    expect(codes(spec)).not.toContain('accent-required');
+    expect(codes(spec)).not.toContain('hierarchy-required');
+  });
+
   it('rejects an empty scene', () => {
     const spec = baseSpec();
     spec.elements = [spec.elements[0]!];

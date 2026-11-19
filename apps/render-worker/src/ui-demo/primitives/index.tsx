@@ -260,6 +260,7 @@ export function Label({
   align,
   text,
   fontScale = 1,
+  mark,
   elementId,
   style,
   children,
@@ -274,6 +275,8 @@ export function Label({
   text?: string;
   /** Shrinks the token size; the auto-fit pass owns this value. */
   fontScale?: number;
+  /** A marker plate behind the words: accent ink on any theme. */
+  mark?: boolean;
   elementId?: string;
 }) {
   const base = textStyle(token, color ?? toneColor(theme, tone) ?? theme.ink);
@@ -295,7 +298,18 @@ export function Label({
         ...style,
       }}
     >
-      {children ?? text}
+      {children ?? (mark === true && text !== undefined ? (
+        <span
+          style={{
+            background: theme.accent,
+            color: theme.accentInk,
+            padding: '4px 18px',
+            borderRadius: 14,
+          }}
+        >
+          {text}
+        </span>
+      ) : text)}
     </div>
   );
 }

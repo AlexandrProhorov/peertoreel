@@ -178,6 +178,8 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
       align: { type: 'enum', values: ['left', 'center', 'right'] },
       /** Multiplier for the token size; the floor is the auto-fit floor. */
       fontScale: { type: 'number', min: MIN_FONT_SCALE, max: 1 },
+      /** A marker plate behind the words: accent ink that reads on any theme. */
+      mark: { type: 'boolean' },
     },
     states: ['rest'],
     transitions: ['appear', 'disappear', 'type', 'hold'],

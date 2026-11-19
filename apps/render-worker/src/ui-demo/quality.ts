@@ -323,6 +323,18 @@ export function lintQuality(
     }
   }
 
+  /* A declared focus is the accent and the hierarchy: the normaliser marks the
+     element, so the scene does not need a separate accent block. */
+  const focusElement =
+    spec.focus === undefined
+      ? undefined
+      : spec.elements.find((element) => element.id === spec.focus);
+
+  if (focusElement !== undefined) {
+    hasHierarchy = true;
+    hasAccent = true;
+  }
+
   if (!hasHierarchy) {
     add('hierarchy-required', null, 'no display/headline/card token: nothing reads as the main message');
   }

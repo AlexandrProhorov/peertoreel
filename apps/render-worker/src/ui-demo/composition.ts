@@ -33,6 +33,8 @@ export const compositionElementSchema = z.object({
 
 export const compositionSpecSchema = z.object({
   kind: z.literal('composition'),
+  /** The element the scene is about: the code applies the accent to it. */
+  focus: z.string().min(1).max(24).optional(),
   /** The element budget is enforced by the validator so it can be reported. */
   elements: z.array(compositionElementSchema).min(1).max(24),
   sequence: z
@@ -232,6 +234,14 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
   }
 
   const ids = new Set(spec.elements.map((element) => element.id));
+
+  if (spec.focus !== undefined && !ids.has(spec.focus)) {
+    fail(
+      'dangling-link',
+      null,
+      `focus points at unknown element "${spec.focus}"`,
+    );
+  }
   const perPrimitive = new Map<string, number>();
 
   for (const element of spec.elements) {

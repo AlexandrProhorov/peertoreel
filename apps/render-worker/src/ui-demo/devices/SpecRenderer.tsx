@@ -306,6 +306,7 @@ export function SpecRenderer({
                 text={text}
                 style={textStyle}
                 fontScale={num(params, 'fontScale', 1)}
+                mark={flag(params, 'mark')}
                 elementId={element.id}
                 markers={{ critical: 'spec-text' }}
               />

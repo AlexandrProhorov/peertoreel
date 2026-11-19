@@ -462,6 +462,37 @@ function dropEmptySurfaces(
 /**
  * Box containment for raw boxes (the repair works before types are known).
  */
+/** The declared focus gets the accent: a marked caption or an accent fill. */
+function applyFocus(
+  elements: readonly Unknown[],
+  focus: unknown,
+  theme: { accent: string; accentInk: string } | null,
+): Unknown[] {
+  if (typeof focus !== 'string' || theme === null) {
+    return [...elements];
+  }
+
+  return elements.map((element) => {
+    if (element['id'] !== focus) {
+      return element;
+    }
+
+    const params = isObject(element['params']) ? { ...element['params'] } : {};
+    const primitive = element['primitive'];
+
+    if (primitive === 'label') {
+      params['mark'] = true;
+    } else if (primitive === 'pill' || primitive === 'bubble') {
+      params['background'] = theme.accent;
+      params['textColor'] = theme.accentInk;
+    } else if (primitive === 'card') {
+      params['background'] = theme.accent;
+    }
+
+    return { ...element, params };
+  });
+}
+
 function normalizeElement(element: Unknown): Unknown {  const primitive = element['primitive'];
   const layout = element['layout'];
 
@@ -528,7 +559,11 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
           : typeof salvaged['themeId'] === 'string'
             ? salvaged['themeId']
             : 'studio-dark';
-      const { elements: kept, dropped } = dropEmptySurfaces(prepared, repairs, sceneTheme);
+      const theme = (UI_THEME_IDS as readonly string[]).includes(sceneTheme)
+        ? themeById(sceneTheme as UiThemeId)
+        : null;
+      const focused = applyFocus(prepared, spec['focus'], theme);
+      const { elements: kept, dropped } = dropEmptySurfaces(focused, repairs, sceneTheme);
 
       /* Timing: an ordered list without `at` becomes absolute cues here. The
          cue list fills the planned scene instead of leaving a frozen tail. */

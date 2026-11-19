@@ -559,6 +559,11 @@
           "min": 0.85,
           "max": 1,
           "initial": 1
+        },
+        {
+          "name": "mark",
+          "type": "boolean",
+          "initial": false
         }
       ],
       "states": [
@@ -577,7 +582,7 @@
       ],
       "prompt": [
         "- label — текстовый смысловой акцент",
-        "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1",
+        "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1\n    mark: boolean",
         "    переходы: appear, disappear, type, hold",
         "    состояния: rest",
         "    операции: reveal, type-on, move"
