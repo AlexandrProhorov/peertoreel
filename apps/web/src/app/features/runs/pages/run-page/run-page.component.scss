@@ -344,3 +344,10 @@ h2 {
   width: min(100%, 420px);
   margin-top: 0.75rem;
 }
+
+.run__episode-qc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}

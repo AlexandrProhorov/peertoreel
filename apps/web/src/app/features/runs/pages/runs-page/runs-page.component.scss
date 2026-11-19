@@ -41,6 +41,18 @@ h1 {
   margin-top: 0.5rem;
 }
 
+.runs__mode {
+  min-width: 15rem;
+  padding-top: 0.5rem;
+}
+
+.runs__mode-hint {
+  max-width: 20rem;
+  margin: 0.25rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+}
+
 .runs__error {
   border-color: var(--mat-sys-error);
   color: var(--mat-sys-on-error-container);

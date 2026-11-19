@@ -79,6 +79,8 @@ pnpm infra:down
 | `pnpm infra:down` | Останавливает инфраструктуру |
 | `pnpm --filter @peertoreel/render-worker render-fixture` | Рендерит 6 сцен фикстуры «−15°» в `apps/render-worker/out` |
 | `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom` | Рендерит произвольный `storyboard.v1` из JSON (путь к примеру — от `apps/render-worker`) |
+| `pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/recipe-showcase.json --out out/recipes` | Рендерит showcase из 5 рецептов с локальными subject-SVG |
+| `pnpm --filter @peertoreel/worker storyboard:episode -- --topic "…" --slug dog-nose` | M3.5: DeepSeek → storyboard → сцены → FFmpeg-ролик с озвучкой (нужны ключи) |
 | `docker build -f infra/render-worker.Dockerfile -t peertoreel-render-worker .` | Собирает образ render worker с закреплённым Chrome |
 
 ## Структура
@@ -116,18 +118,213 @@ pnpm --filter @peertoreel/render-worker render-fixture -- --scene 0
 # любой валидный storyboard.v1 (путь считается от apps/render-worker)
 pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --out out/custom
 pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/custom-storyboard.json --scene 1 --out out/custom
+
+# showcase рецептов M3.4: hook-hero, fact-object, comparison, process, cta
+pnpm --filter @peertoreel/render-worker render-storyboard -- --input examples/recipe-showcase.json --out out/recipes
 ```
 
-Пример независимой раскадровки: `apps/render-worker/examples/custom-storyboard.json` (тема
-«город теплее загородной зоны»). Params каждого компонента описаны в
+Примеры для рендера: `apps/render-worker/examples/custom-storyboard.json` (low-level
+`programmatic`, тема «город теплее загородной зоны») и `examples/recipe-showcase.json`
+(пять рецептов M3.4 с предметными SVG). Params каждого компонента описаны в
 `packages/contracts/src/storyboard.components.ts`; некорректные значения заменяются дефолтом
 **с диагностикой** в логе и манифесте. Неизвестный компонент без реализованного fallback
-завершает CLI ошибкой. Локальные ассеты лежат в `apps/render-worker/public/` и резолвятся
-через `staticFile` (`src/assets.ts`).
+завершает CLI ошибкой.
+
+**Рецепты — данные, не код.** Каталог (5 рецептов × 2 варианта, слоты, слои, camera hint)
+лежит в `packages/contracts/src/storyboard.recipes.ts`; сцена выбирает его через
+`implementation: { type: 'recipe', recipeId, variant, slots }`. Слот `subject` принимает только
+ключ из `STARTER_ASSET_KEYS`; ключи и теги описаны в `STARTER_ASSET_CATALOG`, файлы — в
+`apps/render-worker/public/assets/starter/` (12 плоских SVG без запечённого текста). Слой
+`image`/`subject` резолвит их через `staticFile` (`src/assets.ts`) и общий `camera.ts`.
 
 Результат — `apps/render-worker/out/scene-<idx>.mp4`, `render-fixture.json` для shortcut'а
-или `manifest.json` для `render-storyboard` (компонент, source, diagnostics, длительности и
-время рендера). Docker-образ: `infra/render-worker.Dockerfile`.
+или `manifest.json` для `render-storyboard` (компонент, source, `recipeId`/`variant`, params и
+slot diagnostics, длительности и время рендера). Docker-образ:
+`infra/render-worker.Dockerfile`.
+
+### Asset Library и resolver (M3.6a)
+
+Стартовый SVG-пак — это Tier 0 библиотеки, а не единственный источник. Контракт и порты
+(`AssetRecord`, `AssetVariant`, `AssetLicense`, `AssetRequest`, `AssetResolution`,
+`AssetResolver`, `ImageProvider`, typed-ошибки) живут в `packages/contracts/src/assets.ts`,
+реализация — в `packages/assets`. ADR — `docs/adr/0017-asset-library-and-resolver.md`.
+
+- **Порядок резолва:** starter → cache (по `key`/тегам) → provider (только при
+  `allowProvider: true` и включённом провайдере) → `fallbackKey` → typed error. Одинаковый
+  запрос даёт одинаковый результат; без флага провайдер не вызывается.
+- **Идентичность байтов:** SHA-256 нормализованных байтов, дедупликация по `contentHash`,
+  объектный ключ `assets/<hash[0..1]>/<hash>/<name>` (`buildAssetObjectKey`).
+- **Лицензии:** `commercialUse: true` обязателен; `false` отклоняется и в resolver, и
+  check-constraint'ом таблицы `assets`.
+- **Нормализация:** `normalizeSvg` (svgo, удаление full-bleed `<rect>`, padding viewBox 8%,
+  OKLab-квантование `fill`/`stroke` в `style.assetPalette`) и чистые alpha-проверки растра
+  (`alphaOccupancy`/`alphaBounds`; декодирование PNG — M3.6b).
+- **Стиль:** `studio_flat_2d_v1` в `packages/contracts/src/style.ts` (palette, `assetPalette`,
+  typography, effects). Showcase использует его; старые `flat_2d_motion`-входы не меняются.
+
+```bash
+# resolver → data URI в Remotion input props (Tier 0, без сети)
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6a --resolve-assets
+
+# offline fake ImageProvider для ключей вне Tier 0
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6a --resolve-assets --provider=fake
+```
+
+Манифест в этом режиме добавляет `assets.resolutions` (key, tier, cacheHit, contentHash,
+objectKey) и `assets.usage`. Renderer получает только `assets: Record<key, { url }>`; компоненты
+не ходят в S3/сеть, а неизвестный ключ без подстановки по-прежнему падает.
+
+### Persistence: Postgres + S3 (M3.6a.1)
+
+Библиотека больше не живёт только в памяти: `DrizzleAssetRepository`
+(`packages/db/src/assets-repository.ts`) пишет `assets`/`asset_variants`, а байты лежат за
+портом `AssetBlobStore` (`packages/assets`) в `S3AssetBlobStore` (`packages/storage`) поверх
+`ObjectStorage`. Объектный ключ — `assets/<hash[0..1]>/<hash>/<hash>.<ext>`, `Content-Type`
+берётся из варианта. Повторный persist тех же байтов не делает второй `put` и не создаёт строк.
+ADR — `docs/adr/0017-asset-library-and-resolver.md` (D10).
+
+Нужны `DATABASE_URL` и `S3_*` (в `.env`); неполный env — ошибка, а не тихий in-memory режим.
+
+```bash
+# засеять Tier 0 (12 стартовых SVG), идемпотентно — можно запускать повторно
+pnpm --filter @peertoreel/worker assets:import
+pnpm --filter @peertoreel/worker assets:import -- --public apps/render-worker/public
+
+# рендер с записью в БД/S3: в props уходят presigned URL (TTL 1 ч)
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6a-1 --resolve-assets --persist
+```
+
+`assets:import` печатает добавленные/уже существующие записи и content hash; второй прогон
+пишет `добавлено 0, уже было 12`. В манифесте `--persist` появляется
+`assets.persisted: true`, а `objectKey` в `assets.resolutions` — content-addressed.
+
+### Provider readiness: alias, ledger, адаптеры (M3.6b.1)
+
+Библиотека готова к платному провайдеру, но денег не тратит. ADR —
+`docs/adr/0017-asset-library-and-resolver.md` (D3/D5/D11).
+
+- **Alias `key → hash`.** `assets.content_hash` глобально уникален, поэтому второй логический
+  ключ не получает свою строку: `asset_aliases (key, style_id, content_hash)` делает его
+  адресуемым. Резолвер идёт `findByKey → findByAlias → tag-match`, значит запрос под новым
+  ключом — это `tier: cache`, `cacheHit: true`, `providerRequests: 0`, без вызова провайдера.
+  Alias пишется в `persist` (то есть в `assets:import` и `--persist`); alias на удалённые байты
+  резолвится в `null`.
+- **Metadata-refresh.** Повторный импорт того же `(key, style_id)` обновляет
+  `tags`/`license`/`metadata`, если каталог изменился; байты и `object_key` не меняются, а
+  идентичный повторный прогон не пишет ничего. Чужой ключ владельца не мутирует.
+- **Ledger `provider_usage`.** Append-only строка на каждый реальный вызов провайдера:
+  `provider`, `operation`, `model`, `run_id`, `source`, `units`, `cost_usd`, `recorded_at`,
+  `meta`. `cost_usd` — только измеренная стоимость: `0` у fake-провайдера, `null`, если провайдер
+  её не сообщил; оценок нет (root hard rule 7). Пишется декоратором `recordingImageProvider`
+  в момент `generate`; в CLI включается вместе с `--persist`.
+- **Tier 0 в палитре.** 12 стартовых SVG перекрашены в `studio_flat_2d_v1.assetPalette`,
+  нормализованы `normalizeSvg` и хранятся нормализованными (исключение ADR-0017 D5 снято).
+- **`packages/providers`.** Скелеты `recraft` (native SVG, `recraftv4_styles_vector`,
+  `controls.colors` из палитры) и `flux` (FLUX.2 `[klein] 4B`, raster) за портом `ImageProvider`:
+  `enabled` только при наличии `RECRAFT_API_KEY`/`FAL_KEY`, без ключа — типизированная ошибка и
+  ни одного сетевого запроса; HTTP инжектится, мапперы чистые, тесты на записанных фикстурах,
+  ошибки классифицируются retryable/terminal. Recraft/FLUX.2 **parked**; реальный провайдер —
+  DeepSeek SVG (ниже).
+
+### DeepSeek SVG: реальная генерация (M3.6b.2)
+
+`DeepSeekSvgProvider` стоит за тем же портом `ImageProvider`: промпт (геометрический, 400×400,
+палитра, ≤5 цветов), `thinking: enabled`, allowlist без `text`/`filter`/`mask`/внешних `href`,
+один corrective retry и запись в `provider_usage` на **каждый** attempt (токены × тариф).
+
+```bash
+pnpm --filter @peertoreel/render-worker render-storyboard -- \
+  --input examples/recipe-showcase.json --out out/m3-6b-2 \
+  --resolve-assets --provider=deepseek-svg --persist
+```
+
+В `.env` нужны `DEEPSEEK_API_KEY`, `LLM_INPUT_USD_PER_MTOK`, `LLM_OUTPUT_USD_PER_MTOK`
+(тариф DeepSeek на дату копирования; без них провайдер падает, а не пишет `0`), опционально
+`LLM_MODEL` и `ASSET_LLM_MAX_USD_PER_CALL` (по умолчанию `0.02`). `--persist` обязателен:
+без него расход некуда записать. Ассет получает `source: 'llm'`; повторный прогон —
+`tier: cache`, `providerRequests: 0`.
+
+Пилот (10 объектов × 3 прогона × 3 кандидата): **87/90 структурно пригодных**, `normalizeSvg`
+87/90, `maxColorDistance = 0`, факт **$0.208**, средняя латентность 18 с. Органика (`pirate`)
+провалила 3/9 — `thinking` выедает бюджет вывода. Визуальная оценка 1–5 — за человеком;
+87 SVG, `pilot.md` и `gallery.html` лежат в `apps/render-worker/out/m3-6b-2/pilot/`.
+Запуск пилота: `pnpm --filter @peertoreel/render-worker pilot:deepseek-svg`.
+
+### Мягкий стиль и дешёвые вызовы (M3.6b.3)
+
+Пресет `studio_flat_2d_v2` — дефолт: приглушённая палитра на 16 слотов (ink/surface/paper/
+amber/sky/coral/sage/danger) вместо неоновой v1; `studio_flat_2d_v1` остаётся для старых
+записей. Промпт требует скруглений (`rx ≥ 8%` меньшей стороны), запрещает `rx` у фонового
+`<rect>`, обводку мелких деталей и шум; детализация 8–15 примитивов разрешена.
+
+`thinking` выключен, `max_tokens` — 1600. Пилот 10×3: **30/30 годных**, `maxColorDistance = 0`,
+**$0.0146** за 30 вызовов (≈$0.00049 за кандидата, 4.7× дешевле), completion 259–1327 токенов,
+средняя латентность 3.3 с.
+
+**Обновление M3.6b.4.** Thinking снова включён по умолчанию: без него модель путает координаты.
+`max_tokens` = 16000, потому что рассуждение считается в тот же бюджет (при 6000 content
+получался пустым). Промпт требует числовой PLAN на каждый элемент, габарит объекта, правила
+силуэта (голова/плод — `ellipse`, не `rect`; колесо — концентрические круги; окна разделяются
+промежутком). A/B на bus/palm/pirate: 9/9, $0.071 за 9 вызовов (≈$0.003–0.008 за кандидата,
+16–115 с), без thinking — 9/9, $0.0056, но «каша» по композиции.
+
+Перекраска Tier 0 после смены палитры — авторский шаг:
+
+```bash
+pnpm --filter @peertoreel/render-worker recolor:starter
+pnpm --filter @peertoreel/worker assets:import
+```
+
+Галерея нового пилота: `apps/render-worker/out/m3-6b-3/pilot/gallery.html`.
+
+### M3.5 — эпизод из темы
+
+`apps/worker` содержит spike-скрипт, который проходит путь тема → DeepSeek → `storyboard.v1` →
+Remotion-сцены → FFmpeg (озвучка, loudnorm, ASS):
+
+```bash
+pnpm --filter @peertoreel/worker storyboard:episode -- \
+  --topic "Почему у собак мокрый нос?" --slug dog-nose
+
+# если квота ElevenLabs исчерпана — только для спайка
+pnpm --filter @peertoreel/worker storyboard:episode -- \
+  --topic "Почему у собак мокрый нос?" --slug dog-nose --tts google
+```
+
+Драфт режиссёра (`draft.json`) не содержит таймингов: окна сцен выводятся из реальной
+озвучки. Результат — `apps/worker/out/episodes/<slug>/episode.mp4`, `storyboard.json`,
+`voiceover.mp3`, `word_timings.json`, `subtitles.ass`, `scenes/` и `manifest.json` (LLM usage,
+TTS provider, длительности, ffprobe). `--tts google` — бесплатный fallback только для спайка;
+production-стадия voiceover остаётся на ElevenLabs, провайдер фиксируется в манифесте.
+
+### Episode-режим в очередях и UI (M3.5.1)
+
+У run'а есть `mode: 'pipeline' | 'episode'`. Episode-run идёт двумя стадиями:
+
+- `episode_plan` (`DRAFT → SCRIPT_READY`): DeepSeek-драфт, Google TTS, `storyboard_json`,
+  Pixabay-картинки только в subject-слоты, `voiceover_mp3`, `word_timings`, `subtitles_ass`,
+  `episode_manifest`. Дальше run стоит на гейте сценария.
+- `episode_render` (`SCRIPT_READY → REVIEW`): Remotion через subprocess
+  `render-storyboard --assets`, concat визуалов, FFmpeg loudnorm + ASS, `draft_mp4`.
+
+UI-сценарий: на странице прогонов включите «Дешёвый эпизод (Google TTS + Pixabay)» и создайте
+run. В `DRAFT` нажмите «Сгенерировать эпизод», после `SCRIPT_READY` откроется превью
+раскадровки: текст каждой сцены, часть (хук/основная часть/призыв), рецепт и вариант, миниатюра
+Pixabay или бейдж «Tier 0». Ошибка загрузки превью не блокирует «Отрендерить эпизод». На
+`REVIEW` доступны «Одобрить» и «Вернуться к сценарию»; QC не запускался — это осознанное
+исключение прототипа, pipeline-прогон по-прежнему требует пройденный QC.
+
+Картинки берутся из Pixabay: сначала по тегам стартового ключа, если там пусто — по описанию
+сцены с `lang: ru`; на слот не больше двух запросов. Если не нашлось ничего пригодного, сцена
+остаётся на Tier 0. Нужны `DEEPSEEK_API_KEY` и `PIXABAY_API_KEY`; ElevenLabs в episode-режиме
+не вызывается. Повторный запуск переиспользует готовые артефакты и не повторяет
+LLM/TTS/Pixabay-вызовы. `render-storyboard --assets <map.json>` — ручной путь проверить
+инъекцию картинок без БД: инжектированные URL побеждают Tier 0, остальное резолвится как
+раньше (в манифесте `assets.injected`). DeepSeek-генерация ассетов вместо Pixabay — открытый
+вопрос, в этот слайс не входит.
 
 ## Локальный S3
 

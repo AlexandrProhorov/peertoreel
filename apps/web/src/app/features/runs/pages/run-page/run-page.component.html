@@ -17,6 +17,9 @@
         <p class="run__eyebrow">Run</p>
         <h1>{{ run.topic }}</h1>
         <p class="run__meta">
+          @if (run.mode === 'episode') {
+            <span class="run__badge">Эпизод</span>
+          }
           <span
             class="run__badge"
             [class.run__badge--error]="stateTone(run.state) === 'error'"
@@ -26,6 +29,10 @@
             {{ stateLabel(run.state) }}
           </span>
           <span>стадия: {{ stageLabel(run.currentStage) }}</span>
+          <span>
+            TTS:
+            {{ run.ttsProvider === 'google' ? 'Google' : 'ElevenLabs' }}
+          </span>
           <span>обновлён {{ run.updatedAt | date: 'dd.MM HH:mm:ss' }}</span>
         </p>
       </div>
@@ -59,7 +66,7 @@
               [disabled]="store.stageRunning()"
               (click)="runStage(stage)"
             >
-              {{ store.stageRunning() ? 'Выполняется…' : 'Запустить' }}
+              {{ store.stageRunning() ? 'Выполняется…' : stageActionLabel(stage) }}
             </button>
           </div>
 
@@ -67,10 +74,16 @@
             <mat-progress-bar
               mode="determinate"
               [value]="job.progress"
-              [attr.aria-label]="'Прогресс стадии: ' + job.progress + '%'"
+              [attr.aria-label]="progressAriaLabel(job)"
             />
             <div class="run__progress-meta">
               <span>{{ job.status }}</span>
+              @if (job.progressDetail?.unit; as unit) {
+                <span>Сцена {{ unit.index }} из {{ unit.total }}</span>
+              }
+              @if (job.progressDetail?.estimatedRemainingMs; as remaining) {
+                <span>{{ etaLabel(remaining) }}</span>
+              }
               <span>{{ job.progress }}%</span>
             </div>
           }
@@ -81,6 +94,13 @@
     <mat-card class="run__actions" appearance="outlined">
       <mat-card-content>
         <h2>Действия</h2>
+
+        @if (run.mode === 'episode' && run.state === 'REVIEW') {
+          <p class="run__hint run__episode-qc">
+            <span class="run__badge run__badge--muted">QC не запускался</span>
+            Episode-режим не выполняет проверку качества: одобрение доступно без отчёта QC.
+          </p>
+        }
 
         @if (primaryActions().length > 0) {
           <div class="run__primary-actions">
@@ -184,6 +204,10 @@
         }
       </mat-card-content>
     </mat-card>
+
+    @if (episodePreview()) {
+      <app-episode-preview />
+    }
 
     @if (draft(); as draftArtifact) {
       <mat-card class="run__draft" appearance="outlined">

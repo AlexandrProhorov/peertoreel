@@ -1,0 +1,83 @@
+{
+  "title": "Почему у собак мокрый нос",
+  "scenes": [
+    {
+      "id": "wet-nose-hook",
+      "part": "hook",
+      "text": "Почему у собак нос всегда влажный и зачем природе вообще нужен этот механизм?",
+      "description": "Ведущий задаёт вопрос, рядом крупная морда собаки",
+      "recipeId": "hook-hero",
+      "variant": "ghost-question",
+      "slots": {
+        "title": "ПОЧЕМУ У СОБАК МОКРЫЙ НОС?",
+        "subject": { "assetKey": "dog-snout" }
+      },
+      "characterPlan": {
+        "entity": "ведущий-биолог",
+        "strategy": "transformation",
+        "accessories": ["glasses"]
+      }
+    },
+    {
+      "id": "wet-nose-film",
+      "part": "beat",
+      "text": "Влажная плёнка на носу собаки растворяет молекулы запаха и удерживает их гораздо лучше.",
+      "description": "Ведущий объясняет, как плёнка ловит молекулы",
+      "recipeId": "fact-object",
+      "variant": "stage",
+      "slots": {
+        "fact": "ВЛАЖНАЯ ПЛЁНКА ЛОВИТ МОЛЕКУЛЫ",
+        "subject": { "assetKey": "scent-wave" },
+        "metric": "×1000"
+      },
+      "characterPlan": {
+        "entity": "ведущий-биолог",
+        "strategy": "transformation",
+        "accessories": []
+      }
+    },
+    {
+      "id": "wet-nose-compare",
+      "part": "beat",
+      "text": "Сухой нос теряет большую часть сигнала, а мокрый сохраняет его почти полностью и дольше.",
+      "description": "Сравнение мокрого и сухого носа на шкалах",
+      "recipeId": "comparison",
+      "variant": "bars",
+      "slots": {
+        "left": { "label": "МОКРЫЙ", "value": "100%", "fraction": 1 },
+        "right": { "label": "СУХОЙ", "value": "35%", "fraction": 0.35 },
+        "verdict": "ВЛАГА УСИЛИВАЕТ ЗАПАХ"
+      }
+    },
+    {
+      "id": "wet-nose-process",
+      "part": "beat",
+      "text": "Сначала молекулы растворяются, потом рецепторы считывают сигнал, и мозг узнаёт запах.",
+      "description": "Три шага распознавания запаха",
+      "recipeId": "process",
+      "variant": "timeline",
+      "slots": {
+        "title": "КАК ЭТО РАБОТАЕТ",
+        "steps": [{ "label": "МОЛЕКУЛЫ" }, { "label": "РЕЦЕПТОРЫ" }]
+      }
+    },
+    {
+      "id": "wet-nose-cta",
+      "part": "cta",
+      "text": "Подписывайся на канал, чтобы узнавать больше интересных фактов о мире каждый день.",
+      "description": "Ведущий машет рукой и призывает подписаться",
+      "recipeId": "cta",
+      "variant": "prop",
+      "slots": {
+        "action": "ПОДПИШИСЬ",
+        "subtitle": "БОЛЬШЕ НАУКИ",
+        "subject": { "assetKey": "dog-snout" }
+      },
+      "characterPlan": {
+        "entity": "ведущий-биолог",
+        "strategy": "transformation",
+        "accessories": ["scarf"]
+      }
+    }
+  ]
+}

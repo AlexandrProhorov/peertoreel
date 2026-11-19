@@ -25,6 +25,8 @@ function makeRun(overrides: Partial<RunRecord> = {}): RunRecord {
     id: runId,
     createdBy: '22222222-2222-4222-8222-222222222222',
     topic: 'топ 5 пород собак',
+    mode: 'pipeline',
+    ttsProvider: 'elevenlabs',
     state: 'SCHEDULED',
     currentStage: 'publish',
     failedStage: null,

@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "slider-break-attempt-1",
+      "device": "spec",
+      "durationSec": 5,
+      "revealSec": 2,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0 },
+            "params": { "background": "#0A0A0B", "vignette": true },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["hold"],
+            "links": []
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 1180, "width": 818, "height": 120, "align": "center" },
+            "params": {
+              "text": "кончилась шкала",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 800
+            },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "from",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 900, "width": 300, "height": 48, "align": "left" },
+            "params": { "text": "комфорт", "token": "caption", "tone": "muted", "weight": 500 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "to",
+            "primitive": "label",
+            "layout": { "x": 590, "y": 900, "width": 300, "height": 48, "align": "right" },
+            "params": { "text": "предел", "token": "caption", "tone": "muted", "weight": 500 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "rail",
+            "primitive": "track",
+            "layout": { "x": 72, "y": 980 },
+            "params": { "length": 818, "thickness": 10, "color": "#CCFF00", "fill": 1, "breakAt": 0.82 },
+            "states": ["rest", "filling"],
+            "transitions": ["appear", "fill", "break"],
+            "operations": ["reveal", "fill"],
+            "links": []
+          },
+          {
+            "id": "knob",
+            "primitive": "thumb",
+            "layout": { "x": 72, "y": 942, "width": 818 },
+            "params": { "size": 44, "color": "#FFFFFF", "axis": "x" },
+            "states": ["rest"],
+            "transitions": ["drag", "release"],
+            "operations": ["move"],
+            "links": ["rail"]
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "stage", "transition": "appear" },
+          { "at": 0.4, "element": "from", "transition": "appear" },
+          { "at": 0.6, "element": "to", "transition": "appear" },
+          { "at": 0.9, "element": "rail", "transition": "fill" },
+          { "at": 0.9, "element": "knob", "transition": "drag" },
+          { "at": 2.0, "element": "rail", "transition": "break" },
+          { "at": 2.0, "element": "knob", "transition": "release" },
+          { "at": 2.6, "element": "title", "transition": "appear" }
+        ]
+      }
+    }
+  ]
+}

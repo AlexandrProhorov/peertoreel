@@ -1,5 +1,11 @@
 ﻿import { z } from 'zod';
-import { RUN_STAGES, RUN_STATES, runStageSchema, type RunState } from './run.js';
+import {
+  RUN_STAGES,
+  RUN_STATES,
+  runStageSchema,
+  type RunMode,
+  type RunState,
+} from './run.js';
 
 /** One queue per stage, so concurrency and rate limits stay independent. */
 export const STAGE_QUEUES = {
@@ -8,6 +14,8 @@ export const STAGE_QUEUES = {
   visuals: 'visuals',
   render: 'render',
   qc: 'qc',
+  episode_plan: 'episode_plan',
+  episode_render: 'episode_render',
 } as const;
 
 export type StageQueueName = keyof typeof STAGE_QUEUES;
@@ -18,6 +26,8 @@ export const STAGE_JOB_NAMES = {
   visuals: 'visuals',
   render: 'render',
   qc: 'qc',
+  episode_plan: 'episode_plan',
+  episode_render: 'episode_render',
 } as const satisfies Record<StageQueueName, string>;
 
 export const stageQueueNameSchema = z.enum(
@@ -31,7 +41,24 @@ export const STAGE_OF_QUEUE = {
   visuals: 'visuals',
   render: 'render',
   qc: 'qc',
+  episode_plan: 'episode_plan',
+  episode_render: 'episode_render',
 } as const satisfies Record<StageQueueName, (typeof RUN_STAGES)[number]>;
+
+/**
+ * A run may only start stages of its own mode. Without this guard a pipeline
+ * run in `DRAFT` could enqueue `episode_plan` (it also requires `DRAFT`) into a
+ * queue its worker does not process.
+ */
+export const STAGE_MODES = {
+  script: 'pipeline',
+  voiceover: 'pipeline',
+  visuals: 'pipeline',
+  render: 'pipeline',
+  qc: 'pipeline',
+  episode_plan: 'episode',
+  episode_render: 'episode',
+} as const satisfies Record<StageQueueName, RunMode>;
 
 export const stageJobDataSchema = z.object({
   runId: z.uuid(),
@@ -53,11 +80,37 @@ export const stageJobResultSchema = z.object({
 });
 export type StageJobResult = z.infer<typeof stageJobResultSchema>;
 
+export const stageJobUnitSchema = z.object({
+  /** What the unit is, e.g. `scene`. */
+  label: z.string().min(1).max(40),
+  /** 1-based unit currently in flight (or the last finished one). */
+  index: z.number().int().min(0),
+  total: z.number().int().min(1),
+});
+export type StageJobUnit = z.infer<typeof stageJobUnitSchema>;
+
+/**
+ * Structured progress for long stages (M3.6c). The raw percent stays for
+ * backward compatibility; the detail explains why a bar can sit at 65% for a
+ * minute: "scene 3 of 5, ~40 s left", not an unexplained freeze.
+ */
+export const stageJobProgressSchema = z.object({
+  percent: z.number().min(0).max(100),
+  /** Human-readable current step (`render`, `concat`, `tts`). */
+  phase: z.string().min(1).max(60).optional(),
+  unit: stageJobUnitSchema.optional(),
+  elapsedMs: z.number().int().nonnegative().optional(),
+  /** Null while there is not enough history to estimate. */
+  estimatedRemainingMs: z.number().int().nonnegative().nullable().optional(),
+});
+export type StageJobProgress = z.infer<typeof stageJobProgressSchema>;
+
 export const stageJobSnapshotSchema = z.object({
   jobId: z.string().min(1),
   stage: runStageSchema,
   status: z.enum(['queued', 'active', 'completed', 'failed']),
   progress: z.number().min(0).max(100),
+  progressDetail: stageJobProgressSchema.optional(),
   result: stageJobResultSchema.optional(),
   failedReason: z.string().optional(),
 });
@@ -80,6 +133,8 @@ export const STAGE_REQUIRED_STATE = {
   visuals: 'VOICE_READY',
   render: 'VISUALS_READY',
   qc: 'REVIEW',
+  episode_plan: 'DRAFT',
+  episode_render: 'SCRIPT_READY',
 } as const satisfies Record<StageQueueName, RunState>;
 
 export const STAGE_PRODUCED_STATE = {
@@ -88,9 +143,11 @@ export const STAGE_PRODUCED_STATE = {
   visuals: 'VISUALS_READY',
   render: 'REVIEW',
   qc: 'REVIEW',
+  episode_plan: 'SCRIPT_READY',
+  episode_render: 'REVIEW',
 } as const satisfies Record<StageQueueName, RunState>;
 
-/** Which stage a user can run from a given state (drives the UI buttons). */
+/** Which pipeline stage a user can run from a given state (UI buttons). */
 export const STAGE_FOR_STATE = {
   RESEARCHING: 'script',
   SCRIPT_READY: 'voiceover',
@@ -100,19 +157,40 @@ export const STAGE_FOR_STATE = {
 } as const satisfies Partial<Record<(typeof RUN_STATES)[number], StageQueueName>>;
 
 /**
- * Stage whose job can be in flight for this state, used to rehydrate progress
- * after a page reload. Unlike `STAGE_FOR_STATE`, it includes `RENDERING`: the
- * render stage is started from `VISUALS_READY` but the run moves to `RENDERING`
- * while FFmpeg is still working.
+ * Episode mode has its own two steps: plan (script + voiceover + storyboard +
+ * Pixabay images) from `DRAFT`, render from `SCRIPT_READY`.
  */
-export function stageForProgress(state: RunState): StageQueueName | null {
-  if (state === 'RENDERING') {
-    return 'render';
-  }
+export const EPISODE_STAGE_FOR_STATE = {
+  DRAFT: 'episode_plan',
+  SCRIPT_READY: 'episode_render',
+} as const satisfies Partial<Record<(typeof RUN_STATES)[number], StageQueueName>>;
 
-  const stages: Partial<Record<RunState, StageQueueName>> = STAGE_FOR_STATE;
+/** Stage a user can start from this state, for the run's mode. */
+export function stageForRun(
+  state: RunState,
+  mode: RunMode = 'pipeline',
+): StageQueueName | null {
+  const stages: Partial<Record<RunState, StageQueueName>> =
+    mode === 'episode' ? EPISODE_STAGE_FOR_STATE : STAGE_FOR_STATE;
 
   return stages[state] ?? null;
+}
+
+/**
+ * Stage whose job can be in flight for this state, used to rehydrate progress
+ * after a page reload. Unlike `stageForRun`, it includes `RENDERING`: the stage
+ * is started from an earlier state but the run moves to `RENDERING` while the
+ * renderer is still working.
+ */
+export function stageForProgress(
+  state: RunState,
+  mode: RunMode = 'pipeline',
+): StageQueueName | null {
+  if (state === 'RENDERING') {
+    return mode === 'episode' ? 'episode_render' : 'render';
+  }
+
+  return stageForRun(state, mode);
 }
 
 /** Deterministic id: one job per run per stage, safe for BullMQ (no colons). */

@@ -8,8 +8,8 @@
 data-driven Remotion foundation (M3.3) → scene recipes (M3.4) → two-topic end-to-end spike
 (M3.5) → Asset Library and generator (M3.6) → production hardening (M3.7).
 
-A follow-up research study (`docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`,
-executing `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research-plan.md`) audited
+A follow-up research study (`docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`,
+executing `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research-plan.md`) audited
 the M3.3 renderer against 20 representative topics (120 scenes) and evaluated asset providers,
 character consistency, technical diagram accuracy and unit economics:
 
@@ -112,6 +112,13 @@ refinement so M3.5 tests real subject-based videos without premature cloud infra
 - **M3.6 (Asset Library + Asset Generator):** replaces the static starter list with the full
   `AssetResolver`, DB/R2 metadata and content-hash cache, `ImageProvider` (Recraft Vector /
   FLUX.2 + BiRefNet) and automated `studio_flat_2d_v1` palette normalization.
+- **Amendment (2026-11-12, M3.6b.2):** the first real provider is DeepSeek SVG behind
+  `ImageProvider` (`source: 'llm'`), not Recraft/FLUX.2. Tier 1 recraft/flux adapters stay as
+  parked skeletons; the raster Tier 2 path is unchanged. Details and pilot measurements:
+  ADR-0017 D12.
+- **Amendment (2026-11-12, M3.6b.3):** palette normalization now targets
+  `studio_flat_2d_v2` (muted 16-slot palette) by default; `studio_flat_2d_v1` remains for
+  existing records. Tier 0 was recolored, not re-authored. Details: ADR-0017 D13.
 
 ## Consequences
 
@@ -124,7 +131,7 @@ refinement so M3.5 tests real subject-based videos without premature cloud infra
 
 ## References
 
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research.md`
-- `docs/ignore/research/2026-11-10-asset-pipeline-and-format-research-plan.md`
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research.md`
+- `docs/workspace/research/2026-11-10-asset-pipeline-and-format-research-plan.md`
 - `docs/adr/0012-storyboard-and-scene-render.md`
 - `docs/adr/0014-m3-renderer-first-roadmap.md`

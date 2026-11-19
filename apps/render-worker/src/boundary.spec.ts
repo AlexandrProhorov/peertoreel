@@ -54,4 +54,17 @@ describe('fixture boundary', () => {
       expect(source).not.toContain(symbol);
     }
   });
+
+  it.each(coreFiles)('%s does not import the asset library or a datastore', (file) => {
+    const source = readFileSync(file, 'utf8');
+
+    for (const symbol of [
+      '@peertoreel/assets',
+      'asset-resolution',
+      '@peertoreel/db',
+      '@peertoreel/storage',
+    ]) {
+      expect(source).not.toContain(symbol);
+    }
+  });
 });

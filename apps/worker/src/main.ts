@@ -18,6 +18,9 @@ import { eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { loadWorkerEnv, type WorkerEnv } from './config/env.js';
+import { createWorkerAssetRuntime } from './assets/runtime.js';
+import { processEpisodePlanStage } from './episode/plan.processor.js';
+import { processEpisodeRenderStage } from './episode/render.processor.js';
 import { processPing } from './processors/ping.processor.js';
 import { processPublishStage } from './publish/publish.processor.js';
 import { redisConnectionOptions } from './redis-connection.js';
@@ -123,6 +126,7 @@ const deps: StageDeps<WorkerEnv> = {
   env,
   logger,
   stockProvider,
+  assets: createWorkerAssetRuntime(env, db, storage),
   tiktok: tiktokRuntime,
 };
 const connection = redisConnectionOptions(env.REDIS_URL);
@@ -211,6 +215,22 @@ const workers: Worker[] = [
     },
   ),
   new Worker(
+    STAGE_QUEUES.episode_plan,
+    (job) => withTerminalErrors(() => processEpisodePlanStage(job, deps)),
+    {
+      connection,
+      concurrency: 1,
+    },
+  ),
+  new Worker(
+    STAGE_QUEUES.episode_render,
+    (job) => withTerminalErrors(() => processEpisodeRenderStage(job, deps)),
+    {
+      connection,
+      concurrency: 1,
+    },
+  ),
+  new Worker(
     PUBLISH_QUEUE,
     (job) => withPublishErrors(() => processPublishStage(job, deps)),
     {
@@ -227,6 +247,8 @@ const [
   visualsWorker,
   renderWorker,
   qcWorker,
+  episodePlanWorker,
+  episodeRenderWorker,
   publishWorker,
 ] = workers;
 
@@ -258,6 +280,14 @@ renderWorker?.on('failed', (job, error) => {
 
 qcWorker?.on('failed', (job, error) => {
   void handleFinalFailure(job, error, 'qc');
+});
+
+episodePlanWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'episode_plan');
+});
+
+episodeRenderWorker?.on('failed', (job, error) => {
+  void handleFinalFailure(job, error, 'episode_render');
 });
 
 publishWorker?.on('failed', (job, error) => {
@@ -333,6 +363,10 @@ logger.info(
     pingJob: PING_JOB,
     concurrency: env.WORKER_CONCURRENCY,
     pixabay: stockProvider ? 'configured' : 'missing-key',
+    visualsSource: env.VISUALS_SOURCE,
+    assetProvider: deps.assets?.createProvider('00000000-0000-4000-8000-000000000000')
+      ? 'configured'
+      : (deps.assets?.unavailableReason ?? 'missing-runtime'),
   },
   'worker started',
 );

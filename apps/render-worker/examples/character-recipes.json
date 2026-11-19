@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "peertoreel.storyboard.v1",
+  "runId": "7f3c1a52-2222-4a2b-8c3d-000000000072",
+  "style": {
+    "styleId": "flat_2d_motion",
+    "palette": {
+      "background": ["#0b1220", "#1b2a41"],
+      "accent": "#f2a025",
+      "text": "#ffffff",
+      "cold": "#35b4d8",
+      "danger": "#e2604a"
+    },
+    "typography": {
+      "heading": "Montserrat",
+      "body": "Inter",
+      "headingWeight": 900
+    },
+    "effects": ["vignette", "glow"]
+  },
+  "characters": [],
+  "audio": {
+    "wordTimingsKey": "runs/7f3c1a52-2222-4a2b-8c3d-000000000072/voiceover/word_timings.json",
+    "durationSec": 9
+  },
+  "scenes": [
+    {
+      "id": "character-hook",
+      "part": "hook",
+      "beatIndex": null,
+      "voiceover": { "text": "Вода впитывается в ткань", "startSec": 0, "endSec": 3 },
+      "durationSec": 3,
+      "description": "Ведущий удивлён вопросом, капля воды рядом",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "hook-hero",
+        "variant": "ghost-question",
+        "slots": {
+          "title": "ПОЧЕМУ ТКАНЬ ВПИТЫВАЕТ ВОДУ?",
+          "subject": { "assetKey": "water-drop", "fallbackIcon": null, "prompt": null },
+          "character": { "emotion": "surprised", "pose": "idle", "anchor": "center" }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ПОЧЕМУ ТКАНЬ ВПИТЫВАЕТ ВОДУ?" }
+      },
+      "version": 1
+    },
+    {
+      "id": "character-fact",
+      "part": "beat",
+      "beatIndex": 0,
+      "voiceover": { "text": "Волокна тянут воду капиллярами", "startSec": 3, "endSec": 6 },
+      "durationSec": 3,
+      "description": "Ведущий объясняет факт, капля в центре",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "fact-object",
+        "variant": "stage",
+        "slots": {
+          "subject": { "assetKey": "water-drop", "fallbackIcon": null, "prompt": null },
+          "fact": "ВОЛОКНА ТЯНУТ ВОДУ",
+          "metric": "×3",
+          "character": { "emotion": "neutral", "pose": "idle", "anchor": "right" }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ВОЛОКНА ТЯНУТ ВОДУ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "character-cta",
+      "part": "cta",
+      "beatIndex": null,
+      "voiceover": { "text": "Подпишись на канал", "startSec": 6, "endSec": 9 },
+      "durationSec": 3,
+      "description": "Ведущий машет рукой и призывает подписаться",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "cta",
+        "variant": "prop",
+        "slots": {
+          "action": "ПОДПИШИСЬ",
+          "subtitle": "НОВОЕ КАЖДЫЙ ДЕНЬ",
+          "subject": { "assetKey": "water-drop", "fallbackIcon": null, "prompt": null },
+          "character": { "emotion": "happy", "pose": "wave", "anchor": "center" }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ПОДПИШИСЬ" }
+      },
+      "version": 1
+    }
+  ]
+}

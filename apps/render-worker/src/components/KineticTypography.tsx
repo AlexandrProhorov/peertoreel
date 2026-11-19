@@ -11,6 +11,7 @@ import {
   useVideoConfig,
 } from 'remotion';
 import type { CSSProperties, ReactNode } from 'react';
+import { cameraTransform, toCssTransform } from '../camera.js';
 
 interface KineticTypographyProps {
   scene: StoryboardScene;
@@ -59,6 +60,8 @@ function presetStyle(
   style: StoryboardStyle,
 ): CSSProperties {
   switch (preset) {
+    case 'backdrop':
+      return {};
     case 'counter':
       return {
         fontSize: 104,
@@ -130,10 +133,11 @@ export function KineticTypography({
   const progress =
     durationInFrames <= 1 ? 0 : frame / (durationInFrames - 1);
   const [top, bottom] = backgroundColors(style);
-  const zoom = interpolate(
-    progress,
-    [0, 1],
-    [1, 1.03 + scene.camera.speed * 0.03],
+  const gridTransform = toCssTransform(
+    cameraTransform(scene.camera, progress, 0.25),
+  );
+  const glowTransform = toCssTransform(
+    cameraTransform(scene.camera, progress, 0.9),
   );
   const accents = accentWordSet(params.accentWords);
   const textStyle = presetStyle(params.preset, style);
@@ -153,19 +157,20 @@ export function KineticTypography({
           backgroundImage: `linear-gradient(${style.palette.cold}0d 1px, transparent 1px), linear-gradient(90deg, ${style.palette.cold}0d 1px, transparent 1px)`,
           backgroundSize: '90px 90px',
           opacity: 0.7,
-          transform: `scale(${zoom})`,
+          transform: gridTransform,
           transformOrigin: 'center',
         }}
       />
       <AbsoluteFill
         style={{
           background: `radial-gradient(circle at 50% 46%, ${style.palette.accent}30, transparent 34%), radial-gradient(circle at 18% 82%, ${style.palette.cold}1f, transparent 34%)`,
-          transform: `scale(${zoom})`,
+          transform: glowTransform,
           transformOrigin: 'center',
         }}
       />
 
-      <AbsoluteFill
+      {params.preset === 'backdrop' ? null : (
+        <AbsoluteFill
         style={{
           ...alignmentStyles(params.align),
           top: params.preset === 'pill' ? '12%' : '20%',
@@ -201,6 +206,7 @@ export function KineticTypography({
           ) : null}
         </div>
       </AbsoluteFill>
+      )}
 
       <AbsoluteFill
         style={{

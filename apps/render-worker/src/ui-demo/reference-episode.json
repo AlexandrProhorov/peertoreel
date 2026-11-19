@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "hook",
+      "device": "title-stack",
+      "durationSec": 1.2,
+      "revealSec": 0.4,
+      "themeId": "studio-dark",
+      "title": "я попробовал",
+      "subtitle": "чего я никому не говорил",
+      "eyebrow": null,
+      "align": "center",
+      "highlightWords": [],
+      "icons": [
+        { "key": "ledger", "contentHash": "c72c7ec1511af9f556f5a44c257db68b9e13d68a8e6883ed4e4df3aec07f63c8" }
+      ]
+    },
+    {
+      "id": "all-conversations",
+      "device": "title-stack",
+      "durationSec": 2.7,
+      "revealSec": 0.5,
+      "themeId": "studio-light",
+      "title": "все наши разговоры",
+      "subtitle": null,
+      "eyebrow": null,
+      "align": "center",
+      "highlightWords": [],
+      "vertical": "upper",
+      "centerMark": true,
+      "icons": [
+        { "key": "airplane", "contentHash": "dda8d8e9ccaca71973f4ee75fcab085dcffbb89f3987a9d2cc5401f186268fa1" },
+        { "key": "candy", "contentHash": "79607ed1b5a0b96117723261fb9c79db77e63b154cebbd9af42ee8ddb6776fb9" },
+        { "key": "envelope", "contentHash": "9671859aa64b65b6977b7ab6adc2e64220e75edf531a8e67c4b76e01ace04230" },
+        { "key": "coin", "contentHash": "17e2a0c226342fe2cdd2612c56f5dd188870d1435076f47600313c04876f843b" },
+        { "key": "full-moon", "contentHash": "00dd24efe4fc9b13a020f59309d962ecd3bede581abeca5111056a8fc84c779e" },
+        { "key": "red-heart", "contentHash": "7218cb9f08ed1ef38fcd83fe699a1125d07f50725f4c87a68cb7c9f4efb3c32b" }
+      ]
+    },
+    {
+      "id": "prompt-1",
+      "device": "prompt-card",
+      "durationSec": 4.3,
+      "revealSec": 0.45,
+      "themeId": "studio-dark",
+      "badge": { "label": "AI-чат", "mark": "star" },
+      "cardText": "Исходя из всех наших разговоров, назови пять вещей, которые ты понял обо мне, хотя я прямо тебе их не говорил.",
+      "caption": "промпт 1"
+    },
+    {
+      "id": "do-not-soften",
+      "device": "title-stack",
+      "durationSec": 1.4,
+      "revealSec": 0.4,
+      "themeId": "studio-light",
+      "title": "не смягчай",
+      "subtitle": "чтобы было приятно",
+      "eyebrow": null,
+      "align": "left",
+      "highlightWords": [],
+      "vertical": "middle",
+      "icons": [
+        { "key": "candy", "contentHash": "79607ed1b5a0b96117723261fb9c79db77e63b154cebbd9af42ee8ddb6776fb9" }
+      ]
+    },
+    {
+      "id": "between-lines",
+      "device": "text-selection",
+      "durationSec": 2.8,
+      "revealSec": 0.9,
+      "themeId": "studio-dark",
+      "title": "он читает",
+      "lines": [
+        "я опять не успел к сроку",
+        "наверное, это не так важно",
+        "между строк",
+        "просто устал на этой неделе",
+        "ладно, разберусь сам"
+      ],
+      "selectionLineIndex": 2
+    },
+    {
+      "id": "first-answer",
+      "device": "object-reveal",
+      "durationSec": 2.5,
+      "revealSec": 0.6,
+      "themeId": "studio-dark",
+      "object": {
+        "key": "framed-picture",
+        "contentHash": "e70eeb3cd3b5c8bd6633a9ddf0c5f0bb7e0c4be45c89b9b2aad689276aad35bc"
+      },
+      "caption": "первый ответ пугает",
+      "tone": "warm",
+      "tiltDeg": -6
+    },
+    {
+      "id": "same-chat",
+      "device": "chat-reconstruction",
+      "durationSec": 4.9,
+      "revealSec": 1.2,
+      "themeId": "studio-light",
+      "title": "в том же чате",
+      "avatar": {
+        "key": "owl",
+        "contentHash": "7dfcdcdebd599787719d98f3057b0822522678e6752369ca3498a780ca7ba443"
+      },
+      "messages": [
+        { "text": "какие закономерности ты видишь", "appearAtSec": 0.55 },
+        { "text": "в том, как я думаю и принимаю решения?", "appearAtSec": 2.4 },
+        { "text": "и что я в себе отрицаю?", "appearAtSec": 3.6 }
+      ]
+    },
+    {
+      "id": "almost-everyone",
+      "device": "social-proof",
+      "durationSec": 2.9,
+      "revealSec": 0.9,
+      "themeId": "studio-dark",
+      "title": "цепляет почти всех",
+      "cards": [
+        {
+          "name": "макс",
+          "text": "прямо в точку",
+          "avatar": { "key": "panda", "contentHash": "31524ed035f8d769bc7d437268f30a65eb309ea216e84c09823d4f36c2f97070" }
+        },
+        {
+          "name": "оля",
+          "text": "аж мурашки",
+          "avatar": { "key": "owl", "contentHash": "7dfcdcdebd599787719d98f3057b0822522678e6752369ca3498a780ca7ba443" }
+        }
+      ]
+    },
+    {
+      "id": "predict-five-years",
+      "device": "prediction-input",
+      "durationSec": 3.5,
+      "revealSec": 0.8,
+      "themeId": "studio-lime",
+      "prompt": "предскажи пять лет",
+      "answer": "если ничего не изменится",
+      "object": {
+        "key": "crystal-ball",
+        "contentHash": "f42c5484bea4f33f7ba8ee2b5c7e2a51d17a9fcec36f2ba92334f62b7f95eb43"
+      }
+    }
+  ]
+}

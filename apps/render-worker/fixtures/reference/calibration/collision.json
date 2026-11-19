@@ -1,0 +1,25 @@
+{
+  "thesis": "Калибровка: короткое интенсивное взаимодействие.",
+  "scenes": [
+    {
+      "id": "collision",
+      "seconds": 6,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 }, "params": { "background": "#0A0A0B" } },
+          { "id": "plan", "primitive": "label", "layout": { "x": 72, "y": 520, "width": 400, "height": 160 }, "params": { "text": "план", "token": "headline", "tone": "muted", "weight": 800 } },
+          { "id": "fact", "primitive": "label", "layout": { "x": 560, "y": 520, "width": 400, "height": 160 }, "params": { "text": "факт", "token": "headline", "tone": "ink", "weight": 800 } },
+          { "id": "rail", "primitive": "track", "layout": { "x": 72, "y": 760, "width": 800, "height": 24 }, "params": { "length": 800, "thickness": 14, "color": "#CCFF00", "fill": 1, "breakAt": 0.5 } }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "plan", "transition": "appear" },
+          { "element": "fact", "transition": "appear" },
+          { "element": "rail", "transition": "appear" },
+          { "element": "rail", "transition": "break", "weight": 2 }
+        ]
+      }
+    }
+  ]
+}

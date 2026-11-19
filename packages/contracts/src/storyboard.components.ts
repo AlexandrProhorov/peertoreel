@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  CARTOON_CHARACTER_ACCESSORIES,
+  CARTOON_CHARACTER_ANCHORS,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
+} from './character.js';
 import type { JsonValue } from './json.js';
 import {
   STORYBOARD_COMPONENT_IDS,
@@ -23,7 +29,11 @@ export type ParallaxCityParams = z.infer<typeof parallaxCityParamsSchema>;
 export const kineticTypographyParamsSchema = z.object({
   text: z.string().min(1).max(400).default('ЗАГОЛОВОК'),
   accentWords: z.array(z.string().min(1).max(80)).max(8).default([]),
-  preset: z.enum(['statement', 'counter', 'pill']).default('statement'),
+  /**
+   * `backdrop` renders only the grid/glow environment. Recipe backgrounds use
+   * it when all text comes from the recipe layer plan (ADR-0016).
+   */
+  preset: z.enum(['statement', 'counter', 'pill', 'backdrop']).default('statement'),
   align: z.enum(['left', 'center', 'right']).default('center'),
   underline: z.boolean().default(false),
 });
@@ -68,6 +78,48 @@ export const ctaCardParamsSchema = z.object({
 });
 export type CtaCardParams = z.infer<typeof ctaCardParamsSchema>;
 
+export {
+  CARTOON_CHARACTER_ACCESSORIES,
+  CARTOON_CHARACTER_ANCHORS,
+  CARTOON_CHARACTER_EMOTIONS,
+  CARTOON_CHARACTER_POSES,
+} from './character.js';
+
+/**
+ * Procedural presenter (M3.6b.7.1). Colours are params, not style lookups: a
+ * component receives only `params`, and the style stays a background concern.
+ */
+export const cartoonCharacterParamsSchema = z.object({
+  preset: z.literal('host').default('host'),
+  emotion: z.enum(CARTOON_CHARACTER_EMOTIONS).default('neutral'),
+  pose: z.enum(CARTOON_CHARACTER_POSES).default('idle'),
+  anchor: z.enum(CARTOON_CHARACTER_ANCHORS).default('right'),
+  /** Clothes/body colour. */
+  accent: hexColorSchema.default('#F2A025'),
+  skin: hexColorSchema.default('#E8B98A'),
+  hair: hexColorSchema.default('#23405F'),
+  /** Eyes, brows and mouth colour. */
+  ink: hexColorSchema.default('#101820'),
+  /** Idle breathing amplitude multiplier, 0 disables the motion. */
+  bob: z.number().min(0).max(1).default(1),
+  /**
+   * Wearable accessories (M3.6b.7.3). Order is irrelevant: the blueprint's
+   * z-zones decide where each shape lands. Duplicates are rejected so a
+   * doubled hat cannot silently double a stroke.
+   */
+  accessories: z
+    .array(z.enum(CARTOON_CHARACTER_ACCESSORIES))
+    .max(CARTOON_CHARACTER_ACCESSORIES.length)
+    .default([])
+    .refine(
+      (items) => new Set(items).size === items.length,
+      'Accessories must not repeat',
+    ),
+});
+export type CartoonCharacterParams = z.infer<
+  typeof cartoonCharacterParamsSchema
+>;
+
 export type ComponentParamsById = {
   'parallax-city': ParallaxCityParams;
   'kinetic-typography': KineticTypographyParams;
@@ -75,6 +127,7 @@ export type ComponentParamsById = {
   'image-parallax': ImageParallaxParams;
   'particle-field': ParticleFieldParams;
   'cta-card': CtaCardParams;
+  'cartoon-character': CartoonCharacterParams;
 };
 
 export type StoryboardComponentParams =
@@ -136,6 +189,11 @@ const COMPONENT_PARAMS: {
     schema: ctaCardParamsSchema,
     fieldSchemas: ctaCardParamsSchema.shape,
     defaults: ctaCardParamsSchema.parse({}),
+  },
+  'cartoon-character': {
+    schema: cartoonCharacterParamsSchema,
+    fieldSchemas: cartoonCharacterParamsSchema.shape,
+    defaults: cartoonCharacterParamsSchema.parse({}),
   },
 };
 
@@ -272,6 +330,7 @@ export const COMPONENT_PARAMS_DEFAULTS: {
   'image-parallax': COMPONENT_PARAMS['image-parallax'].defaults,
   'particle-field': COMPONENT_PARAMS['particle-field'].defaults,
   'cta-card': COMPONENT_PARAMS['cta-card'].defaults,
+  'cartoon-character': COMPONENT_PARAMS['cartoon-character'].defaults,
 };
 
 export const COMPONENT_PARAMS_SCHEMAS = {
@@ -281,4 +340,5 @@ export const COMPONENT_PARAMS_SCHEMAS = {
   'image-parallax': imageParallaxParamsSchema,
   'particle-field': particleFieldParamsSchema,
   'cta-card': ctaCardParamsSchema,
+  'cartoon-character': cartoonCharacterParamsSchema,
 } as const;

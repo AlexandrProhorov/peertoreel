@@ -5,15 +5,20 @@ import {
 import {
   scriptSchema,
   stageJobDataSchema,
+  type DerivedWord,
   type Script,
   type StageJobResult,
 } from '@peertoreel/contracts';
 import { buildArtifactKey, type ObjectStorage } from '@peertoreel/storage';
 import type { Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { requireProviderKey, type WorkerEnv } from '../config/env.js';
 import { buildKaraokeAss } from '../media/karaoke.js';
-import { synthesizeWithTimestamps } from '../tts/elevenlabs.js';
+import { synthesizeWithGoogleTts } from '../storyboard/tts-fallback.js';
+import { synthesizeWithTimestamps, TtsError } from '../tts/elevenlabs.js';
 import { deriveWordTimings } from '../tts/word-timings.js';
 import type { StageDeps } from './context.js';
 import { saveArtifact } from './save-artifact.js';
@@ -39,6 +44,78 @@ async function loadScript(
   return scriptSchema.parse(JSON.parse(body));
 }
 
+/**
+ * One voiceover for the run. The provider comes from the run, never from env:
+ * a quota-exhausted ElevenLabs is a terminal, actionable error — the operator
+ * switches the run to Google instead of waiting for retries.
+ */
+export async function synthesizeVoiceover({
+  runId,
+  provider,
+  scenes,
+  speech,
+  deps,
+}: {
+  runId: string;
+  provider: 'elevenlabs' | 'google';
+  scenes: readonly string[];
+  speech: string;
+  deps: StageDeps<WorkerEnv>;
+}): Promise<{ audio: Buffer; words: DerivedWord[] }> {
+  if (provider === 'google') {
+    const workDir = await mkdtemp(
+      path.join(tmpdir(), 'peertoreel-voiceover-'),
+    );
+
+    try {
+      const result = await synthesizeWithGoogleTts({
+        scenes,
+        workDir,
+        ffmpegBin: deps.env.FFMPEG_BIN,
+        ffprobeBin: deps.env.FFPROBE_BIN,
+      });
+
+      return {
+        audio: await readFile(path.join(workDir, 'voiceover.mp3')),
+        words: result.words,
+      };
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  }
+
+  try {
+    const { audio, alignment } = await synthesizeWithTimestamps({
+      text: speech,
+      apiKey: requireProviderKey(
+        deps.env.ELEVENLABS_API_KEY,
+        'ELEVENLABS_API_KEY',
+      ),
+      voiceId: requireProviderKey(
+        deps.env.ELEVENLABS_VOICE_ID,
+        'ELEVENLABS_VOICE_ID',
+      ),
+      modelId: deps.env.ELEVENLABS_MODEL_ID,
+    });
+
+    return { audio: Buffer.from(audio), words: deriveWordTimings(alignment) };
+  } catch (error) {
+    if (
+      error instanceof TtsError &&
+      (error.status === 401 || error.status === 403) &&
+      /quota/i.test(error.message)
+    ) {
+      throw new TtsError(
+        `Квота ElevenLabs исчерпана (run ${runId}); переключите прогон на Google TTS и повторите стадию voiceover`,
+        error.status,
+        false,
+      );
+    }
+
+    throw error;
+  }
+}
+
 /** SCRIPT_READY → VOICE_READY: TTS, word timings, karaoke subtitles. */
 export async function processVoiceoverStage(
   job: Job,
@@ -58,24 +135,22 @@ export async function processVoiceoverStage(
   }
 
   const script = await loadScript(deps.db, deps.storage, runId);
-  const speech = [
-    script.hook,
-    ...script.beats.map((beat) => beat.text),
-    script.cta,
-  ].join(' ');
+  const scenes = [script.hook, ...script.beats.map((beat) => beat.text), script.cta];
+  const speech = scenes.join(' ');
 
   await job.updateProgress(10);
 
-  const { audio, alignment } = await synthesizeWithTimestamps({
-    text: speech,
-    apiKey: requireProviderKey(deps.env.ELEVENLABS_API_KEY, 'ELEVENLABS_API_KEY'),
-    voiceId: requireProviderKey(deps.env.ELEVENLABS_VOICE_ID, 'ELEVENLABS_VOICE_ID'),
-    modelId: deps.env.ELEVENLABS_MODEL_ID,
+  const voice = await synthesizeVoiceover({
+    runId,
+    provider: run.ttsProvider,
+    scenes,
+    speech,
+    deps,
   });
 
   await job.updateProgress(60);
 
-  const words = deriveWordTimings(alignment);
+  const words = voice.words;
   const timings = Buffer.from(JSON.stringify(words, null, 2), 'utf8');
   const ass = Buffer.from(buildKaraokeAss(words), 'utf8');
 
@@ -83,7 +158,7 @@ export async function processVoiceoverStage(
     {
       type: 'voiceover_mp3',
       name: 'voiceover.mp3',
-      body: Buffer.from(audio),
+      body: voice.audio,
       contentType: 'audio/mpeg',
     },
     {

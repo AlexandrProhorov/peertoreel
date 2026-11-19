@@ -114,6 +114,40 @@ describe('component params', () => {
     ).toThrow(UnknownStoryboardComponentError);
   });
 
+  it('defaults the presenter accessories to an empty list', () => {
+    const result = parseComponentParams('cartoon-character', {});
+
+    expect(result.params.accessories).toEqual([]);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('accepts unique accessories and rejects duplicates', () => {
+    const valid = parseComponentParams('cartoon-character', {
+      accessories: ['glasses', 'hat'],
+    });
+    const duplicate = parseComponentParams('cartoon-character', {
+      accessories: ['hat', 'hat'],
+    });
+    const unknown = parseComponentParams('cartoon-character', {
+      accessories: ['crown'],
+    });
+
+    expect(valid.params.accessories).toEqual(['glasses', 'hat']);
+    expect(valid.diagnostics).toEqual([]);
+    expect(duplicate.params.accessories).toEqual([]);
+    expect(duplicate.diagnostics).toEqual([
+      {
+        path: 'accessories',
+        reason: 'invalid_value',
+        received: ['hat', 'hat'],
+      },
+    ]);
+    expect(unknown.params.accessories).toEqual([]);
+    expect(unknown.diagnostics).toEqual([
+      { path: 'accessories.0', reason: 'invalid_value', received: 'crown' },
+    ]);
+  });
+
   it('does not leak mutations into shared defaults', () => {
     const result = parseComponentParams('kinetic-typography', {
       accentWords: ['15'],

@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "delivery",
+      "device": "spec",
+      "durationSec": 6,
+      "revealSec": 2,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0 },
+            "params": { "background": "#0A0A0B", "vignette": true },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["hold"],
+            "links": []
+          },
+          {
+            "id": "claim",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 520 },
+            "params": {
+              "text": "бесплатно",
+              "background": "#161618",
+              "textColor": "#F5F5F7",
+              "token": "body",
+              "paddingX": 32,
+              "paddingY": 20
+            },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "total",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 760, "width": 818, "height": 200, "align": "left" },
+            "params": { "text": "0 ₽", "token": "display", "tone": "ink", "weight": 800 },
+            "states": ["rest"],
+            "transitions": ["appear", "hold"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "route",
+            "primitive": "track",
+            "layout": { "x": 72, "y": 1140 },
+            "params": { "length": 818, "thickness": 6, "color": "#CCFF00", "fill": 1 },
+            "states": ["rest", "filling"],
+            "transitions": ["appear", "fill"],
+            "operations": ["reveal", "fill"],
+            "links": []
+          },
+          {
+            "id": "courier",
+            "primitive": "thumb",
+            "layout": { "x": 72, "y": 1102, "width": 818 },
+            "params": { "size": 44, "color": "#CCFF00", "axis": "x" },
+            "states": ["rest"],
+            "transitions": ["drag", "appear"],
+            "operations": ["move"],
+            "links": ["route"]
+          },
+          {
+            "id": "verdict",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 1360, "width": 818, "height": 160, "align": "left" },
+            "params": { "text": "бесплатно не бывает", "token": "headline", "tone": "accent", "weight": 700 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "stage", "transition": "appear" },
+          { "at": 0.4, "element": "claim", "transition": "appear" },
+          { "at": 0.6, "element": "route", "transition": "fill" },
+          { "at": 0.6, "element": "courier", "transition": "drag" },
+          { "at": 0.8, "element": "total", "transition": "appear", "text": "0 ₽" },
+          { "at": 1.8, "element": "total", "transition": "hold", "text": "99 ₽" },
+          { "at": 2.8, "element": "total", "transition": "hold", "text": "259 ₽" },
+          { "at": 3.8, "element": "total", "transition": "hold", "text": "259 ₽ + 40 мин" },
+          { "at": 4.4, "element": "verdict", "transition": "appear" }
+        ]
+      }
+    }
+  ]
+}

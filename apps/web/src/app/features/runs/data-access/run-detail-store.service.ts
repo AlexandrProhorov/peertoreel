@@ -2,9 +2,9 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   allowedTransitions,
-  STAGE_FOR_STATE,
   STAGE_OF_QUEUE,
   stageForProgress,
+  stageForRun,
   type Artifact,
   type QcReport,
   type RunDetail,
@@ -112,16 +112,16 @@ export class RunDetailStoreService extends BaseStore {
       return null;
     }
 
-    const stages: Partial<Record<RunState, StageQueueName>> = STAGE_FOR_STATE;
-
-    return stages[run.state] ?? null;
+    return stageForRun(run.state, run.mode);
   });
 
   /** Only edges the state machine allows for the run in front of the user. */
   readonly allowed = computed(() => {
     const run = this.runState();
 
-    return run ? allowedTransitions(run.state, run.resumeState) : [];
+    return run
+      ? allowedTransitions(run.state, run.resumeState, run.mode)
+      : [];
   });
 
   readonly stageRunning = computed(() => {
@@ -157,7 +157,7 @@ export class RunDetailStoreService extends BaseStore {
                 const stage =
                   run.state === 'REVIEW' && qc
                     ? null
-                    : stageForProgress(run.state);
+                    : stageForProgress(run.state, run.mode);
 
                 this.stageWatches.next({ id, stage });
               }

@@ -1,11 +1,17 @@
 import {
+  ASSET_KINDS,
+  ASSET_SOURCES,
   PUBLISH_CARD_STATES,
+  RUN_MODES,
   RUN_STAGES,
   RUN_STATES,
 } from '@peertoreel/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  assetKindValues,
+  assetSourceValues,
   publishCardStateValues,
+  runModeValues,
   runStageValues,
   runStateValues,
 } from './schema.js';
@@ -19,7 +25,19 @@ describe('db enums', () => {
     expect([...runStageValues]).toEqual([...RUN_STAGES]);
   });
 
+  it('keeps run modes in sync with contracts', () => {
+    expect([...runModeValues]).toEqual([...RUN_MODES]);
+  });
+
   it('keeps publish card states in sync with contracts', () => {
     expect([...publishCardStateValues]).toEqual([...PUBLISH_CARD_STATES]);
+  });
+
+  it('keeps asset sources in sync with contracts', () => {
+    expect([...assetSourceValues]).toEqual([...ASSET_SOURCES]);
+  });
+
+  it('keeps asset kinds in sync with contracts', () => {
+    expect([...assetKindValues]).toEqual([...ASSET_KINDS]);
   });
 });

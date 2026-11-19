@@ -25,6 +25,8 @@ describe('scene component mapping', () => {
         roadGlow: true,
       },
       source: 'implementation',
+      recipe: null,
+      slotDiagnostics: [],
       diagnostics: [],
     });
   });
@@ -170,6 +172,7 @@ describe('scene component mapping', () => {
     const props = resolvedScenePropsSchema.parse({
       componentId: resolved.componentId,
       params: resolved.params,
+      recipe: resolved.recipe,
       source: resolved.source,
       diagnostics: resolved.diagnostics,
     });
@@ -177,6 +180,7 @@ describe('scene component mapping', () => {
     expect(props).toEqual({
       componentId: 'parallax-city',
       params: resolved.params,
+      recipe: null,
     });
   });
 
@@ -185,7 +189,56 @@ describe('scene component mapping', () => {
       resolvedScenePropsSchema.safeParse({
         componentId: 'cta-card',
         params: {},
+        recipe: null,
       }).success,
     ).toBe(false);
+  });
+
+  it('resolves a recipe scene once into background params and a layer plan', () => {
+    const scene = sceneAt(0);
+    scene.objects = [];
+    scene.implementation = {
+      type: 'recipe',
+      recipeId: 'hook-hero',
+      variant: 'subject-lead',
+      slots: {
+        title: 'ПОЧЕМУ НЕБО СИНЕЕ?',
+        kicker: 'НАУКА',
+        subject: { assetKey: 'water-drop' },
+      },
+    };
+
+    const resolved = resolveSceneComponent(scene);
+
+    expect(resolved.componentId).toBe('parallax-city');
+    expect(resolved.source).toBe('implementation');
+    expect(resolved.recipe).toMatchObject({
+      id: 'hook-hero',
+      variant: 'subject-lead',
+    });
+    expect(resolved.recipe?.layers.map((layer) => layer.kind)).toEqual([
+      'subject',
+      'text',
+      'hud-chip',
+    ]);
+    expect(resolved.recipe?.layers.map((layer) => layer.content)).toEqual([
+      'assets/starter/water-drop.svg',
+      'ПОЧЕМУ НЕБО СИНЕЕ?',
+      'НАУКА',
+    ]);
+    expect(resolved.slotDiagnostics).toEqual([]);
+  });
+
+  it('never masks a recipe error with the declared fallback', () => {
+    const scene = sceneAt(0);
+    scene.objects = [];
+    scene.implementation = {
+      type: 'recipe',
+      recipeId: 'fact-object',
+      variant: 'stage',
+      slots: { fact: 'ФАКТ' },
+    };
+
+    expect(() => resolveSceneComponent(scene)).toThrow(/subject/);
   });
 });

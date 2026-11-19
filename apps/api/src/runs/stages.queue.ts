@@ -5,8 +5,10 @@ import {
   STAGE_QUEUES,
   STAGE_OF_QUEUE,
   stageJobId,
+  stageJobProgressSchema,
   type EnqueueStageResponse,
   type StageJobData,
+  type StageJobProgress,
   type StageJobResult,
   type StageJobSnapshot,
   type StageQueueName,
@@ -26,6 +28,26 @@ function mapJobState(state: string): StageJobSnapshot['status'] {
     default:
       return 'queued';
   }
+}
+
+/**
+ * BullMQ progress is `number` for simple stages and a structured object for
+ * stages that can explain a long step (scene render + ETA). Unknown shapes are
+ * ignored instead of failing the snapshot.
+ */
+function readJobProgress(value: unknown): {
+  progress: number;
+  progressDetail?: StageJobProgress;
+} {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { progress: Math.min(100, Math.max(0, value)) };
+  }
+
+  const parsed = stageJobProgressSchema.safeParse(value);
+
+  return parsed.success
+    ? { progress: parsed.data.percent, progressDetail: parsed.data }
+    : { progress: 0 };
 }
 
 @Injectable()
@@ -95,7 +117,7 @@ export class StagesQueue implements OnModuleDestroy {
       jobId,
       stage: STAGE_OF_QUEUE[stage],
       status: mapJobState(await job.getState()),
-      progress: typeof job.progress === 'number' ? job.progress : 0,
+      ...readJobProgress(job.progress),
       result: job.returnvalue ?? undefined,
       failedReason: job.failedReason || undefined,
     };

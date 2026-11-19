@@ -26,6 +26,19 @@ const envSchema = z.object({
   DEEPSEEK_API_KEY: z.string().min(1).optional(),
   LLM_BASE_URL: z.string().min(1).default('https://api.deepseek.com'),
   LLM_MODEL: z.string().min(1).default('deepseek-flash'),
+  /**
+   * Token tariffs for generated assets; required only when the SVG provider is
+   * enabled. Costs are measured from tokens × tariff, never estimated.
+   */
+  LLM_INPUT_USD_PER_MTOK: z.coerce.number().positive().optional(),
+  LLM_OUTPUT_USD_PER_MTOK: z.coerce.number().positive().optional(),
+  /** Episode subject source (M3.6b.9); one variable rolls back to Pixabay. */
+  VISUALS_SOURCE: z.enum(['pixabay', 'deepseek-svg']).default('pixabay'),
+  ASSET_LLM_MAX_USD_PER_CALL: z.coerce.number().positive().default(0.02),
+  /** Run policy, not a measurement: checked before every provider call. */
+  ASSET_LLM_MAX_USD_PER_RUN: z.coerce.number().positive().default(0.25),
+  /** Acceptance lever for the SVG provider; unset in production. */
+  DEEPSEEK_SVG_FORCE_FAILURE: z.enum(['unavailable', 'empty']).optional(),
   ELEVENLABS_API_KEY: z.string().min(1).optional(),
   ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
   ELEVENLABS_MODEL_ID: z.string().min(1).default('eleven_multilingual_v2'),
