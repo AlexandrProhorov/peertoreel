@@ -112,7 +112,7 @@ async function generateScene(options: {
         themeId: planned.theme,
         context: sceneContext(options.arc, planned, options.index),
       })}${correction}`,
-      temperature: 0.8,
+      temperature: 0.7,
     });
 
     options.tokens.prompt += response.usage.promptTokens;
@@ -233,7 +233,7 @@ async function main(): Promise<void> {
           (arcErrors.length === 0
             ? ''
             : `\n\nОтклонено валидатором:\n${arcErrors.map((line) => `- ${line}`).join('\n')}`),
-        temperature: 0.8,
+        temperature: 0.7,
       });
 
       tokens.prompt += response.usage.promptTokens;

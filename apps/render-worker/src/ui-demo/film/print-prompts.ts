@@ -72,4 +72,4 @@ console.log(
   }),
 );
 console.log('\n===== CALL =====');
-console.log('temperature: 0.8, max_tokens: 8000, response_format: {"type":"json_object"}');
+console.log('temperature: 0.7, max_tokens: 8000, response_format: {"type":"json_object"}');

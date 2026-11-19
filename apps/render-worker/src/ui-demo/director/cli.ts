@@ -111,7 +111,7 @@ async function directOne(options: {
     const response = await options.client.complete({
       system: DIRECTOR_SYSTEM_PROMPT,
       user: `${buildUserPrompt(options.topic)}${correction}`,
-      temperature: 0.8,
+      temperature: 0.7,
     });
 
     promptTokens += response.usage.promptTokens;
