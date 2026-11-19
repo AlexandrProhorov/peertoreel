@@ -4,6 +4,7 @@ import {
   MAX_ELEMENTS_PER_SCENE,
   MAX_INSTANCES_PER_PRIMITIVE,
   PRIMITIVES,
+  TEXT_PRIMITIVES,
   implementationById,
   type PrimitiveId,
 } from './catalog.js';
@@ -425,6 +426,16 @@ describe('composition validation', () => {
     spec.sequence[1] = { at: 0.4, element: 'thumb', transition: 'tap', target: 'btn' };
 
     expect(validateComposition(spec).map((issue) => issue.code)).toEqual([]);
+  });
+
+  it('declares the text capability exactly where a text parameter exists', () => {
+    for (const [id, contract] of Object.entries(PRIMITIVES)) {
+      expect(Boolean(contract.carriesText), id).toBe('text' in contract.parameters);
+    }
+  });
+
+  it('derives the text primitive set from the capability, not from a list', () => {
+    expect([...TEXT_PRIMITIVES].sort()).toEqual(['bubble', 'card', 'label', 'pill']);
   });
 
   it('accepts `tone` and `textColor` on every text primitive', () => {

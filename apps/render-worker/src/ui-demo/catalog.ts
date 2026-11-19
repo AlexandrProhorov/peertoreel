@@ -69,6 +69,12 @@ export interface PrimitiveContract {
   readonly operations: readonly string[];
   /** Every primitive can appear and disappear: lifecycle is not per case. */
   readonly lifecycles: readonly ['appear', 'disappear'];
+  /**
+   * The primitive draws its own copy. Declared once: every gate that treats
+   * text specially reads `TEXT_PRIMITIVES` derived from this flag, so a new
+   * text primitive cannot be wired into rendering and forgotten in a gate.
+   */
+  readonly carriesText?: boolean;
 }
 
 const LIFECYCLE: readonly ['appear', 'disappear'] = ['appear', 'disappear'];
@@ -104,6 +110,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     transitions: ['appear', 'disappear', 'hold', 'move', 'scale', 'highlight'],
     operations: ['reveal', 'move', 'scale'],
     lifecycles: LIFECYCLE,
+    carriesText: true,
   },
   pill: {
     parameters: {
@@ -126,6 +133,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     transitions: ['appear', 'disappear', 'activate', 'type', 'hold'],
     operations: ['reveal', 'move', 'scale', 'type-on'],
     lifecycles: LIFECYCLE,
+    carriesText: true,
   },
   bubble: {
     parameters: {
@@ -143,6 +151,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     transitions: ['appear', 'disappear', 'type', 'hold'],
     operations: ['reveal', 'type-on', 'move'],
     lifecycles: LIFECYCLE,
+    carriesText: true,
   },
   avatar: {
     parameters: {
@@ -185,6 +194,7 @@ export const PRIMITIVES: Readonly<Record<PrimitiveId, PrimitiveContract>> = {
     transitions: ['appear', 'disappear', 'type', 'hold', 'move', 'scale', 'highlight'],
     operations: ['reveal', 'type-on', 'move'],
     lifecycles: LIFECYCLE,
+    carriesText: true,
   },
   thumb: {
     parameters: {
@@ -398,3 +408,8 @@ export function hasOperation(implementation: ImplementationContract, operation: 
   return implementation.operations.includes(operation);
 }
 
+
+/** Primitives that draw their own copy: derived, never hand-listed. */
+export const TEXT_PRIMITIVES: ReadonlySet<PrimitiveId> = new Set(
+  (Object.keys(PRIMITIVES) as PrimitiveId[]).filter((id) => PRIMITIVES[id].carriesText === true),
+);

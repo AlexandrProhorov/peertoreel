@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { TEXT_PRIMITIVES } from '../catalog.js';
 import { lintMeasurements } from '../lint/rules.js';
 import { measureUiEpisode } from '../lint/render.js';
 import type { UiEpisode } from '../spec.js';
@@ -37,7 +38,7 @@ function floorTo(value: number, step = 0.05): number {
 function fitType<T extends { primitive: string; params: Record<string, string | number | boolean>; layout: { height?: number } }>(
   element: T,
 ): T {
-  if (!['label', 'pill', 'bubble'].includes(element.primitive)) {
+  if (TEXT_PRIMITIVES.has(element.primitive as never)) {
     return element;
   }
 

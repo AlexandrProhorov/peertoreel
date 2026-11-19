@@ -265,7 +265,11 @@ function applyInsets(elements: readonly Unknown[]): Unknown[] {
         continue;
       }
 
-      if (overlapX * overlapY < box.width * box.height * 0.5) {
+      /* Text must sit inside the padding; a track or a line that merely crosses
+         the edge still has to respect it. */
+      const minimal = primitive === 'track' || primitive === 'line' ? 1 : box.width * box.height * 0.5;
+
+      if (overlapX * overlapY < minimal) {
         continue;
       }
 

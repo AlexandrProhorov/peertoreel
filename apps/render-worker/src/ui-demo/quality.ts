@@ -1,3 +1,4 @@
+import { TEXT_PRIMITIVES } from './catalog.js';
 import type { CompositionSpec } from './composition.js';
 import { themeById, type UiTheme, type UiThemeId } from './themes.js';
 import type { TypeToken } from './typography.js';
@@ -265,8 +266,30 @@ export function lintQuality(
   }
 
   const textElements = spec.elements.filter((element) =>
-    ['label', 'pill', 'bubble'].includes(element.primitive),
+    TEXT_PRIMITIVES.has(element.primitive as never),
   );
+
+  /** Card captions never pick their ink: it is derived from the fill. */
+  const inkOnFill = (fill: string): string => {
+    const match = /^#([0-9a-f]{6})$/i.exec(fill);
+
+    if (match?.[1] === undefined) {
+      return '#0B0B0C';
+    }
+
+    const value = Number.parseInt(match[1], 16);
+    const channel = (raw: number): number => {
+      const unit = raw / 255;
+
+      return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance =
+      0.2126 * channel((value >> 16) & 255) +
+      0.7152 * channel((value >> 8) & 255) +
+      0.0722 * channel(value & 255);
+
+    return luminance > 0.35 ? '#0B0B0C' : '#FFFFFF';
+  };
 
   let hasHierarchy = false;
   let hasAccent = false;
@@ -279,7 +302,9 @@ export function lintQuality(
     const explicitColor =
       typeof params.textColor === 'string' ? params.textColor : null;
 
-    if (token === null || (tone === null && explicitColor === null)) {
+    const isCard = element.primitive === 'card';
+
+    if (!isCard && (token === null || (tone === null && explicitColor === null))) {
       add('style-required', element.id, 'text needs explicit token and tone');
       continue;
     }
@@ -292,7 +317,11 @@ export function lintQuality(
       hasAccent = true;
     }
 
-    const color = explicitColor ?? toneColor(theme, tone ?? undefined);
+    const cardFill =
+      typeof params.background === 'string' ? params.background : theme.surface;
+    const color = isCard
+      ? inkOnFill(cardFill)
+      : (explicitColor ?? toneColor(theme, tone ?? undefined));
     const container = surfaces
       .filter((surface) => contains(surface.layout, element.layout))
       .pop();
