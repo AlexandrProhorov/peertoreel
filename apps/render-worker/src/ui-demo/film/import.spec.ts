@@ -51,13 +51,13 @@ describe('foreign model import', () => {
     expect(deepseek.repairs.map((repair) => repair.path)).toContain('card.shadow');
   });
 
-  it('keeps every scene duration from the model, not a default', () => {
+  it('cuts the scene to its action instead of keeping the planned tail', () => {
     const result = importForeignEpisode(foreign('claude-subscriptions.json'));
     const durations = result.episode?.scenes.map((scene) => scene.durationSec) ?? [];
 
-    /* The scene never gets shorter than the action it contains; the first one
-       gains 0.1s from its typed title and its steps. */
-    expect(durations).toEqual([5.1, 7, 8, 7]);
+    /* The arc plans 5/7/8/7 seconds; the film keeps action plus a one-second
+       tail, so the frame does not stand still past the point. */
+    expect(durations).toEqual([5, 5.2, 6.6, 6.7]);
   });
 
   it('rejects a scene the contract cannot repair', () => {

@@ -1,6 +1,6 @@
 import { tokenForHeight } from '../typography-rules.js';
 import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
-import { deriveTiming, stretchTiming } from '../timing-plan.js';
+import { deriveTiming } from '../timing-plan.js';
 import {
   accentPlate,
   accentPlateInk,
@@ -620,19 +620,28 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       );
       const needsTiming = ordered.some((step) => step['at'] === undefined);
       const planned = typeof scene['durationSec'] === 'number' ? scene['durationSec'] : 0;
-      const timing = needsTiming
-        ? stretchTiming(
-            deriveTiming(
-              ordered.map((step) => ({
-                element: String(step['element'] ?? ''),
-                transition: String(step['transition'] ?? ''),
-                ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
-                ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
-              })),
-            ),
-            planned,
+      const derived = needsTiming
+        ? deriveTiming(
+            ordered.map((step) => ({
+              element: String(step['element'] ?? ''),
+              transition: String(step['transition'] ?? ''),
+              ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
+              ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
+            })),
           )
         : null;
+      /* The arc's seconds are a ceiling, not a sentence: a scene lives as long as
+         its action plus a short tail, and the rest is cut. */
+      const timing =
+        derived === null
+          ? null
+          : {
+              cues: derived.cues,
+              durationSec:
+                planned > 0
+                  ? Number(Math.min(planned, derived.durationSec + 1).toFixed(2))
+                  : derived.durationSec,
+            };
 
       return {
         ...scene,

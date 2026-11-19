@@ -48,10 +48,12 @@ export function deriveTiming(steps: readonly OrderedStep[]): DerivedTiming {
 
   for (const step of steps) {
     const seconds = TRANSITION_SECONDS[step.transition] ?? 0.4;
-    const weight = Math.min(3, Math.max(1, Math.round(step.weight ?? 1)));
 
+    /* `weight` marks the key beat; it must not buy silence. A heavier step used
+       to add a pause, and the pause is exactly the dead time the frame review
+       found. */
     cues.push({ ...step, at: Number(cursor.toFixed(2)) });
-    cursor += seconds + STEP_GAP_SECONDS * weight;
+    cursor += seconds + STEP_GAP_SECONDS;
   }
 
   /* After the loop the cursor sits one gap past the end of the last animation. */

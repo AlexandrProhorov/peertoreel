@@ -45,7 +45,7 @@ describe('derived timing', () => {
     expect(times).toEqual([...times].sort((left, right) => left - right));
   });
 
-  it('a heavier step keeps the frame longer', () => {
+  it('a heavier step does not buy silence', () => {
     const light = deriveTiming([
       { element: 'a', transition: 'appear' },
       { element: 'a', transition: 'type' },
@@ -55,7 +55,9 @@ describe('derived timing', () => {
       { element: 'a', transition: 'type' },
     ]);
 
-    expect(heavy.cues[1]?.at ?? 0).toBeGreaterThan(light.cues[1]?.at ?? 0);
+    /* The weight marks the beat; the gap between events stays constant, because
+       a pause is exactly the dead time the frame review measures. */
+    expect(heavy.cues[1]?.at).toBe(light.cues[1]?.at);
   });
 
   it('stretches a short action across a longer planned scene', () => {    const action = deriveTiming([
