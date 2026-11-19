@@ -572,6 +572,46 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       const focused = applyFocus(prepared, spec['focus'], theme);
       const { elements: kept, dropped } = dropEmptySurfaces(focused, repairs, sceneTheme);
 
+      /* A focus can outlive its element: the blank it pointed at may have been
+         removed. Retarget to the largest captioned surface instead of leaving a
+         dangling reference and an "no accent" rejection. */
+      let focus: unknown = spec['focus'];
+      let finalElements = kept;
+
+      if (typeof focus === 'string' && dropped.has(focus)) {
+        const target = kept
+          .filter(
+            (element) =>
+              ['card', 'pill', 'bubble'].includes(String(element['primitive'])) &&
+              typeof (element['params'] as Record<string, unknown> | undefined)?.['text'] ===
+                'string',
+          )
+          .sort((a, b) => {
+            const first = rawBox(a);
+            const second = rawBox(b);
+
+            return (
+              (second === null ? 0 : second.width * second.height) -
+              (first === null ? 0 : first.width * first.height)
+            );
+          })[0];
+
+        if (target !== undefined) {
+          repairs.push({
+            element: typeof target['id'] === 'string' ? target['id'] : null,
+            path: 'focus-retargeted',
+            reason: 'the focused element was removed',
+            from: focus,
+            to: String(target['id']),
+          });
+          focus = target['id'];
+        } else {
+          focus = undefined;
+        }
+
+        finalElements = applyFocus(kept, focus, theme);
+      }
+
       /* Timing: an ordered list without `at` becomes absolute cues here. The
          cue list fills the planned scene instead of leaving a frozen tail. */
       const sequence = spec['sequence'];
@@ -602,7 +642,8 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
           ...(timing !== null ? {} : dropped.size === 0 ? {} : {
             sequence: ordered,
           }),
-          elements: kept,
+          ...(focus === undefined ? { focus: undefined } : { focus }),
+          elements: finalElements,
         },
       };
     }),

@@ -36,6 +36,7 @@ export interface Repair {
 export const SEMANTIC_REPAIRS: ReadonlySet<string> = new Set([
   'surface-removed',
   'accent-transferred',
+  'focus-retargeted',
   'caption-attached',
   'grid',
 ]);

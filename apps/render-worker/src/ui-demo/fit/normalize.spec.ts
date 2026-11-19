@@ -257,6 +257,54 @@ describe('surface separation', () => {
     ]);
   });
 
+  it('retargets a focus whose element was removed as empty', () => {
+    const raw = {
+      schemaVersion: 1,
+      themeId: 'studio-dark',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'retarget',
+          device: 'spec',
+          durationSec: 3,
+          revealSec: 1,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            focus: 'blank',
+            elements: [
+              {
+                id: 'blank',
+                primitive: 'card',
+                layout: { x: 72, y: 1200, width: 300, height: 200 },
+                params: { background: '#161618' },
+              },
+              {
+                id: 'kept',
+                primitive: 'card',
+                layout: { x: 72, y: 300, width: 400, height: 300 },
+                params: { background: '#161618', text: 'осталось' },
+              },
+            ],
+            sequence: [],
+          },
+        },
+      ],
+    };
+    const repairs: Repair[] = [];
+    const normalized = normalizeRawEpisode(raw, repairs) as {
+      scenes: ReadonlyArray<{
+        spec: { focus?: string; elements: ReadonlyArray<{ id: string }> };
+      }>;
+    };
+    const scene = normalized.scenes[0];
+
+    expect(scene?.spec.focus).toBe('kept');
+    expect(scene?.spec.elements.map((item) => item.id)).toEqual(['kept']);
+    expect(repairs.map((repair) => repair.path)).toContain('focus-retargeted');
+  });
+
   it('applies the card padding to a track and shortens its rail', () => {
     const raw = {
       schemaVersion: 1,
