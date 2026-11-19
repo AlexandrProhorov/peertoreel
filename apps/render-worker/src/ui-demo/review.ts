@@ -134,6 +134,7 @@ async function reviewEpisode(dir: string): Promise<unknown> {
     deadShare: Number((dead.deadSeconds / Math.max(0.1, dead.sampledFrames / SAMPLE_FPS)).toFixed(2)),
     textElements,
     primitives: [...primitives].sort(),
+    deadShareAt: Object.fromEntries([0.5, 1, 1.5, 2, 3].map((threshold) => [String(threshold), Number((diffs.filter((diff) => diff < threshold).length / Math.max(1, diffs.length)).toFixed(2))])),
   };
 }
 
@@ -147,7 +148,7 @@ async function main(): Promise<void> {
   const report: unknown[] = [];
 
   for (const entry of await readdir(root, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !/^\d/.test(entry.name)) {
+    if (!entry.isDirectory() || ['render', 'review'].includes(entry.name)) {
       continue;
     }
 

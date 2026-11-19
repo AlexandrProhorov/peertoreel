@@ -1,0 +1,21 @@
+{
+  "thesis": "Калибровка: очень медленное перемещение.",
+  "scenes": [
+    {
+      "id": "drift",
+      "seconds": 8,
+      "theme": "studio-dark",
+      "spec": { "focus": "chunk",
+        "elements": [
+          { "id": "bg", "primitive": "stage", "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 }, "params": { "background": "#0A0A0B" } },
+          { "id": "chunk", "primitive": "card", "layout": { "x": 120, "y": 700, "width": 840, "height": 500 }, "params": { "background": "#161618", "text": "дрейф" } }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "chunk", "transition": "appear" },
+          { "element": "chunk", "transition": "move", "weight": 3 }
+        ]
+      }
+    }
+  ]
+}
