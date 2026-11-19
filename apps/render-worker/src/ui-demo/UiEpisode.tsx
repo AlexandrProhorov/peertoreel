@@ -130,7 +130,8 @@ export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
         backgroundColor: '#000000',
       }}
     >
-      {placed.map(({ scene, from, durationInFrames }) => {
+      {placed.map(({ scene, from, durationInFrames }, index) => {
+        const first = index === 0;
         const track = episode.captions
           ? sceneSpeechTrack(episode, scene.id)
           : null;
@@ -142,7 +143,7 @@ export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
             durationInFrames={durationInFrames}
             name={`${scene.device}:${scene.id}`}
           >
-            <SceneSlide enter={scene.enter ?? 'cut'}>
+            <SceneSlide enter={first ? 'cut' : (scene.enter ?? 'cut')}>
               <UiSceneView
                 episode={episode}
                 scene={scene}
