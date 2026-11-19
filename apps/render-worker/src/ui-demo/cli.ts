@@ -10,6 +10,7 @@ import {
   type UiEpisode,
   type UiScene,
 } from './spec.js';
+import { placeScenes } from './scene-timeline.js';
 import { scheduleWords } from './timing.js';
 
 /**
@@ -253,23 +254,16 @@ async function main(): Promise<void> {
   }
 
   const manifestPath = path.join(outDir, 'manifest.json');
-  let cursor = 0;
-  const sceneRows = episode.scenes.map((scene) => {
-    const durationInFrames = uiSceneFrames(scene, SCENE_FPS);
-    const row = {
-      id: scene.id,
-      device: scene.device,
-      themeId: scene.themeId ?? episode.themeId,
-      fromFrame: cursor,
-      durationInFrames,
-      durationSec: durationInFrames / SCENE_FPS,
-      revealSec: scene.revealSec,
-    };
-
-    cursor += durationInFrames;
-
-    return row;
-  });
+  const timeline = placeScenes(episode.scenes, SCENE_FPS);
+  const sceneRows = timeline.placed.map(({ scene, from, durationInFrames }) => ({
+    id: scene.id,
+    device: scene.device,
+    themeId: scene.themeId ?? episode.themeId,
+    fromFrame: from,
+    durationInFrames,
+    durationSec: durationInFrames / SCENE_FPS,
+    revealSec: scene.revealSec,
+  }));
 
   await writeFile(
     manifestPath,

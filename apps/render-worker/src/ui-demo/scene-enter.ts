@@ -91,7 +91,9 @@ export function sceneEnterStyle(enter: string, frame: number): SceneEnterStyle {
     const x = from[0] * (1 - progress);
     const y = from[1] * (1 - progress);
 
-    return { transform: `translate(${x}px, ${y}px)` };
+    /* The move carries a dissolve: the arriving frame is not fully opaque until
+       it lands, so the outgoing frame reads through it instead of being cut. */
+    return { transform: `translate(${x}px, ${y}px)`, opacity: progress };
   }
 
   switch (enter) {
@@ -101,12 +103,19 @@ export function sceneEnterStyle(enter: string, frame: number): SceneEnterStyle {
       return {
         transform: `scale(${(ZOOM_FROM - (ZOOM_FROM - 1) * progress).toFixed(4)})`,
         transformOrigin: 'center center',
+        opacity: progress,
       };
     case 'wipe-left':
       /* The scene is revealed from its left edge: the inset shrinks to zero. */
-      return { clipPath: `inset(0 ${((1 - progress) * 100).toFixed(2)}% 0 0)` };
+      return {
+        clipPath: `inset(0 ${((1 - progress) * 100).toFixed(2)}% 0 0)`,
+        opacity: progress,
+      };
     case 'wipe-right':
-      return { clipPath: `inset(0 0 0 ${((1 - progress) * 100).toFixed(2)}%)` };
+      return {
+        clipPath: `inset(0 0 0 ${((1 - progress) * 100).toFixed(2)}%)`,
+        opacity: progress,
+      };
     default:
       return {};
   }

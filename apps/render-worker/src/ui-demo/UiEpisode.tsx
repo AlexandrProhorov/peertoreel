@@ -12,8 +12,9 @@ import {
   CRITICAL_SAFE_BOUNDS,
   PLATFORM_OVERLAY,
 } from './platform.js';
-import { uiSceneFrames, type UiEpisodeInputProps } from './spec.js';
+import { type UiEpisodeInputProps } from './spec.js';
 import { sceneEnterStyle } from './scene-enter.js';
+import { placeScenes, sceneExitStyle } from './scene-timeline.js';
 import { sceneSpeechTrack, SpeechCaption } from './SpeechCaption.js';
 import { FONT_FAMILY, FONT_LOAD_SPECS } from './typography.js';
 import { UiSceneView } from './UiScene.js';
@@ -92,6 +93,28 @@ function SceneEnter({
 }
 
 /**
+ * The scene that leaves while the next one arrives. Its movement is the mirror
+ * of the incoming entrance, so a slide pushes instead of covering: the two
+ * frames stay edge to edge and the black background never shows.
+ */
+function SceneExit({
+  nextEnter,
+  durationInFrames,
+  overlapFrames,
+  children,
+}: {
+  nextEnter: string | undefined;
+  durationInFrames: number;
+  overlapFrames: number;
+  children: React.ReactNode;
+}) {
+  const frame = useCurrentFrame();
+  const style = sceneExitStyle(nextEnter, frame, durationInFrames, overlapFrames);
+
+  return <AbsoluteFill style={style}>{children}</AbsoluteFill>;
+}
+
+/**
  * A degraded scene says so on the frame. The film must never be silently
  * incomplete, and a person reviewing a draft must see where the weak frame is
  * without reading the report. Autoposting filters on the same `degraded` field.
@@ -123,15 +146,7 @@ function DegradedMark() {
 export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
   useLocalFontsReady('Loading UI demo fonts');
   const { fps } = useVideoConfig();
-  let cursor = 0;
-
-  const placed = episode.scenes.map((scene) => {
-    const durationInFrames = uiSceneFrames(scene, fps);
-    const item = { scene, from: cursor, durationInFrames };
-    cursor += durationInFrames;
-
-    return item;
-  });
+  const timeline = placeScenes(episode.scenes, fps);
 
   return (
     <AbsoluteFill
@@ -141,11 +156,14 @@ export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
         backgroundColor: '#000000',
       }}
     >
-      {placed.map(({ scene, from, durationInFrames }, index) => {
+      {timeline.placed.map(({ scene, from, durationInFrames }, index) => {
         const first = index === 0;
         const track = episode.captions
           ? sceneSpeechTrack(episode, scene.id)
           : null;
+        /* The next scene overlaps this one: a slide pushes this frame out, a fade
+           dims it, a wipe and a zoom cover it. The background never shows. */
+        const next = timeline.placed[index + 1];
 
         return (
           <Sequence
@@ -154,13 +172,19 @@ export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
             durationInFrames={durationInFrames}
             name={`${scene.device}:${scene.id}`}
           >
-            <SceneEnter enter={first ? 'cut' : (scene.enter ?? 'cut')}>
-              <UiSceneView
-                episode={episode}
-                scene={scene}
-                durationInFrames={durationInFrames}
-              />
-            </SceneEnter>
+            <SceneExit
+              nextEnter={next?.scene.enter}
+              durationInFrames={durationInFrames}
+              overlapFrames={next?.overlap ?? 0}
+            >
+              <SceneEnter enter={first ? 'cut' : (scene.enter ?? 'cut')}>
+                <UiSceneView
+                  episode={episode}
+                  scene={scene}
+                  durationInFrames={durationInFrames}
+                />
+              </SceneEnter>
+            </SceneExit>
             {track === null ? null : <SpeechCaption track={track} />}
             {scene.degraded === undefined ? null : <DegradedMark />}
           </Sequence>

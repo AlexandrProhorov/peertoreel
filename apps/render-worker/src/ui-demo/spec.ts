@@ -4,6 +4,7 @@ import { ASSET_KEYS, resolveAsset } from './assets.js';
 import { compositionSpecSchema, parseComposition } from './composition.js';
 import { lintQuality } from './quality.js';
 import { ENTER_IDS } from './scene-enter.js';
+import { placeScenes } from './scene-timeline.js';
 import { UI_THEME_IDS } from './themes.js';
 
 /**
@@ -297,10 +298,7 @@ export function uiSceneFrames(scene: UiScene, fps: number): number {
 }
 
 export function uiEpisodeFrames(episode: UiEpisode, fps: number): number {
-  return episode.scenes.reduce(
-    (total, scene) => total + uiSceneFrames(scene, fps),
-    0,
-  );
+  return placeScenes(episode.scenes, fps).totalFrames;
 }
 
 export function sceneThemeId(episode: UiEpisode, scene: UiScene) {
