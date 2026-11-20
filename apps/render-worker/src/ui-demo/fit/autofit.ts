@@ -4,7 +4,9 @@ import { lintMeasurements } from '../lint/rules.js';
 import { measureUiEpisode } from '../lint/render.js';
 import type { UiEpisode } from '../spec.js';
 import { MIN_FONT_SCALE, tokenForHeight } from '../typography-rules.js';
+import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { clampLayout } from './clamp.js';
+import { growToFit } from './grow.js';
 
 /**
  * Repair pass: clamp the layout, then fit the text, then report what is left.
@@ -24,6 +26,8 @@ export interface FitOptions {
 export interface FitResult {
   readonly episode: UiEpisode;
   readonly fixes: ReadonlyArray<{ elementId: string; from: number; to: number }>;
+  /** Boxes that were grown to take the copy without shrinking the type. */
+  readonly grown: ReadonlyArray<{ elementId: string; width: number; height: number }>;
   /** Text that still does not fit at the floor: the copy is too long. */
   readonly overflowing: readonly string[];
   /** Technical violations left after the repair. */
@@ -32,6 +36,17 @@ export interface FitResult {
 
 function floorTo(value: number, step = 0.05): number {
   return Math.floor(value / step) * step;
+}
+
+function rectOf(element: {
+  layout: { x: number; y: number; width?: number; height?: number };
+}): { x: number; y: number; width: number; height: number } {
+  return {
+    x: element.layout.x,
+    y: element.layout.y,
+    width: element.layout.width ?? 0,
+    height: element.layout.height ?? 0,
+  };
 }
 
 /** The box decides the type size on text elements; containers are left alone. */
@@ -76,6 +91,7 @@ export async function repairEpisode(
     ),
   } as UiEpisode;
   const fixes: FitResult['fixes'][number][] = [];
+  const grownFixes: FitResult['grown'][number][] = [];
 
   for (let pass = 1; pass <= MAX_PASSES; pass += 1) {
     const measurement = await measureUiEpisode({
@@ -119,25 +135,63 @@ export async function repairEpisode(
               typeof element.params.fontScale === 'number'
                 ? element.params.fontScale
                 : 1;
-            const heightRatio =
-              (box.boxHeight ?? 0) / Math.max(1, box.contentHeight ?? 1);
-            const widthRatio =
-              (box.boxWidth ?? 0) / Math.max(1, box.contentWidth ?? 1);
-            const next = Math.max(
-              MIN_FONT_SCALE,
-              floorTo(currentScale * Math.min(heightRatio, widthRatio) * 0.95),
-            );
+            /* Grow first: the frame usually has room, and the type size is part
+               of the design. The font shrinks only for what the frame cannot
+               take. */
+            const obstacles = scene.spec.elements
+              .filter((other) => other.id !== element.id)
+              .map(rectOf)
+              .filter((rect) => rect.width > 0 && rect.height > 0);
+            const need = {
+              width: (box.contentWidth ?? 0) + 8,
+              height: (box.contentHeight ?? 0) + 8,
+            };
+            const grown = growToFit(rectOf(element), need, obstacles, CRITICAL_SAFE_BOUNDS);
 
-            if (next >= currentScale) {
+            if (grown.grew) {
+              grownFixes.push({
+                elementId: element.id,
+                width: Number(grown.layout.width.toFixed(1)),
+                height: Number(grown.layout.height.toFixed(1)),
+              });
+            }
+
+            /* A box that reached the size the copy asked for needs no font cut:
+               the next measurement pass confirms it. */
+            const satisfied =
+              grown.layout.width >= need.width - 0.5 && grown.layout.height >= need.height - 0.5;
+            const heightRatio =
+              grown.layout.height / Math.max(1, box.contentHeight ?? 1);
+            const widthRatio =
+              grown.layout.width / Math.max(1, box.contentWidth ?? 1);
+            const next = satisfied
+              ? currentScale
+              : Math.max(
+                  MIN_FONT_SCALE,
+                  floorTo(currentScale * Math.min(heightRatio, widthRatio) * 0.95),
+                );
+
+            if (next >= currentScale && !grown.grew) {
               return element;
             }
 
-            fixes.push({ elementId: element.id, from: currentScale, to: next });
+            const layout = grown.grew
+              ? {
+                  ...element.layout,
+                  width: grown.layout.width,
+                  height: grown.layout.height,
+                }
+              : element.layout;
+            const params =
+              next >= currentScale
+                ? element.params
+                : { ...element.params, fontScale: Number(next.toFixed(2)) };
 
-            return {
-              ...element,
-              params: { ...element.params, fontScale: Number(next.toFixed(2)) },
-            };
+            if (next < currentScale) {
+              fixes.push({ elementId: element.id, from: currentScale, to: next });
+            }
+
+            return { ...element, layout, params };
           }),
         },
       };
@@ -174,6 +228,7 @@ export async function repairEpisode(
   return {
     episode: current,
     fixes,
+    grown: grownFixes,
     overflowing: stillOverflowing,
     violations,
   };
