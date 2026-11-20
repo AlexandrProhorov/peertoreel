@@ -5,6 +5,7 @@ import {
   type PrimitiveId,
 } from '../catalog.js';
 import { tokenForHeight } from '../typography-rules.js';
+import { COLOR_ROLES } from '../themes.js';
 import { aliasedParameter, aliasedState, parameterBelongsToAnother, transitionIsOperation } from './aliases.js';
 
 /**
@@ -126,6 +127,10 @@ function enumForBoolean(rule: ParameterSpec, value: boolean): SpecValue | null {
   return values.find((candidate) => candidate !== 'none') ?? null;
 }
 
+function isColorRoleName(value: string): boolean {
+  return COLOR_ROLES.some((role) => role.toLowerCase() === value.trim().toLowerCase());
+}
+
 function salvageValue(
   repairs: Repair[],
   element: string | null,
@@ -138,7 +143,11 @@ function salvageValue(
 
   switch (rule.type) {
     case 'color': {
-      if (typeof value === 'string' && value.startsWith('#')) {
+      /* A role name (`accent`, `surface`, `ink`) is resolved against the theme
+         later: here it is enough to keep the token instead of dropping it. */
+      const named = typeof value === 'string' && isColorRoleName(value);
+
+      if (typeof value === 'string' && (value.startsWith('#') || named)) {
         return value;
       }
 

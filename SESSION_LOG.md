@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-20 | Одна палитра: роль вместо hex, чужой оттенок притягивается к теме | [2026-11-20-08](docs/sessions/2026-11/2026-11-20-08-theme-colours.md) |
 | 2026-11-20 | Лестница попыток: лучшая по нарушениям и сигнатуре, алиасы словаря | [2026-11-20-07](docs/sessions/2026-11/2026-11-20-07-ladder-and-aliases.md) |
 | 2026-11-20 | Fallback-сцена: слова модели на нашем `stage`, видимая метка «наш кадр» | [2026-11-20-06](docs/sessions/2026-11/2026-11-20-06-fallback-scene-mark.md) |
 | 2026-11-20 | Bench: структурная сигнатура сцены и перепись словаря по архивам (`ui:bench`) | [2026-11-20-05](docs/sessions/2026-11/2026-11-20-05-ui-bench-signature.md) |

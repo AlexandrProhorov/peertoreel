@@ -95,3 +95,77 @@ export type ObjectTone = keyof typeof OBJECT_TONES;
 export function themeById(id: UiThemeId): UiTheme {
   return UI_THEMES[id];
 }
+
+/**
+ * One palette, one vocabulary.
+ *
+ * A model may name a colour by role (`accent`, `surface`, `ink`) or repeat a hex
+ * it saw in the theme. Anything else is not a colour from our palette: it is
+ * either a role name that does not exist (dropped) or a foreign hex snapped to
+ * the nearest theme colour, with a repair record. That is what keeps contrast
+ * checks meaningful — the gate never compares two hand-made colours.
+ */
+export const COLOR_ROLES = [
+  'background',
+  'surface',
+  'surfaceInk',
+  'ink',
+  'muted',
+  'accent',
+  'accentInk',
+] as const;
+
+export type ColorRole = (typeof COLOR_ROLES)[number];
+
+export interface ResolvedColor {
+  readonly hex: string;
+  /** Null when the value was already a palette hex; otherwise what we changed. */
+  readonly note: string | null;
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function channel(hex: string, offset: number): number {
+  return Number.parseInt(hex.slice(offset, offset + 2), 16);
+}
+
+function distance(first: string, second: string): number {
+  const dr = channel(first, 1) - channel(second, 1);
+  const dg = channel(first, 3) - channel(second, 3);
+  const db = channel(first, 5) - channel(second, 5);
+
+  return dr * dr + dg * dg + db * db;
+}
+
+function paletteOf(theme: UiTheme): readonly { role: ColorRole; hex: string }[] {
+  return COLOR_ROLES.map((role) => ({ role, hex: theme[role] }));
+}
+
+/** Resolve a role name or a theme hex; null when the value is neither. */
+export function resolveThemeColor(theme: UiTheme, value: string): ResolvedColor | null {
+  const trimmed = value.trim();
+
+  const role = COLOR_ROLES.find((name) => name.toLowerCase() === trimmed.toLowerCase());
+
+  if (role !== undefined) {
+    return { hex: theme[role], note: `role ${role}` };
+  }
+
+  if (!HEX.test(trimmed)) {
+    return null;
+  }
+
+  const lower = trimmed.toLowerCase();
+  const exact = paletteOf(theme).find((entry) => entry.hex.toLowerCase() === lower);
+
+  if (exact !== undefined) {
+    return { hex: exact.hex, note: exact.hex === trimmed ? null : 'palette hex in another case' };
+  }
+
+  const nearest = paletteOf(theme).reduce((best, entry) =>
+    distance(lower, entry.hex) < distance(lower, best.hex) ? entry : best,
+  );
+
+  return { hex: nearest.hex, note: `not from the theme, nearest is ${nearest.hex}` };
+}
+

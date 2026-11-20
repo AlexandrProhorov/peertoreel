@@ -49,8 +49,9 @@ function themeLines(): string {
   return Object.values(UI_THEMES)
     .map(
       (theme) =>
-        `- ${theme.id}: фон ${theme.background}, текст ${theme.ink}, вторичный ${theme.muted}, ` +
-        `поверхность ${theme.surface}, акцент ${theme.accent}, текст на акценте ${theme.accentInk}`,
+        `- ${theme.id}: роли — surface ${theme.surface}, accent ${theme.accent}, ` +
+        `ink ${theme.ink}, muted ${theme.muted}, текст на акценте ${theme.accentInk}; ` +
+        `фон ${theme.background}`,
     )
     .join('\n');
 }
@@ -163,6 +164,9 @@ export function buildUserPrompt(
     '  допустим только на тёмном фоне — на светлом он не читается и будет отклонён;',
     '- поверхность (card, pill, bubble) должна отличаться от фона темы, иначе её не видно.',
   '- поверхность без текста и без содержимого — дырка в кадре: дай подпись или убери её;',
+  '- цвет — это роль, а не оттенок: surface, accent, ink, muted. Роль разрешается темой,',
+  '  поэтому один и тот же спектакль читается на любой теме; hex допустим только из темы,',
+  '  чужой оттенок код заменит ближайшим цветом темы;',
   '- нажатие показывай thumb с переходом tap и полем target (id цели): цель отвечает;',
   '- смена сцены — тоже движение: у сцены есть enter (cut, slide-left, slide-right, slide-up,',
   '  slide-down, fade); по умолчанию fade — мягкое растворение; slide — когда у сцены есть',

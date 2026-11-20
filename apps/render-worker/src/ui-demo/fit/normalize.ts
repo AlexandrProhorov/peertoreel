@@ -10,6 +10,7 @@ import {
   type UiThemeId,
 } from '../themes.js';
 import { clampLayout } from './clamp.js';
+import { snapThemeColors } from './colors.js';
 import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
 
 /**
@@ -735,9 +736,6 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         return scene;
       }
 
-      /* Geometry first: insets and separation decide the final boxes, and only
-         then can "empty" be judged — a card may have received its label. */
-      const prepared = applyInsets(separateSurfaces(elements.map(normalizeElement)));
       const sceneTheme =
         typeof scene['themeId'] === 'string'
           ? scene['themeId']
@@ -747,6 +745,13 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       const theme = (UI_THEME_IDS as readonly string[]).includes(sceneTheme)
         ? themeById(sceneTheme as UiThemeId)
         : null;
+      /* Colour is a theme decision, not a model one: roles and palette hexes are
+         resolved before geometry, so the gates compare palette colours only. */
+      const normalized = elements.map(normalizeElement);
+      const colored = theme === null ? normalized : snapThemeColors(normalized, theme, repairs);
+      /* Geometry next: insets and separation decide the final boxes, and only
+         then can "empty" be judged — a card may have received its label. */
+      const prepared = applyInsets(separateSurfaces(colored));
       const focused = applyFocus(prepared, spec['focus'], theme);
       const { elements: kept, dropped } = dropEmptySurfaces(focused, repairs, sceneTheme);
 
