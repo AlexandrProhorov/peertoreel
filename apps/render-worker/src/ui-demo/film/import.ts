@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
 import type { Repair } from '../fit/salvage.js';
 import { uiEpisodeSchema, type UiEpisode } from '../spec.js';
@@ -202,20 +203,39 @@ async function main(): Promise<void> {
     throw new Error('no scene survived: nothing to write');
   }
 
+  /* The same repair pass the director runs: a foreign answer is accepted only
+     with the fit that production applies, otherwise "ok" here means a broken
+     frame in the film. */
+  const fitted = await repairEpisode(result.episode, {
+    outDir: path.resolve(cwd, `${out}.fit`),
+  });
+
+  for (const grown of fitted.grown) {
+    console.log(`grown ${grown.elementId}: box is now ${grown.width}×${grown.height}`);
+  }
+
+  for (const fix of fitted.fixes) {
+    console.log(`fit ${fix.elementId}: fontScale ${fix.from} -> ${fix.to}`);
+  }
+
+  for (const overflow of fitted.overflowing) {
+    console.log(`overflow ${overflow}`);
+  }
+
   await mkdir(path.dirname(path.resolve(cwd, out)), { recursive: true });
   await writeFile(
     path.resolve(cwd, out),
-    `${JSON.stringify(result.episode, null, 2)}\n`,
+    `${JSON.stringify(fitted.episode, null, 2)}\n`,
     'utf8',
   );
 
-  const seconds = result.episode.scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
+  const seconds = fitted.episode.scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
 
   console.log(
-    `\n${result.statuses.length - result.lost}/${result.statuses.length} scenes, ${seconds.toFixed(1)}s, ${result.repairs.length} salvaged -> ${out}`,
+    `\n${result.statuses.length - result.lost}/${result.statuses.length} scenes, ${seconds.toFixed(1)}s, ${result.repairs.length} salvaged, ${fitted.grown.length} grown, ${fitted.overflowing.length} overflowing -> ${out}`,
   );
 
-  if (result.lost > 0) {
+  if (result.lost > 0 || fitted.overflowing.length > 0) {
     process.exitCode = 1;
   }
 }

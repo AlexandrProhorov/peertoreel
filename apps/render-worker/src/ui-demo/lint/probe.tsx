@@ -86,11 +86,14 @@ function criticalBox(element: HTMLElement, root: HTMLElement): MeasuredBox {
     /* Only a box whose size is declared by the spec can "overflow": a
        content-sized element grows with its text, and its scroll metrics are
        noise. The 4px tolerance absorbs line-height rounding. */
+    /* Overflow is measured on the scroll box, not only on a declared size: a
+       block of text wraps, but a single long word paints past its box, and that
+       is exactly the frame a reviewer sees as broken. A content-sized element
+       whose box grows with its text has scrollSize == offsetSize, so it stays
+       quiet. */
     overflowText:
-      (element.style.height !== '' &&
-        element.scrollHeight > element.offsetHeight + 4) ||
-      (element.style.width !== '' &&
-        element.scrollWidth > element.offsetWidth + 4),
+      element.scrollHeight > element.offsetHeight + 4 ||
+      element.scrollWidth > element.offsetWidth + 4,
     ...(element.dataset.uiElement === undefined
       ? {}
       : { elementId: element.dataset.uiElement }),
