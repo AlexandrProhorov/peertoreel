@@ -78,6 +78,67 @@ describe('salvage', () => {
     expect(repairs[0]).toMatchObject({ path: 'card.glow', from: '0.5' });
   });
 
+  it('repairs a known typo instead of dropping the copy', () => {
+    const value = scene({ a: { text_: 'Скидка', tone: 'ink' } }, { a: 'pill' });
+    const repairs: Repair[] = [];
+    const result = salvageScene(value, repairs) as {
+      spec: { elements: ReadonlyArray<{ params: Record<string, unknown> }> };
+    };
+
+    expect(result.spec.elements[0]?.params['text']).toBe('Скидка');
+    expect(result.spec.elements[0]?.params['text_']).toBeUndefined();
+    expect(repairs[0]).toMatchObject({ path: 'pill.text_', reason: 'alias: the model wrote a known typo' });
+  });
+
+  it('turns a state written as a parameter into a state', () => {
+    const value = scene({ a: { text: 'Кнопка', active: true } }, { a: 'pill' });
+    const repairs: Repair[] = [];
+    const result = salvageScene(value, repairs) as {
+      spec: { elements: ReadonlyArray<{ states?: string[]; params: Record<string, unknown> }> };
+    };
+
+    expect(result.spec.elements[0]?.states).toContain('active');
+    expect(result.spec.elements[0]?.params['active']).toBeUndefined();
+    expect(repairs[0]).toMatchObject({ path: 'pill.active', to: 'states.active' });
+  });
+
+  it('tells a mix-up from a typo when it drops a parameter', () => {
+    const value = scene({ a: { padding: 24 } }, { a: 'bubble' });
+    const repairs = repairsOf(value);
+
+    expect(repairs[0]).toMatchObject({
+      path: 'bubble.padding',
+      reason: 'parameter belongs to another primitive',
+    });
+  });
+
+  it('says when a transition is actually an operation', () => {
+    const value = {
+      id: 'grab',
+      spec: {
+        kind: 'composition',
+        elements: [
+          {
+            id: 'rail',
+            primitive: 'track',
+            layout: { x: 100, y: 100, width: 480, height: 20 },
+            params: { length: 480, thickness: 20, fill: 0.4 },
+          },
+        ],
+        sequence: [
+          { element: 'rail', transition: 'appear' },
+          { element: 'rail', transition: 'move' },
+        ],
+      },
+    };
+    const repairs = repairsOf(value);
+
+    expect(repairs[0]).toMatchObject({
+      path: 'track.move',
+      reason: 'operation written as a transition',
+    });
+  });
+
   it('drops a transition the primitive does not have', () => {
     const value = {
       id: 'grab',

@@ -3,8 +3,10 @@ import {
   degradeScene,
   fallbackScene,
   hasContent,
+  preferAttempt,
   sceneMarkOf,
   titleFromAttempts,
+  type AttemptCandidate,
 } from './degraded.js';
 import { uiEpisodeSchema, uiSceneSchema, type SpecScene } from '../spec.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
@@ -157,5 +159,40 @@ describe('degraded scene', () => {
     expect(hasContent(husk)).toBe(false);
     expect(hasContent(object)).toBe(true);
     expect(hasContent(fallback())).toBe(true);
+  });
+});
+
+describe('attempt ladder', () => {
+  const none = new Set<string>();
+
+  function candidate(violations: readonly string[], signature: string, attempt: number): AttemptCandidate {
+    return { scene: fallback(), violations, signature, attempt };
+  }
+
+  it('prefers the picture with fewer violations, whichever attempt it came from', () => {
+    const first = candidate(['переполнение: claim'], 'spec|a', 1);
+    const fourth = candidate([], 'spec|b', 4);
+    const third = candidate(['сцена статична'], 'spec|c', 3);
+
+    expect(preferAttempt(first, null, none)).toBe(true);
+    expect(preferAttempt(third, candidate([], 'spec|x', 2), none)).toBe(false);
+    expect(preferAttempt(fourth, first, none)).toBe(true);
+  });
+
+  it('breaks a tie on a composition the film does not use yet', () => {
+    const used = new Set(['spec|old']);
+    const repeat = candidate(['сцена статична'], 'spec|old', 4);
+    const fresh = candidate(['сцена статична'], 'spec|new', 2);
+
+    expect(preferAttempt(fresh, repeat, used)).toBe(true);
+    expect(preferAttempt(repeat, fresh, used)).toBe(false);
+  });
+
+  it('falls back to the later attempt when everything else is equal', () => {
+    const early = candidate(['сцена статична'], 'spec|same', 1);
+    const late = candidate(['сцена статична'], 'spec|same', 4);
+
+    expect(preferAttempt(late, early, none)).toBe(true);
+    expect(preferAttempt(early, late, none)).toBe(false);
   });
 });

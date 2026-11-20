@@ -243,3 +243,42 @@ export function sceneMarkOf(scene: Pick<SpecScene, 'fallback' | 'degraded'>): Sc
 
   return scene.degraded === undefined ? null : 'degraded';
 }
+
+/** One attempt that produced a usable picture, with what is still wrong with it. */
+export interface AttemptCandidate {
+  readonly scene: SpecScene;
+  readonly violations: readonly string[];
+  readonly signature: string;
+  readonly attempt: number;
+}
+
+/**
+ * The ladder's rule, lexicographic and explicit: content first (guaranteed by
+ * the caller), then the fewest violations, then a composition the film does not
+ * use yet, and only then the later attempt — it saw more corrections.
+ *
+ * "Last attempt" was the old rule and it shipped the worst picture when the
+ * model got weaker with every retry.
+ */
+export function preferAttempt(
+  candidate: AttemptCandidate,
+  current: AttemptCandidate | null,
+  used: ReadonlySet<string>,
+): boolean {
+  if (current === null) {
+    return true;
+  }
+
+  if (candidate.violations.length !== current.violations.length) {
+    return candidate.violations.length < current.violations.length;
+  }
+
+  const candidateFresh = !used.has(candidate.signature);
+  const currentFresh = !used.has(current.signature);
+
+  if (candidateFresh !== currentFresh) {
+    return candidateFresh;
+  }
+
+  return candidate.attempt > current.attempt;
+}

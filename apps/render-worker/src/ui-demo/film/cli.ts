@@ -13,10 +13,11 @@ import { repairEpisode } from '../fit/autofit.js';
 import { normalizeRawEpisode } from '../fit/normalize.js';
 import type { Repair } from '../fit/salvage.js';
 import { uiEpisodeSchema, type UiEpisode, type SpecScene, type UiScene } from '../spec.js';
+import { sceneSignature } from '../signature.js';
 import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
-import { degradeScene, fallbackScene, hasContent, titleFromAttempts } from './degraded.js';
+import { degradeScene, fallbackScene, hasContent, preferAttempt, titleFromAttempts, type AttemptCandidate } from './degraded.js';
 import { enforceEntranceVariety } from './entrances.js';
 import { placeScenes } from '../scene-timeline.js';
 import { SCENE_FPS } from '../../video-target.js';
@@ -99,6 +100,8 @@ async function generateScene(options: {
   client: ReturnType<typeof createDeepSeekJsonClient>;
   dir: string;
   tokens: { prompt: number; completion: number };
+  /** Signatures the film already uses: a tie prefers a composition it lacks. */
+  used: ReadonlySet<string>;
 }): Promise<{
   scene: UiScene | null;
   attempts: number;
@@ -122,10 +125,9 @@ async function generateScene(options: {
   }
 
   const errors: string[] = [];
-  /* The last attempt that produced a renderable composition, kept so the film
-     never loses a scene: a weak scene is marked, not removed. */
-  let lastRepaired: SpecScene | null = null;
-  let lastReasons: string[] = [];
+  /* The ladder keeps the best picture, not the last one: content is already
+     guaranteed, violations decide, then the film's unused compositions. */
+  let best: AttemptCandidate | null = null;
   /* The model's own words from rejected attempts: a fallback keeps its sentence
      even when the composition never assembles. */
   const parsedAttempts: unknown[] = [];
@@ -195,7 +197,6 @@ async function generateScene(options: {
     const candidate = asSpecScene(repaired.episode.scenes[0]);
 
     if (candidate === null || !hasContent(candidate)) {
-      lastReasons = ['пустая сцена: ни текста, ни объекта'];
       errors.splice(
         0,
         errors.length,
@@ -204,51 +205,61 @@ async function generateScene(options: {
       continue;
     }
 
-    lastRepaired = candidate;
-    lastReasons = [];
+    const violations: string[] = [];
+    const hints: string[] = [];
 
     if (repaired.overflowing.length > 0) {
-      lastReasons = [`переполнение: ${repaired.overflowing.join(', ')}`];
-      errors.splice(
-        0,
-        errors.length,
+      violations.push(`переполнение: ${repaired.overflowing.join(', ')}`);
+      hints.push(
         `текст не влезает даже на минимальном кегле (${repaired.overflowing.join(', ')}): сократи текст или увеличь бокс`,
       );
-      continue;
-    }
-    const motion = await checkVisibleChange(
-      repaired.episode,
-      path.join(options.dir, `motion-${options.index + 1}`),
-    );
-
-    if (!motion.changed) {
-      lastReasons = ['сцена статична'];
-      errors.splice(
-        0,
-        errors.length,
-        `сцена статична: кадры ${motion.earlyFrame} и ${motion.lateFrame} совпадают — добавь действие из контракта (type, fill, draw, break, drag, disappear); входы элементов действием не считаются`,
+    } else {
+      const motion = await checkVisibleChange(
+        repaired.episode,
+        path.join(options.dir, `motion-${options.index + 1}`),
       );
-      continue;
+
+      if (!motion.changed) {
+        violations.push('сцена статична');
+        hints.push(
+          `сцена статична: кадры ${motion.earlyFrame} и ${motion.lateFrame} совпадают — добавь действие из контракта (type, fill, draw, break, drag, disappear); входы элементов действием не считаются`,
+        );
+      }
     }
 
-    return {
+    if (violations.length === 0) {
+      return {
+        scene: candidate,
+        attempts: attempt,
+        errors: [],
+        degraded: false,
+        fallback: false,
+        reasons: [],
+      };
+    }
+
+    const record: AttemptCandidate = {
       scene: candidate,
-      attempts: attempt,
-      errors: [],
-      degraded: false,
-      fallback: false,
-      reasons: [],
+      violations,
+      signature: sceneSignature(candidate).key,
+      attempt,
     };
+
+    if (preferAttempt(record, best, options.used)) {
+      best = record;
+    }
+
+    errors.splice(0, errors.length, ...hints);
   }
 
-  if (lastRepaired !== null && hasContent(lastRepaired)) {
+  if (best !== null) {
     return {
-      scene: degradeScene(lastRepaired, planned.seconds, lastReasons),
+      scene: degradeScene(best.scene, planned.seconds, best.violations),
       attempts: SCENE_ATTEMPTS,
       errors,
       degraded: true,
       fallback: false,
-      reasons: lastReasons,
+      reasons: [...best.violations],
     };
   }
 
@@ -374,6 +385,7 @@ async function main(): Promise<void> {
 
     const scenes: UiScene[] = [];
     const sceneReport: unknown[] = [];
+    const usedSignatures = new Set<string>();
     let degradedCount = 0;
     let fallbackCount = 0;
 
@@ -385,6 +397,7 @@ async function main(): Promise<void> {
         client,
         dir,
         tokens,
+        used: usedSignatures,
       });
 
       if (result.scene === null) {
@@ -406,6 +419,7 @@ async function main(): Promise<void> {
       }
 
       scenes.push(result.scene);
+      usedSignatures.add(sceneSignature(result.scene).key);
       sceneReport.push({
         index: index + 1,
         /* A fallback is degraded too: it is marked and counted in both, and the

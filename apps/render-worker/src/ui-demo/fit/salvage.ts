@@ -5,6 +5,7 @@ import {
   type PrimitiveId,
 } from '../catalog.js';
 import { tokenForHeight } from '../typography-rules.js';
+import { aliasedParameter, aliasedState, parameterBelongsToAnother, transitionIsOperation } from './aliases.js';
 
 /**
  * Salvage before validation: cut what cannot change the meaning.
@@ -286,6 +287,11 @@ function salvageElement(element: Unknown, repairs: Repair[]): Unknown {
   }
 
   const next: Unknown = {};
+  const states = new Set<string>(
+    Array.isArray(element['states'])
+      ? element['states'].filter((state): state is string => typeof state === 'string')
+      : [],
+  );
 
   for (const [key, value] of Object.entries(params)) {
     if (!['string', 'number', 'boolean'].includes(typeof value)) {
@@ -296,7 +302,43 @@ function salvageElement(element: Unknown, repairs: Repair[]): Unknown {
     const rule = contract.parameters[key];
 
     if (rule === undefined) {
-      drop(repairs, id, `${primitive}.${key}`, 'parameter is not documented', value);
+      const state = aliasedState(primitive as PrimitiveId, key);
+
+      if (state !== null && value === true) {
+        states.add(state);
+        repairs.push({
+          element: id,
+          path: `${primitive}.${key}`,
+          reason: 'state written as a parameter',
+          from: describe(value),
+          to: `states.${state}`,
+        });
+        continue;
+      }
+
+      const alias = aliasedParameter(primitive as PrimitiveId, key);
+
+      if (alias !== null) {
+        next[alias] = value;
+        repairs.push({
+          element: id,
+          path: `${primitive}.${key}`,
+          reason: 'alias: the model wrote a known typo',
+          from: String(key),
+          to: alias,
+        });
+        continue;
+      }
+
+      drop(
+        repairs,
+        id,
+        `${primitive}.${key}`,
+        parameterBelongsToAnother(primitive as PrimitiveId, key)
+          ? 'parameter belongs to another primitive'
+          : 'parameter is not documented',
+        value,
+      );
       continue;
     }
 
@@ -315,7 +357,11 @@ function salvageElement(element: Unknown, repairs: Repair[]): Unknown {
   }
 
   return salvageDeclarations(
-    { ...element, params: salvageTextStyle(element, next, id, primitive as PrimitiveId, repairs) },
+    {
+      ...element,
+      ...(states.size === 0 ? {} : { states: [...states] }),
+      params: salvageTextStyle(element, next, id, primitive as PrimitiveId, repairs),
+    },
     id,
     primitive as PrimitiveId,
     contract,
@@ -392,7 +438,9 @@ function salvageSequence(
         repairs,
         typeof elementId === 'string' ? elementId : null,
         `${primitive as string}.${transition}`,
-        'transition is not in the contract',
+        transitionIsOperation(primitive as PrimitiveId, transition)
+          ? 'operation written as a transition'
+          : 'transition is not in the contract',
         transition,
       );
       continue;
