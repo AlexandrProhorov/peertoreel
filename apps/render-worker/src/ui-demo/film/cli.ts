@@ -4,8 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { parseDeepSeekSvgEnv } from '../../provider-config.js';
-import {
+import { parseDeepSeekSvgEnv } from '../../provider-config.js';import {
   DIRECTOR_SYSTEM_PROMPT,
   buildUserPrompt,
 } from '../director/contract-brief.js';
@@ -20,6 +19,7 @@ import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js
 import { degradeScene, fallbackScene, hasContent, preferAttempt, titleFromAttempts, type AttemptCandidate } from './degraded.js';
 import { enforceEntranceVariety } from './entrances.js';
 import { issuesWithHints, REPEATED_COMPOSITION } from './hints.js';
+import { topicsSchema } from './topics.js';
 import { placeScenes } from '../scene-timeline.js';
 import { SCENE_FPS } from '../../video-target.js';
 import { assignmentFor } from './forms.js';
@@ -33,10 +33,6 @@ import { sceneContext } from './scene-context.js';
  * scene goes through the same gates as the single-scene path: schema, repair,
  * visible change.
  */
-
-const topicsSchema = z.array(
-  z.object({ slug: z.string().min(1).max(40), topic: z.string().min(1).max(300) }),
-);
 
 const SCENE_ATTEMPTS = 4;
 

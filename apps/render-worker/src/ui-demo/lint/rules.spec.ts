@@ -252,6 +252,50 @@ describe('ui lint rules', () => {
     ).toBe('warning');
   });
 
+  it('reports unrelated boxes that paint over each other', () => {
+    const violations = lintScene(
+      measurement({
+        boxes: [
+          box('device', 'prompt-card', rect(0, 0, 1080, 1920)),
+          box('surface', 'card', rect(72, 488, 936, 451)),
+          box('surface', 'badge', rect(600, 700, 300, 200)),
+          box('critical', 'card-text', rect(132, 546, 758, 336), {
+            fontFamily: 'Onest, sans-serif',
+            within: 'card',
+          }),
+        ],
+      }),
+    );
+
+    const overlap = violations.find((violation) => violation.rule === 'unrelated-overlap');
+
+    expect(overlap).toBeDefined();
+    expect(overlap?.severity).toBe('warning');
+  });
+
+  it('reports a hole as a tall empty band inside the content area', () => {
+    const violations = lintScene(
+      measurement({
+        boxes: [
+          box('device', 'prompt-card', rect(0, 0, 1080, 1920)),
+          box('surface', 'card', rect(72, 488, 936, 451)),
+          box('critical', 'card-text', rect(132, 546, 758, 336), {
+            fontFamily: 'Onest, sans-serif',
+            within: 'card',
+          }),
+          box('critical', 'caption', rect(452, 1500, 176, 40), {
+            fontFamily: 'Onest, sans-serif',
+          }),
+        ],
+      }),
+    );
+
+    const hole = violations.find((violation) => violation.rule === 'composition-hole');
+
+    expect(hole).toBeDefined();
+    expect(hole?.severity).toBe('warning');
+  });
+
   it('lints every scene in a batch', () => {
     const violations = lintMeasurements([
       measurement(),

@@ -111,6 +111,10 @@ const KNOWN_ROLES = new Set([
 const EDGE_EPSILON = 0.5;
 /** Overlap smaller than one pixel of area is a rounding artefact, not a collision. */
 const MIN_OVERLAP_AREA = 1;
+/** A related pair overlaps on purpose; an unrelated one needs 10 % of the smaller box. */
+const UNRELATED_OVERLAP_SHARE = 0.1;
+/** A vertical band this tall with nothing in it is a hole, not breathing room. */
+const HOLE_MIN_HEIGHT = 240;
 
 function toBounds(rect: MeasuredRect): Bounds {
   return {
@@ -344,6 +348,87 @@ export function lintScene(
           first.rect,
         );
       }
+    }
+  }
+
+  /* The spec can be clean and the frame still broken: two surfaces the model
+     placed side by side may paint over each other. Containment is design (a chip
+     inside a card); a real intersection of unrelated boxes is not. */
+  const content = measurement.boxes.filter((box) => box.kind !== 'device');
+
+  for (let i = 0; i < content.length; i += 1) {
+    for (let j = i + 1; j < content.length; j += 1) {
+      const first = content[i];
+      const second = content[j];
+
+      if (first === undefined || second === undefined) {
+        continue;
+      }
+
+      if (first.kind === 'critical' && second.kind === 'critical') {
+        continue;
+      }
+
+      if (first.overlapAllowed === true || second.overlapAllowed === true) {
+        continue;
+      }
+
+      if (
+        contains(toBounds(first.rect), toBounds(second.rect)) ||
+        contains(toBounds(second.rect), toBounds(first.rect))
+      ) {
+        continue;
+      }
+
+      const area = overlapArea(toBounds(first.rect), toBounds(second.rect));
+      const smaller = Math.min(
+        first.rect.width * first.rect.height,
+        second.rect.width * second.rect.height,
+      );
+
+      if (area > MIN_OVERLAP_AREA && area >= smaller * UNRELATED_OVERLAP_SHARE) {
+        add(
+          'unrelated-overlap',
+          `${first.name}+${second.name}`,
+          `Unrelated boxes overlap: "${first.name}" and "${second.name}"`,
+          first.rect,
+          'warning',
+        );
+      }
+    }
+  }
+
+  /* A hole is a band inside the content area with nothing in it. Measured on the
+     boxes, not on pixels: the band is what the viewer reads as "the frame lost
+     its bottom half". A warning for now — the threshold needs calibration. */
+  const bands = content
+    .filter((box) => box.rect.height < geometry.content.bottom - geometry.content.top)
+    .map((box) => toBounds(box.rect))
+    .sort((first, second) => first.top - second.top);
+
+  if (bands.length > 1) {
+    const contentBounds = geometry.content;
+    let cursor = Math.max(contentBounds.top, bands[0]?.bottom ?? contentBounds.top);
+
+    for (const band of bands.slice(1)) {
+      const top = Math.max(contentBounds.top, band.top);
+
+      if (top - cursor >= HOLE_MIN_HEIGHT) {
+        add(
+          'composition-hole',
+          'frame',
+          `Empty band ${Math.round(top - cursor)}px tall inside the content area`,
+          {
+            x: contentBounds.left,
+            y: cursor,
+            width: contentBounds.right - contentBounds.left,
+            height: top - cursor,
+          },
+          'warning',
+        );
+      }
+
+      cursor = Math.max(cursor, band.bottom);
     }
   }
 
