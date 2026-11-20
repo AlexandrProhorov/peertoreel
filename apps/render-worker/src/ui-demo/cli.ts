@@ -169,6 +169,9 @@ async function main(): Promise<void> {
   const seed = Math.trunc(numberOption('--seed', 7));
   const showSafeZones = process.argv.includes('--safe-zones');
   const verify = process.argv.includes('--verify');
+  /* Stills are an addition, not a replacement: asking for a frame used to skip
+     the video entirely, which is how a film silently went missing twice. */
+  const stillsOnly = process.argv.includes('--stills-only');
   const stills = (optionValue('--stills') ?? '')
     .split(',')
     .map((entry) => entry.trim())
@@ -201,7 +204,9 @@ async function main(): Promise<void> {
       console.log(`still ${frame} -> ${stillPath}`);
     }
 
-    return;
+    if (stillsOnly) {
+      return;
+    }
   }
 
   emitProgress({ type: 'total', total: totalFrames });
