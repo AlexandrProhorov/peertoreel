@@ -52,7 +52,6 @@ export type LintRule =
   | 'text-overflow'
   | 'critical-overlap'
   | 'unrelated-overlap'
-  | 'composition-hole'
   | 'font-fallback'
   | 'contract';
 

@@ -113,8 +113,6 @@ const EDGE_EPSILON = 0.5;
 const MIN_OVERLAP_AREA = 1;
 /** A related pair overlaps on purpose; an unrelated one needs 10 % of the smaller box. */
 const UNRELATED_OVERLAP_SHARE = 0.1;
-/** A vertical band this tall with nothing in it is a hole, not breathing room. */
-const HOLE_MIN_HEIGHT = 240;
 
 function toBounds(rect: MeasuredRect): Bounds {
   return {
@@ -398,39 +396,10 @@ export function lintScene(
     }
   }
 
-  /* A hole is a band inside the content area with nothing in it. Measured on the
-     boxes, not on pixels: the band is what the viewer reads as "the frame lost
-     its bottom half". A warning for now — the threshold needs calibration. */
-  const bands = content
-    .filter((box) => box.rect.height < geometry.content.bottom - geometry.content.top)
-    .map((box) => toBounds(box.rect))
-    .sort((first, second) => first.top - second.top);
-
-  if (bands.length > 1) {
-    const contentBounds = geometry.content;
-    let cursor = Math.max(contentBounds.top, bands[0]?.bottom ?? contentBounds.top);
-
-    for (const band of bands.slice(1)) {
-      const top = Math.max(contentBounds.top, band.top);
-
-      if (top - cursor >= HOLE_MIN_HEIGHT) {
-        add(
-          'composition-hole',
-          'frame',
-          `Empty band ${Math.round(top - cursor)}px tall inside the content area`,
-          {
-            x: contentBounds.left,
-            y: cursor,
-            width: contentBounds.right - contentBounds.left,
-            height: top - cursor,
-          },
-          'warning',
-        );
-      }
-
-      cursor = Math.max(cursor, band.bottom);
-    }
-  }
+  /* A hole was tried and rejected: measured on vertical bands it fired on airy
+     layouts as often as on broken ones (precision 0.40 on five labelled frames),
+     and band height does not separate the two. A hole is a group with something
+     missing, which needs grouping before it can be measured. */
 
   return violations;
 }
