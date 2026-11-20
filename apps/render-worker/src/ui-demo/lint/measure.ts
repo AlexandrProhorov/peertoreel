@@ -47,6 +47,7 @@ export const LINT_LOG_PREFIX = '##ui-lint ';
 export type LintRule =
   | 'critical-outside-device'
   | 'critical-outside-content'
+  | 'surface-outside-content'
   | 'critical-in-platform-zone'
   | 'content-clipped'
   | 'text-overflow'

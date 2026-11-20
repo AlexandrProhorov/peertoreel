@@ -28,6 +28,8 @@ const HINTS: Readonly<Record<string, string>> = {
   'grid-overlap': 'текст на ячейках сетки не читается: убери текст с grid или убери сетку под ним',
   'surface-overlap':
     'две поверхности с текстом пересекаются: разведи их по вертикали или сократи одну',
+  'track-outside-content':
+    'рельса выходит за поля кадра: сократи length или сдвинь x так, чтобы x + length укладывалось в 72..1008',
   'quality:accent-required':
     'нужен один акцент: поставь focus на элемент с заливкой accent или дай акцентную поверхность',
   'quality:text-contrast':

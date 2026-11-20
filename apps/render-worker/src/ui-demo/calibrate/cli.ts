@@ -17,7 +17,7 @@ import { measureUiEpisode } from '../lint/render.js';
  *   ui:calibrate score --hits out/calibration/hits.json --labels labels.json
  */
 
-const RULES = ['unrelated-overlap', 'text-overflow', 'critical-overlap'] as const;
+const RULES = ['unrelated-overlap', 'surface-outside-content', 'text-overflow', 'critical-overlap'] as const;
 
 type RuleName = (typeof RULES)[number];
 
@@ -36,7 +36,10 @@ interface Hit {
 }
 
 interface Labels {
-  readonly [key: string]: { readonly overlap?: boolean; readonly hole?: boolean };
+  readonly [key: string]: {
+    readonly overlap?: boolean;
+    readonly surface?: boolean;
+  };
 }
 
 function optionValue(name: string): string | undefined {
@@ -174,6 +177,7 @@ async function score(): Promise<void> {
   const labels = JSON.parse(await readFile(labelsPath, 'utf8')) as Labels;
 
   const overlap = empty();
+  const surface = empty();
   let labelled = 0;
 
   for (const hit of hits) {
@@ -185,16 +189,20 @@ async function score(): Promise<void> {
     }
 
     labelled += 1;
-    const predicted = hit.rules.includes('unrelated-overlap');
 
-    if (label.overlap === undefined) {
-      continue;
-    }
+    const count = (truth: boolean | undefined, predicted: boolean, target: Counts): void => {
+      if (truth === undefined) {
+        return;
+      }
 
-    if (label.overlap && predicted) overlap.tp += 1;
-    else if (label.overlap) overlap.fn += 1;
-    else if (predicted) overlap.fp += 1;
-    else overlap.tn += 1;
+      if (truth && predicted) target.tp += 1;
+      else if (truth) target.fn += 1;
+      else if (predicted) target.fp += 1;
+      else target.tn += 1;
+    };
+
+    count(label.overlap, hit.rules.includes('unrelated-overlap'), overlap);
+    count(label.surface, hit.rules.includes('surface-outside-content'), surface);
   }
 
   const report = (name: string, counts: Counts): string => {
@@ -208,12 +216,13 @@ async function score(): Promise<void> {
   const text = [
     `labelled scenes: ${labelled} of ${hits.length}`,
     report('unrelated-overlap', overlap),
+    report('surface-outside-content', surface),
   ].join('\n');
 
   console.log(text);
   await writeFile(
     path.join(path.dirname(hitsPath), 'score.json'),
-    `${JSON.stringify({ labelled, overlap }, null, 2)}\n`,
+    `${JSON.stringify({ labelled, overlap, surface }, null, 2)}\n`,
     'utf8',
   );
 }

@@ -76,6 +76,7 @@ export type CompositionIssueCode =
   | 'sequence-unknown-element'
   | 'text-not-supported'
   | 'grid-overlap'
+  | 'track-outside-content'
   | 'surface-overlap';
 
 export interface CompositionIssue {
@@ -266,6 +267,26 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
         element.id,
         `layout of "${element.id}" leaves the frame: ${JSON.stringify(element.layout)}`,
       );
+    }
+
+    /* A rail draws its own length from its own origin; the layout box does not
+       clamp it. A bar that starts inside the frame can still cross the content
+       margin and run under the platform rail. */
+    if (element.primitive === 'track') {
+      const declared = element.params['length'];
+      const length = typeof declared === 'number' ? declared : 600;
+      const right = element.layout.x + length;
+
+      if (
+        element.layout.x < CRITICAL_SAFE_BOUNDS.left - 0.5 ||
+        right > CRITICAL_SAFE_BOUNDS.right + 0.5
+      ) {
+        fail(
+          'track-outside-content',
+          element.id,
+          `rail spans ${Math.round(element.layout.x)}..${Math.round(right)}px, content is ${CRITICAL_SAFE_BOUNDS.left}..${CRITICAL_SAFE_BOUNDS.right}px`,
+        );
+      }
     }
 
     perPrimitive.set(

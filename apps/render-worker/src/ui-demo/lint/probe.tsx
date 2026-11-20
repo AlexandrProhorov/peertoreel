@@ -71,6 +71,14 @@ function clippingOf(element: HTMLElement): { x: boolean; y: boolean } {
   return { x, y };
 }
 
+/** Typographic rounding stays under this; a visible spill is far above it. */
+const OVERFLOW_SHARE = 0.06;
+const OVERFLOW_FLOOR = 12;
+
+function overflowsBy(content: number, box: number): boolean {
+  return content - box > Math.max(OVERFLOW_FLOOR, box * OVERFLOW_SHARE);
+}
+
 function criticalBox(element: HTMLElement, root: HTMLElement): MeasuredBox {
   const clipping = clippingOf(element);
   const style = window.getComputedStyle(element);
@@ -88,12 +96,13 @@ function criticalBox(element: HTMLElement, root: HTMLElement): MeasuredBox {
        noise. The 4px tolerance absorbs line-height rounding. */
     /* Overflow is measured on the scroll box, not only on a declared size: a
        block of text wraps, but a single long word paints past its box, and that
-       is exactly the frame a reviewer sees as broken. A content-sized element
-       whose box grows with its text has scrollSize == offsetSize, so it stays
-       quiet. */
+       is exactly the frame a reviewer sees as broken. Typographic rounding
+       (a descender, a line-height of 1.67) must not count: the spill has to be
+       visible, so a small tolerance is not enough and a share of the box is
+       required. */
     overflowText:
-      element.scrollHeight > element.offsetHeight + 4 ||
-      element.scrollWidth > element.offsetWidth + 4,
+      overflowsBy(element.scrollHeight, element.offsetHeight) ||
+      overflowsBy(element.scrollWidth, element.offsetWidth),
     ...(element.dataset.uiElement === undefined
       ? {}
       : { elementId: element.dataset.uiElement }),

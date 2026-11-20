@@ -252,8 +252,28 @@ describe('ui lint rules', () => {
     ).toBe('warning');
   });
 
-  it('reports unrelated boxes that paint over each other', () => {
+  it('reports a surface that runs past the content bounds', () => {
     const violations = lintScene(
+      measurement({
+        boxes: [
+          box('device', 'prompt-card', rect(0, 0, 1080, 1920)),
+          box('surface', 'card', rect(72, 488, 936, 451)),
+          box('surface', 'rail', rect(240, 1200, 840, 20)),
+          box('critical', 'card-text', rect(132, 546, 758, 336), {
+            fontFamily: 'Onest, sans-serif',
+            within: 'card',
+          }),
+        ],
+      }),
+    );
+
+    const outside = violations.find((violation) => violation.rule === 'surface-outside-content');
+
+    expect(outside).toBeDefined();
+    expect(outside?.severity).toBe('warning');
+  });
+
+  it('reports unrelated boxes that paint over each other', () => {    const violations = lintScene(
       measurement({
         boxes: [
           box('device', 'prompt-card', rect(0, 0, 1080, 1920)),

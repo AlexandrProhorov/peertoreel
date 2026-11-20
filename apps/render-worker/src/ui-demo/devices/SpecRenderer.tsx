@@ -416,6 +416,7 @@ export function SpecRenderer({
                 length={num(params, 'length', 600)}
                 thickness={num(params, 'thickness', 8)}
                 color={str(params, 'color')}
+                markers={{ surface: element.id }}
                 breakAt={
                   typeof params.breakAt === 'number' ? params.breakAt : undefined
                 }

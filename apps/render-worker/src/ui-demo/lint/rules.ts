@@ -349,10 +349,35 @@ export function lintScene(
     }
   }
 
+  /* A surface is not only a background: a rail or a bar that runs to the screen
+     edge crosses the content margin and, on TikTok, the platform rail. A
+     full-frame backdrop is a backdrop, not a surface out of bounds. */
+  const backdrop = geometry.canvas.width * geometry.canvas.height * 0.9;
+
+  for (const box of measurement.boxes) {
+    if (box.kind !== 'surface' || box.rect.width * box.rect.height >= backdrop) {
+      continue;
+    }
+
+    if (!contains(shrunkContent, toBounds(box.rect))) {
+      add(
+        'surface-outside-content',
+        box.name,
+        `Surface leaves the content bounds: ${formatRect(box.rect)}`,
+        box.rect,
+        'warning',
+      );
+    }
+  }
+
   /* The spec can be clean and the frame still broken: two surfaces the model
      placed side by side may paint over each other. Containment is design (a chip
-     inside a card); a real intersection of unrelated boxes is not. */
+     inside a card); a real intersection of unrelated boxes is not. The stage is
+     a backdrop, not a sibling: it is under everything by definition. */
   const content = measurement.boxes.filter((box) => box.kind !== 'device');
+  const backdropArea = geometry.canvas.width * geometry.canvas.height * 0.9;
+  const isBackdrop = (box: MeasuredBox): boolean =>
+    box.rect.width * box.rect.height >= backdropArea;
 
   for (let i = 0; i < content.length; i += 1) {
     for (let j = i + 1; j < content.length; j += 1) {
@@ -364,6 +389,10 @@ export function lintScene(
       }
 
       if (first.kind === 'critical' && second.kind === 'critical') {
+        continue;
+      }
+
+      if (isBackdrop(first) || isBackdrop(second)) {
         continue;
       }
 

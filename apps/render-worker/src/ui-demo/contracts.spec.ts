@@ -139,8 +139,24 @@ describe('composition validation', () => {
     );
   });
 
-  it('rejects an undocumented parameter', () => {
-    const spec = validSpec();
+  it('rejects a rail that runs past the content margin', () => {
+    const spec: CompositionSpec = {
+      kind: 'composition',
+      elements: [
+        element('rail', 'track', {
+          layout: { x: 240, y: 300, width: 840, height: 20 },
+          params: { length: 900, thickness: 20, fill: 0.3 },
+        }),
+      ],
+      sequence: [],
+    };
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain(
+      'track-outside-content',
+    );
+  });
+
+  it('rejects an undocumented parameter', () => {    const spec = validSpec();
     spec.elements[1] = element('e2', 'card', {
       params: { crack: 0.5 } as CompositionSpec['elements'][number]['params'],
     });
