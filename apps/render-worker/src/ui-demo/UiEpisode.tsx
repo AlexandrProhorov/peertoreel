@@ -16,6 +16,7 @@ import { type UiEpisodeInputProps } from './spec.js';
 import { sceneEnterStyle } from './scene-enter.js';
 import { placeScenes, sceneExitStyle } from './scene-timeline.js';
 import { sceneSpeechTrack, SpeechCaption } from './SpeechCaption.js';
+import { sceneMarkOf } from './film/degraded.js';
 import { FONT_FAMILY, FONT_LOAD_SPECS } from './typography.js';
 import { UiSceneView } from './UiScene.js';
 
@@ -120,25 +121,44 @@ function SceneExit({
  * without reading the report. Autoposting filters on the same `degraded` field.
  */
 function DegradedMark() {
+  return <SceneMarkBadge label="*" width={52} fontSize={40} />;
+}
+
+/**
+ * A fallback is ours, not the model's: the words may be the model's, but the
+ * composition was assembled by the renderer from the plan. It gets its own
+ * badge, so a reviewer never reads a placeholder as a generated scene.
+ */
+const FALLBACK_MARK = 'наш кадр';
+
+function FallbackMark() {
+  return <SceneMarkBadge label={FALLBACK_MARK} width={190} fontSize={26} />;
+}
+
+function SceneMarkBadge(options: {
+  readonly label: string;
+  readonly width: number;
+  readonly fontSize: number;
+}) {
   return (
     <div
       style={{
         position: 'absolute',
         top: CRITICAL_SAFE_BOUNDS.top,
-        left: CRITICAL_SAFE_BOUNDS.right - 52,
-        width: 52,
+        left: CRITICAL_SAFE_BOUNDS.right - options.width,
+        width: options.width,
         height: 52,
         borderRadius: 26,
         background: 'rgba(0, 0, 0, 0.72)',
         color: '#FFFFFF',
         fontFamily: FONT_FAMILY,
-        fontSize: 40,
+        fontSize: options.fontSize,
         fontWeight: 700,
         lineHeight: '52px',
         textAlign: 'center',
       }}
     >
-      *
+      {options.label}
     </div>
   );
 }
@@ -186,7 +206,8 @@ export function UiEpisode({ episode, showSafeZones }: UiEpisodeInputProps) {
               </SceneEnter>
             </SceneExit>
             {track === null ? null : <SpeechCaption track={track} />}
-            {scene.degraded === undefined ? null : <DegradedMark />}
+            {sceneMarkOf(scene) === 'fallback' ? <FallbackMark /> : null}
+            {sceneMarkOf(scene) === 'degraded' ? <DegradedMark /> : null}
           </Sequence>
         );
       })}

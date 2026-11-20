@@ -1,3 +1,4 @@
+import { TEXT_PRIMITIVES, type PrimitiveId } from '../catalog.js';
 import { UI_THEMES, type UiThemeId } from '../themes.js';
 import type { SpecScene } from '../spec.js';
 
@@ -16,11 +17,20 @@ import type { SpecScene } from '../spec.js';
 /** Label copy is capped by the contract; an intent can be three times longer. */
 const MAX_LABEL_CHARS = 80;
 
+/** Primitives whose own copy makes a scene say something. */
+const CONTENT_PRIMITIVES = new Set(['object', 'avatar']);
+
 export interface PlannedScene {
   readonly id: string;
   readonly seconds: number;
   readonly theme: UiThemeId;
   readonly intent: string;
+}
+
+export interface FallbackOptions {
+  /** The model's own words from a failed attempt, when one produced any. */
+  readonly title?: string | null;
+  readonly reasons?: readonly string[];
 }
 
 function clampSeconds(seconds: number): number {
@@ -51,6 +61,95 @@ function reasonsOf(reasons: readonly string[]): { reasons: string[] } {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Does the scene say anything at all?
+ *
+ * A composition that lost every text and every object — three empty circles, a
+ * stage with a grid — passes geometry and fails meaning. It is replaced by the
+ * fallback archetype instead of being shipped as a husk.
+ */
+export function hasContent(scene: SpecScene): boolean {
+  return scene.spec.elements.some((element) => {
+    const params = element.params as Readonly<Record<string, unknown>>;
+    const primitive = element.primitive as PrimitiveId;
+
+    if (TEXT_PRIMITIVES.has(primitive)) {
+      const text = params['text'];
+
+      return typeof text === 'string' && text.trim() !== '';
+    }
+
+    if (CONTENT_PRIMITIVES.has(primitive)) {
+      const asset = params['asset'];
+
+      return typeof asset === 'string' && asset.trim() !== '';
+    }
+
+    return false;
+  });
+}
+
+function sceneBodies(document: unknown): readonly unknown[] | null {
+  if (isRecord(document) && Array.isArray(document['scenes'])) {
+    return document['scenes'];
+  }
+
+  if (isRecord(document) && typeof document['device'] === 'string') {
+    return [document];
+  }
+
+  return null;
+}
+
+/**
+ * The best copy a failed attempt produced.
+ *
+ * When every attempt is rejected, the words are usually fine: the geometry or
+ * the action is not. Taking the longest text keeps the model's own sentence in
+ * the film instead of replacing it with the arc's dry intent.
+ */
+export function titleFromAttempts(attempts: readonly unknown[]): string | null {
+  let best: string | null = null;
+
+  for (const document of attempts) {
+    for (const scene of sceneBodies(document) ?? []) {
+      if (!isRecord(scene) || !isRecord(scene['spec'])) {
+        continue;
+      }
+
+      const elements = scene['spec']['elements'];
+
+      if (!Array.isArray(elements)) {
+        continue;
+      }
+
+      for (const element of elements) {
+        if (!isRecord(element) || !isRecord(element['params'])) {
+          continue;
+        }
+
+        const text = element['params']['text'];
+
+        if (typeof text !== 'string') {
+          continue;
+        }
+
+        const trimmed = text.replace(/\s+/g, ' ').trim();
+
+        if (trimmed !== '' && (best === null || trimmed.length > best.length)) {
+          best = trimmed;
+        }
+      }
+    }
+  }
+
+  return best === null ? null : shortCopy(best);
+}
+
 /**
  * Keeps a scene that failed its gates: the picture stays, the length returns to
  * the plan, and the mark says the frame is under repair.
@@ -69,15 +168,19 @@ export function degradeScene(
 
 /**
  * Last resort when every attempt failed before a valid composition existed:
- * the scene's own intent, typeset on the theme's stage. It is ugly on purpose —
+ * the model's best sentence, typeset on the theme's stage. Ugly on purpose —
  * a marked placeholder keeps the film complete and is impossible to mistake
- * for a finished scene.
+ * for a generated scene.
  */
 export function fallbackScene(
   planned: PlannedScene,
-  reasons: readonly string[] = ['fallback: no valid composition'],
+  options: FallbackOptions = {},
 ): SpecScene {
   const theme = UI_THEMES[planned.theme];
+  const reasons = options.reasons ?? ['fallback: композиция не собралась'];
+  const title = options.title === undefined || options.title === null || options.title.trim() === ''
+    ? shortCopy(planned.intent)
+    : shortCopy(options.title);
 
   return {
     id: planned.id,
@@ -104,7 +207,7 @@ export function fallbackScene(
           primitive: 'label',
           layout: { x: 72, y: 800, width: 936, height: 236 },
           params: {
-            text: shortCopy(planned.intent),
+            text: title,
             token: 'card',
             tone: 'ink',
             weight: 600,
@@ -123,5 +226,20 @@ export function fallbackScene(
       ],
     },
     degraded: reasonsOf(reasons),
+    fallback: { reason: reasons[0] ?? 'fallback' },
   };
+}
+
+export type SceneMark = 'fallback' | 'degraded' | null;
+
+/**
+ * One frame, one mark: a fallback is always visible as ours, so it cannot ride
+ * on the same asterisk as a repaired model scene.
+ */
+export function sceneMarkOf(scene: Pick<SpecScene, 'fallback' | 'degraded'>): SceneMark {
+  if (scene.fallback !== undefined) {
+    return 'fallback';
+  }
+
+  return scene.degraded === undefined ? null : 'degraded';
 }

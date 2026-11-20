@@ -50,8 +50,8 @@ export interface TopicMetrics {
   readonly lostSource: 'report' | 'attempts' | 'n/a';
   readonly reported: boolean;
   readonly degraded: { readonly count: number | null; readonly source: 'report' | 'n/a' };
-  /** The fallback archetype is not implemented yet: n/a, not zero. */
-  readonly fallback: { readonly count: null; readonly source: 'n/a' };
+  /** Fallback scenes: assembled by us, not by the model. Subset of `degraded`. */
+  readonly fallback: { readonly count: number | null; readonly source: 'report' | 'n/a' };
   readonly scenes: {
     readonly count: number;
     readonly unique: number;
@@ -77,6 +77,8 @@ export interface RunTotals {
   readonly lostTopics: number;
   readonly degraded: number | null;
   readonly degradedTopics: number;
+  readonly fallback: number | null;
+  readonly fallbackTopics: number;
   readonly scenes: number;
   readonly uniqueScenes: number;
   readonly signatureRatio: number;
@@ -376,6 +378,7 @@ function topicOf(topic: TopicSource): TopicMetrics {
   const planned = (isRecord(report) ? numberOrNull(report['planned']) : null) ?? plannedOf(topic);
   const produced = reportedProduced ?? (topic.episode === null ? null : scenes.length);
   const degraded = isRecord(report) ? numberOrNull(report['degraded']) : null;
+  const fallback = isRecord(report) ? numberOrNull(report['fallback']) : null;
 
   let lost: number | null = null;
 
@@ -391,7 +394,7 @@ function topicOf(topic: TopicSource): TopicMetrics {
     lostSource: reported ? 'report' : planned !== null ? 'attempts' : 'n/a',
     reported,
     degraded: { count: degraded, source: degraded === null ? 'n/a' : 'report' },
-    fallback: { count: null, source: 'n/a' },
+    fallback: { count: fallback, source: fallback === null ? 'n/a' : 'report' },
     scenes: {
       count: scenes.length,
       unique,
@@ -433,6 +436,7 @@ function known(values: readonly (number | null)[]): number | null {
 
 function totalsOf(topics: readonly TopicMetrics[]): RunTotals {
   const degradedTopics = topics.filter((topic) => topic.degraded.count !== null);
+  const fallbackTopics = topics.filter((topic) => topic.fallback.count !== null);
   const scenes = sum(topics.map((topic) => topic.scenes.count));
   const uniqueScenes = sum(topics.map((topic) => topic.scenes.unique));
   const coarseUniqueScenes = sum(topics.map((topic) => topic.scenes.coarseUnique));
@@ -451,6 +455,10 @@ function totalsOf(topics: readonly TopicMetrics[]): RunTotals {
       ? null
       : sum(degradedTopics.map((topic) => topic.degraded.count)),
     degradedTopics: degradedTopics.length,
+    fallback: fallbackTopics.length === 0
+      ? null
+      : sum(fallbackTopics.map((topic) => topic.fallback.count)),
+    fallbackTopics: fallbackTopics.length,
     scenes,
     uniqueScenes,
     signatureRatio: scenes === 0 ? 0 : Number((uniqueScenes / scenes).toFixed(3)),

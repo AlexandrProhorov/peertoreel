@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-20 | Fallback-сцена: слова модели на нашем `stage`, видимая метка «наш кадр» | [2026-11-20-06](docs/sessions/2026-11/2026-11-20-06-fallback-scene-mark.md) |
 | 2026-11-20 | Bench: структурная сигнатура сцены и перепись словаря по архивам (`ui:bench`) | [2026-11-20-05](docs/sessions/2026-11/2026-11-20-05-ui-bench-signature.md) |
 | 2026-11-20 | Переходы сцен: мягкий dissolve + дрейф 1.2 %, рельсы горизонтально | [2026-11-20-04](docs/sessions/2026-11/2026-11-20-04-ui-demo-scene-transitions.md) |
 | 2026-11-20 | Сцена не теряется: degraded-сцены, длина из действий, инвариант полноты | [2026-11-20-03](docs/sessions/2026-11/2026-11-20-03-ui-demo-degraded-scenes.md) |

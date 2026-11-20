@@ -101,13 +101,16 @@ describe('run metrics', () => {
     const metrics = measureRun({
       run: 'film-c',
       topics: [
-        topic({ report: { slug: 'topic', planned: 4, produced: 4, degraded: 1 } }),
+        topic({ report: { slug: 'topic', planned: 4, produced: 4, degraded: 1, fallback: 1 } }),
         topic({ slug: 'other', report: { slug: 'other', planned: 2, produced: 2 } }),
       ],
     });
 
     expect(metrics.totals.degraded).toBe(1);
     expect(metrics.totals.degradedTopics).toBe(1);
+    expect(metrics.totals.fallback).toBe(1);
+    /* The second topic says nothing about fallbacks: n/a, not zero. */
+    expect(metrics.topics[1]?.fallback).toEqual({ count: null, source: 'n/a' });
   });
 
   it('falls back to the attempt scene indices when the report says nothing', () => {
