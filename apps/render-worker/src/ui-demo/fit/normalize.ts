@@ -1,5 +1,5 @@
 import { tokenForHeight } from '../typography-rules.js';
-import { CRITICAL_SAFE_BOUNDS } from '../platform.js';
+import { CANVAS, CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { deriveTiming, sceneDurationSec, sceneFloorSec } from '../timing-plan.js';
 import {
   accentPlate,
@@ -535,6 +535,180 @@ function normalizeElement(element: Unknown): Unknown {  const primitive = elemen
   };
 }
 
+/**
+ * A progress rail is a long bar filled along its short side. Models sometimes
+ * declare a tall box for it — "the total grew taller" reads as vertical — and
+ * the renderer then stretched the rail into that box, with the fill running
+ * across 24 px. The contract's `length` and `thickness` own the geometry; the
+ * box is rebuilt around them, centred where the model put it.
+ */
+function repairTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
+  return elements.map((element) => {
+    if (element['primitive'] !== 'track' || !isObject(element['layout'])) {
+      return element;
+    }
+
+    const layout = element['layout'] as Record<string, unknown>;
+    const params = isObject(element['params']) ? element['params'] : {};
+
+    if (typeof layout['x'] !== 'number' || typeof layout['y'] !== 'number') {
+      return element;
+    }
+
+    const width = typeof layout['width'] === 'number' ? layout['width'] : 0;
+    const height = typeof layout['height'] === 'number' ? layout['height'] : 0;
+    const declaredLength = typeof params['length'] === 'number' ? params['length'] : null;
+    const declaredThickness =
+      typeof params['thickness'] === 'number' ? params['thickness'] : null;
+    const long = Math.max(width, height, declaredLength ?? 0);
+    const short = Math.min(...[width, height, declaredThickness ?? Number.POSITIVE_INFINITY]
+      .filter((value) => value > 0));
+
+    if (!(long > 0) || !(short > 0)) {
+      return element;
+    }
+
+    const length = Math.min(long, CRITICAL_SAFE_BOUNDS.right - CRITICAL_SAFE_BOUNDS.left);
+    const thickness = Math.min(short, length);
+    const centreX = layout['x'] + width / 2;
+    const centreY = layout['y'] + height / 2;
+    const x = Math.min(
+      Math.max(CRITICAL_SAFE_BOUNDS.left, centreX - length / 2),
+      CRITICAL_SAFE_BOUNDS.right - length,
+    );
+    const y = Math.min(Math.max(0, centreY - thickness / 2), CANVAS.height - thickness);
+
+    const nextLayout = { x, y, width: length, height: thickness };
+
+    if (
+      width === length &&
+      height === thickness &&
+      params['length'] === length &&
+      params['thickness'] === thickness
+    ) {
+      return element;
+    }
+
+    repairs.push({
+      element: typeof element['id'] === 'string' ? element['id'] : null,
+      path: 'track-axis',
+      reason: 'a progress rail is horizontal: the box is rebuilt from length and thickness',
+      from: `${width}x${height}`,
+      to: `${length}x${thickness}`,
+    });
+
+    return {
+      ...element,
+      layout: nextLayout,
+      params: { ...params, length, thickness },
+    };
+  });
+}
+
+function stackTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
+  /* A rail that lands on a captioned surface is unreadable: slide it below that
+     surface instead of leaving the fill hidden under a card. */
+  const surfaces = elements
+    .filter((element) =>
+      ['card', 'pill', 'bubble'].includes(String(element['primitive'])),
+    )
+    .map((element) => ({
+      box: rawBox(element),
+      text: (element['params'] as Record<string, unknown> | undefined)?.['text'],
+    }))
+    .filter(
+      (item): item is { box: { x: number; y: number; width: number; height: number }; text: string } =>
+        item.box !== null && typeof item.text === 'string' && item.text.trim() !== '',
+    );
+
+  const out = elements.map((element) => {
+    const box = rawBox(element);
+
+    if (element['primitive'] !== 'track' || box === null) {
+      return element;
+    }
+
+    const hits = surfaces.filter((surface) => intersects(box, surface.box) > 0);
+
+    if (hits.length === 0) {
+      return element;
+    }
+
+    const bottom = Math.max(...hits.map((surface) => surface.box.y + surface.box.height));
+    const left = Math.min(...hits.map((surface) => surface.box.x));
+    const width = Math.min(
+      box.width,
+      CRITICAL_SAFE_BOUNDS.right - Math.max(left, CRITICAL_SAFE_BOUNDS.left),
+    );
+    const y = Math.min(bottom + 24, CANVAS.height - box.height);
+
+    repairs.push({
+      element: typeof element['id'] === 'string' ? element['id'] : null,
+      path: 'track-below-surface',
+      reason: 'the rail was hidden under a captioned surface',
+      from: String(box.y),
+      to: String(y),
+    });
+
+    return {
+      ...element,
+      layout: { ...box, x: Math.max(left, CRITICAL_SAFE_BOUNDS.left), y, width },
+      params: isObject(element['params']) ? { ...element['params'], length: width } : element['params'],
+    };
+  });
+
+  const rails: Array<{
+    index: number;
+    box: { x: number; y: number; width: number; height: number };
+    element: Unknown;
+  }> = [];
+
+  out.forEach((element, index) => {
+    const box = rawBox(element);
+
+    if (element['primitive'] === 'track' && box !== null) {
+      rails.push({ index, box, element });
+    }
+  });
+
+  rails.sort((left, right) => left.box.y - right.box.y || left.index - right.index);
+
+  const stacked = [...out];
+  let previous: { x: number; y: number; width: number; height: number } | null = null;
+
+  for (const rail of rails) {
+    if (previous !== null && intersects(rail.box, previous) > 0) {
+      /* Stacked instead of overlapping: two horizontal rails read as a comparison
+         when one sits under the other, aligned to the same left edge. */
+      const y = Math.min(
+        previous.y + previous.height + 24,
+        CANVAS.height - rail.box.height,
+      );
+      const nextBox: { x: number; y: number; width: number; height: number } = {
+        ...rail.box,
+        x: previous.x,
+        y,
+      };
+
+      stacked[rail.index] = { ...rail.element, layout: nextBox };
+      repairs.push({
+        element: typeof rail.element['id'] === 'string' ? rail.element['id'] : null,
+        path: 'track-stack',
+        reason: 'rails are stacked instead of overlapping',
+        from: String(previous.y),
+        to: String(y),
+      });
+      previous = nextBox;
+
+      continue;
+    }
+
+    previous = rail.box;
+  }
+
+  return stacked;
+}
+
 export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unknown {
   const salvaged = salvageEpisode(raw, repairs);
 
@@ -650,6 +824,10 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
           ? Math.max(planned, sceneFloorSec(cues))
           : sceneDurationSec({ plannedSec: planned, cues });
       const timing = derived === null ? null : { cues: derived.cues, durationSec };
+
+      /* Rails last: the box must agree with the contract before the quality gate
+         sees the scene. */
+      finalElements = stackTracks(repairTracks(finalElements, repairs), repairs);
 
       return {
         ...scene,

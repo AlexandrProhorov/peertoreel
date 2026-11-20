@@ -419,3 +419,99 @@ describe('scene end', () => {
     expect(durationOf(once)).toBe(durationOf(normalizeRawEpisode(once)));
   });
 });
+
+/**
+ * A rail is filled along its short side. A model that draws the bar taller than
+ * wide ("the total grew") used to get a vertical sliver with the fill running
+ * across 24 px. The contract owns the geometry; the box is rebuilt around it.
+ */
+function trackEpisode(layout: Record<string, number>): unknown {
+  return {
+    schemaVersion: 1,
+    themeId: 'studio-lime',
+    captions: false,
+    speech: [],
+    scenes: [
+      {
+        id: 'rail',
+        device: 'spec',
+        durationSec: 4,
+        themeId: 'studio-lime',
+        spec: {
+          kind: 'composition',
+          elements: [
+            {
+              id: 'bar',
+              primitive: 'track',
+              layout,
+              params: { length: 520, thickness: 24, fill: 0.4 },
+            },
+          ],
+          sequence: [
+            { element: 'bar', transition: 'appear' },
+            { element: 'bar', transition: 'fill' },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+describe('track orientation', () => {
+  it('turns a tall box into a horizontal rail and centres it', () => {
+    const repairs: Repair[] = [];
+    const normalized = normalizeRawEpisode(trackEpisode({ x: 560, y: 400, width: 80, height: 520 }), repairs) as {
+      scenes: ReadonlyArray<{
+        spec: { elements: ReadonlyArray<{ layout: Record<string, number>; params: Record<string, unknown> }> };
+      }>;
+    };
+    const bar = normalized.scenes[0]?.spec.elements[0];
+
+    expect(bar?.layout).toEqual({ x: 340, y: 648, width: 520, height: 24 });
+    expect(bar?.params['length']).toBe(520);
+    expect(repairs.map((repair) => repair.path)).toContain('track-axis');
+  });
+
+  it('keeps a rail inside the safe area when the model asks for more', () => {
+    const normalized = normalizeRawEpisode(trackEpisode({ x: 72, y: 700, width: 818, height: 80 })) as {
+      scenes: ReadonlyArray<{
+        spec: { elements: ReadonlyArray<{ layout: Record<string, number> }> };
+      }>;
+    };
+    const layout = normalized.scenes[0]?.spec.elements[0]?.layout ?? {};
+
+    expect(layout['width']).toBe(818);
+    expect(layout['x']).toBe(72);
+  });
+
+  it('does not touch a rail that already fits its box', () => {
+    const repairs: Repair[] = [];
+    normalizeRawEpisode(trackEpisode({ x: 72, y: 700, width: 520, height: 24 }), repairs);
+
+    expect(repairs.map((repair) => repair.path)).not.toContain('track-axis');
+  });
+});
+
+describe('track stacking', () => {
+  it('stacks two rails that would overlap after the orientation fix', () => {
+    const raw = trackEpisode({ x: 560, y: 400, width: 80, height: 520 }) as {
+      scenes: Array<{ spec: { elements: Array<Record<string, unknown>> } }>;
+    };
+    raw.scenes[0]?.spec.elements.push({
+      id: 'bar2',
+      primitive: 'track',
+      layout: { x: 680, y: 400, width: 80, height: 520 },
+      params: { length: 520, thickness: 24, fill: 0.6 },
+    });
+    const normalized = normalizeRawEpisode(raw) as {
+      scenes: ReadonlyArray<{
+        spec: { elements: ReadonlyArray<{ layout: Record<string, number> }> };
+      }>;
+    };
+    const first = normalized.scenes[0]?.spec.elements[0]?.layout ?? {};
+    const second = normalized.scenes[0]?.spec.elements[1]?.layout ?? {};
+
+    expect(second['y']).toBe((first['y'] ?? 0) + (first['height'] ?? 0) + 24);
+    expect(second['x']).toBe(first['x']);
+  });
+});

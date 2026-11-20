@@ -475,6 +475,12 @@ export function Track({
   const ratio = Math.min(1, Math.max(0, fill));
   const fillColor = color ?? theme.accent;
   const snapped = Math.min(1, Math.max(0, breakProgress));
+  /* The rail owns its size: `length` and `thickness` are the contract, the frame
+     style only positions it. A layout box must never stretch the bar. */
+  const frameStyle: CSSProperties = { ...style };
+
+  delete frameStyle.width;
+  delete frameStyle.height;
 
   if (snapped > 0) {
     const split = Math.min(1, Math.max(0, breakAt ?? 0.5));
@@ -508,7 +514,7 @@ export function Track({
           position: 'relative',
           width: length,
           height: thickness,
-          ...style,
+          ...frameStyle,
         }}
       >
         <div
@@ -547,7 +553,7 @@ export function Track({
         height: thickness,
         borderRadius: thickness / 2,
         background: theme.border,
-        ...style,
+        ...frameStyle,
       }}
     >
       <div
