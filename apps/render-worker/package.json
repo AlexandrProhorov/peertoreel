@@ -24,6 +24,7 @@
     "ui:prompts": "tsx src/ui-demo/film/print-prompts.ts",
     "ui:visual": "tsx src/ui-demo/visual/cli.ts",
     "ui:fit": "tsx src/ui-demo/fit/cli.ts",
+    "ui:bench": "tsx src/ui-demo/bench/cli.ts",
     "recolor:starter": "tsx src/recolor-starter.ts",
     "pilot:deepseek-svg": "tsx src/pilot-deepseek-svg.ts",
     "ensure-browser": "tsx src/ensure-browser.ts",
