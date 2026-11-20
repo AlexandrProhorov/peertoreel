@@ -1,15 +1,16 @@
 import { CANVAS } from './platform.js';
 
 /**
- * Scene transitions are the cut itself becoming motion.
+ * Scene transitions are nearly invisible on purpose: the viewer should notice
+ * the scene changed, not the move that changed it.
  *
- * One rule keeps this honest: a transition only moves the incoming scene. Our
- * timeline is sequential — scenes never overlap — so there is no outgoing frame
- * to blend with. A crossfade between two live scenes is a different feature
- * (it needs the timeline to hold both) and is not pretended here.
+ * Two tools only. A dissolve — the default — where both scenes are on screen and
+ * opacity trades between them. A soft slide — the same dissolve plus a drift of
+ * one to two percent of the frame, so the cut has a direction without looking
+ * like a presentation slide.
  *
- * The style is a pure function of the transition and the frame, so a test can
- * check it without Chrome, and the same frame always produces the same picture.
+ * The style is a pure function of (name, progress), so a test can check it
+ * without Chrome and the same frame always draws the same picture.
  */
 
 export const ENTER_IDS = [
@@ -19,16 +20,14 @@ export const ENTER_IDS = [
   'slide-up',
   'slide-down',
   'fade',
-  'zoom',
-  'wipe-left',
-  'wipe-right',
 ] as const;
 
 export type SceneEnterId = (typeof ENTER_IDS)[number];
 
 /**
- * Frames a transition takes. Sliding is a short, sharp move; opacity, scale and
- * a wipe need a beat longer to read as an entrance rather than a glitch.
+ * 300 ms at 30 fps: long enough to read as a dissolve, short enough not to be a
+ * pause. The same number is the overlap between two scenes, so the entrance
+ * lands exactly on the scene boundary.
  */
 export const ENTER_FRAMES: Readonly<Record<SceneEnterId, number>> = {
   cut: 0,
@@ -36,21 +35,22 @@ export const ENTER_FRAMES: Readonly<Record<SceneEnterId, number>> = {
   'slide-right': 9,
   'slide-up': 9,
   'slide-down': 9,
-  fade: 12,
-  zoom: 12,
-  'wipe-left': 12,
-  'wipe-right': 12,
+  fade: 9,
 };
 
+/**
+ * The slide drift: 1.2 % of the frame. At 1080 px wide that is 13 px — felt as a
+ * direction, not seen as a movement.
+ */
+const SLIDE_SHARE = 0.012;
+
+/** Direction the incoming scene comes from, in frames. */
 const SLIDE_FROM: Readonly<Record<string, readonly [number, number]>> = {
-  'slide-left': [CANVAS.width, 0],
-  'slide-right': [-CANVAS.width, 0],
-  'slide-up': [0, CANVAS.height],
-  'slide-down': [0, -CANVAS.height],
+  'slide-left': [CANVAS.width * SLIDE_SHARE, 0],
+  'slide-right': [-CANVAS.width * SLIDE_SHARE, 0],
+  'slide-up': [0, CANVAS.height * SLIDE_SHARE],
+  'slide-down': [0, -CANVAS.height * SLIDE_SHARE],
 };
-
-/** Scale a zoom enters from; 6 % reads as "arrived", not as a moving camera. */
-const ZOOM_FROM = 1.06;
 
 export interface SceneEnterStyle {
   readonly opacity?: number;
@@ -63,10 +63,17 @@ function isEnterId(value: string): value is SceneEnterId {
   return (ENTER_IDS as readonly string[]).includes(value);
 }
 
+/** Smoothstep: zero velocity at both ends, so nothing starts or stops abruptly. */
+export function easeInOut(progress: number): number {
+  const clamped = Math.min(1, Math.max(0, progress));
+
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
 /**
- * Style for the incoming scene at `frame` (clip-local, 0 is the first frame of
- * the scene). Unknown names fall back to a cut: the schema rejects them earlier,
- * and a renderer must never invent motion it was not asked for.
+ * Style for the incoming scene at `frame` (clip-local; frame 0 is where the
+ * overlap begins). Unknown names fall back to a cut: a renderer must never
+ * invent motion it was not asked for.
  */
 export function sceneEnterStyle(enter: string, frame: number): SceneEnterStyle {
   if (!isEnterId(enter)) {
@@ -79,49 +86,29 @@ export function sceneEnterStyle(enter: string, frame: number): SceneEnterStyle {
     return {};
   }
 
-  const progress = Math.min(1, Math.max(0, frame / total));
+  const raw = Math.min(1, Math.max(0, frame / total));
 
-  if (progress >= 1) {
+  if (raw >= 1) {
     return {};
   }
 
+  const eased = easeInOut(raw);
   const from = SLIDE_FROM[enter];
 
   if (from !== undefined) {
-    const x = from[0] * (1 - progress);
-    const y = from[1] * (1 - progress);
+    const x = from[0] * (1 - eased);
+    const y = from[1] * (1 - eased);
 
-    /* The move carries a dissolve: the arriving frame is not fully opaque until
-       it lands, so the outgoing frame reads through it instead of being cut. */
-    return { transform: `translate(${x}px, ${y}px)`, opacity: progress };
+    return {
+      transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`,
+      opacity: eased,
+    };
   }
 
-  switch (enter) {
-    case 'fade':
-      return { opacity: progress };
-    case 'zoom':
-      return {
-        transform: `scale(${(ZOOM_FROM - (ZOOM_FROM - 1) * progress).toFixed(4)})`,
-        transformOrigin: 'center center',
-        opacity: progress,
-      };
-    case 'wipe-left':
-      /* The scene is revealed from its left edge: the inset shrinks to zero. */
-      return {
-        clipPath: `inset(0 ${((1 - progress) * 100).toFixed(2)}% 0 0)`,
-        opacity: progress,
-      };
-    case 'wipe-right':
-      return {
-        clipPath: `inset(0 0 0 ${((1 - progress) * 100).toFixed(2)}%)`,
-        opacity: progress,
-      };
-    default:
-      return {};
-  }
+  return { opacity: eased };
 }
 
-/** Frames the transition takes, for tests and for the gallery. */
+/** Frames the transition takes, for tests and for the timeline. */
 export function sceneEnterFrames(enter: string): number {
   return isEnterId(enter) ? ENTER_FRAMES[enter] : 0;
 }

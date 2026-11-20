@@ -12,8 +12,8 @@
 /** Entrances a film needs besides fade, so the cuts read as cuts. */
 export const MIN_NON_FADE_ENTRANCES = 2;
 
-/** Order of preference when a scene has to be varied: bold but readable. */
-const VARIETY_ROTATION = ['zoom', 'slide-up', 'wipe-left', 'slide-right'] as const;
+/** Order of preference when a scene has to be varied: a direction, nothing more. */
+const VARIETY_ROTATION = ['slide-up', 'slide-right', 'slide-down', 'slide-left'] as const;
 
 /** Everything the rule needs from a scene; the episode union satisfies it. */
 export interface EnterableScene {

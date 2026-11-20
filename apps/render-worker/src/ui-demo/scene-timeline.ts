@@ -1,24 +1,21 @@
-import { sceneEnterFrames } from './scene-enter.js';
 import { CANVAS } from './platform.js';
+import { easeInOut, sceneEnterFrames } from './scene-enter.js';
 
 /**
- * Scenes overlap during a transition.
+ * Scenes overlap during a transition and the timeline does not move.
  *
- * The old timeline was strictly sequential: a scene ended, the next one entered
- * over black. That gave the film a visible black beat on every cut. A dissolve
- * needs both scenes on screen at once, so the incoming scene starts before the
- * outgoing one ends and the film becomes shorter by the sum of the overlaps.
- *
- * The overlap is the transition's own length: a nine-frame slide covers nine
- * frames of the previous scene, a twelve-frame fade dissolves over twelve. A cut
- * keeps the timeline sequential.
+ * An incoming scene is mounted `overlap` frames before its own boundary and
+ * ends on that boundary: the picture dissolves inside the last frames of the
+ * previous scene instead of adding a pause between them. The film keeps the
+ * length the arc planned, scene boundaries keep their places, and every
+ * entrance is finished exactly when the scene formally starts.
  */
 
 export interface PlacedScene<T> {
   readonly scene: T;
   readonly from: number;
   readonly durationInFrames: number;
-  /** Frames this scene starts before the previous one ends. */
+  /** Frames this scene starts before its own boundary. */
   readonly overlap: number;
 }
 
@@ -32,13 +29,17 @@ interface TimedScene {
   readonly durationSec: number;
 }
 
+function sceneFrames(scene: TimedScene, fps: number): number {
+  return Math.max(1, Math.round(scene.durationSec * fps));
+}
+
 /**
- * Frames of overlap before `scene`, clamped so a scene never swallows its
- * neighbour: both sides must keep at least one frame of their own.
+ * Frames of overlap before a scene, clamped so neither side loses its own
+ * frames: the overlap never exceeds the previous scene or the scene itself.
  */
 function overlapBefore(
   scene: TimedScene,
-  previousEnd: number,
+  previousFrames: number,
   frames: number,
   isFirst: boolean,
 ): number {
@@ -48,7 +49,7 @@ function overlapBefore(
 
   return Math.min(
     sceneEnterFrames(scene.enter ?? 'cut'),
-    Math.max(0, previousEnd - 1),
+    Math.max(0, previousFrames - 1),
     Math.max(0, frames - 1),
   );
 }
@@ -59,58 +60,24 @@ export function placeScenes<T extends TimedScene>(
 ): PlacedTimeline<T> {
   const placed: Array<PlacedScene<T>> = [];
   let cursor = 0;
+  let previousFrames = 0;
 
   scenes.forEach((scene, index) => {
-    const durationInFrames = Math.max(1, Math.round(scene.durationSec * fps));
-    const overlap = overlapBefore(scene, cursor, durationInFrames, index === 0);
+    const frames = sceneFrames(scene, fps);
+    const overlap = overlapBefore(scene, previousFrames, frames, index === 0);
     const from = cursor - overlap;
 
-    placed.push({ scene, from, durationInFrames, overlap });
-    cursor = from + durationInFrames;
+    /* The scene owns its frames plus the overlap it borrows from the previous
+       one; the cursor advances by its own frames only, so boundaries stand. */
+    placed.push({ scene, from, durationInFrames: frames + overlap, overlap });
+    cursor += frames;
+    previousFrames = frames;
   });
 
   return { placed, totalFrames: cursor };
 }
 
-/**
- * Opacity of the outgoing scene during a transition. Every transition is a
- * dissolve as well as a move: the old frame dims while the new one brightens, so
- * the cut never reads as a hard swap and no fully black frame is shown.
- */
-export function sceneExitOpacity(
-  nextEnter: string | undefined,
-  localFrame: number,
-  durationInFrames: number,
-  overlapFrames: number,
-): number {
-  if (nextEnter === undefined || nextEnter === 'cut' || overlapFrames <= 0) {
-    return 1;
-  }
-
-  const start = durationInFrames - overlapFrames;
-
-  if (localFrame <= start) {
-    return 1;
-  }
-
-  return Math.max(0, 1 - (localFrame - start) / overlapFrames);
-}
-
-export interface SceneExitStyle {
-  readonly opacity?: number;
-  readonly transform?: string;
-  readonly transformOrigin?: string;
-}
-
-/** Where a slide enters from, and therefore where it pushes the old scene. */
-const SLIDE_VECTORS: Readonly<Record<string, readonly [number, number]>> = {
-  'slide-left': [CANVAS.width, 0],
-  'slide-right': [-CANVAS.width, 0],
-  'slide-up': [0, CANVAS.height],
-  'slide-down': [0, -CANVAS.height],
-};
-
-function transitionProgress(
+function progressOf(
   localFrame: number,
   durationInFrames: number,
   overlapFrames: number,
@@ -129,10 +96,41 @@ function transitionProgress(
 }
 
 /**
- * How the outgoing scene leaves during a transition. A slide pushes: the old
- * frame travels in the same direction the new one comes from, so the two frames
- * stay edge to edge and no black ever shows between them. A wipe reveals in
- * place, a fade dims, a zoom drifts back.
+ * Opacity of the outgoing scene during a transition: a straight dissolve, eased
+ * so neither side snaps in or out.
+ */
+export function sceneExitOpacity(
+  nextEnter: string | undefined,
+  localFrame: number,
+  durationInFrames: number,
+  overlapFrames: number,
+): number {
+  if (nextEnter === undefined || nextEnter === 'cut') {
+    return 1;
+  }
+
+  const progress = progressOf(localFrame, durationInFrames, overlapFrames);
+
+  return progress === null ? 1 : 1 - easeInOut(progress);
+}
+
+export interface SceneExitStyle {
+  readonly opacity?: number;
+  readonly transform?: string;
+}
+
+/** Where a slide enters from; the outgoing frame drifts the other way. */
+const SLIDE_VECTORS: Readonly<Record<string, readonly [number, number]>> = {
+  'slide-left': [CANVAS.width * 0.012, 0],
+  'slide-right': [-CANVAS.width * 0.012, 0],
+  'slide-up': [0, CANVAS.height * 0.012],
+  'slide-down': [0, -CANVAS.height * 0.012],
+};
+
+/**
+ * How the outgoing scene leaves. Every transition dissolves; a slide adds a
+ * drift of the same size in the opposite direction, so the two frames move
+ * together by a few pixels instead of one pushing the other off screen.
  */
 export function sceneExitStyle(
   nextEnter: string | undefined,
@@ -140,34 +138,24 @@ export function sceneExitStyle(
   durationInFrames: number,
   overlapFrames: number,
 ): SceneExitStyle {
-  const progress = transitionProgress(localFrame, durationInFrames, overlapFrames);
+  const progress = progressOf(localFrame, durationInFrames, overlapFrames);
 
   if (progress === null || nextEnter === undefined) {
     return {};
   }
 
-  if (nextEnter === 'fade') {
-    return { opacity: 1 - progress };
-  }
-
+  const eased = easeInOut(progress);
   const vector = SLIDE_VECTORS[nextEnter];
 
-  if (vector !== undefined) {
-    /* The incoming scene starts at `-vector`; the outgoing leaves along it. */
-    const x = vector[0] * -progress;
-    const y = vector[1] * -progress;
-
-    return { transform: `translate(${x}px, ${y}px)`, opacity: 1 - progress };
+  if (vector === undefined) {
+    return { opacity: 1 - eased };
   }
 
-  if (nextEnter === 'zoom') {
-    return {
-      transform: `scale(${(1 + 0.04 * progress).toFixed(4)})`,
-      transformOrigin: 'center center',
-      opacity: 1 - progress,
-    };
-  }
+  const x = -vector[0] * eased;
+  const y = -vector[1] * eased;
 
-  /* A wipe reveals the old frame; it dims with the dissolve like the rest. */
-  return { opacity: 1 - progress };
+  return {
+    transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`,
+    opacity: 1 - eased,
+  };
 }

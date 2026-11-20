@@ -38,7 +38,7 @@ describe('entrance variety', () => {
     /* The film already has one non-fade entrance (the cut), so one more is
        enough; the longest scene gets it. */
     expect(result.changed).toEqual([2]);
-    expect(installed).toEqual(['cut', 'fade', 'zoom', 'fade']);
+    expect(installed).toEqual(['cut', 'fade', 'slide-up', 'fade']);
   });
 
   it('stops at the quota and never touches the first scene', () => {
