@@ -19,6 +19,7 @@ import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
 import { degradeScene, fallbackScene, hasContent, preferAttempt, titleFromAttempts, type AttemptCandidate } from './degraded.js';
 import { enforceEntranceVariety } from './entrances.js';
+import { issuesWithHints, REPEATED_COMPOSITION } from './hints.js';
 import { placeScenes } from '../scene-timeline.js';
 import { SCENE_FPS } from '../../video-target.js';
 import { assignmentFor } from './forms.js';
@@ -128,6 +129,9 @@ async function generateScene(options: {
   /* The ladder keeps the best picture, not the last one: content is already
      guaranteed, violations decide, then the film's unused compositions. */
   let best: AttemptCandidate | null = null;
+  /* Signature of the previous attempt: the same picture twice is a reason to
+     ask for a different composition, not to repeat the prompt. */
+  let previousSignature: string | null = null;
   /* The model's own words from rejected attempts: a fallback keeps its sentence
      even when the composition never assembles. */
   const parsedAttempts: unknown[] = [];
@@ -179,7 +183,7 @@ async function generateScene(options: {
     }
 
     if (!episode.success) {
-      errors.splice(0, errors.length, ...issuesOf(episode.error));
+      errors.splice(0, errors.length, ...issuesWithHints(issuesOf(episode.error)));
       continue;
     }
 
@@ -244,6 +248,12 @@ async function generateScene(options: {
       signature: sceneSignature(candidate).key,
       attempt,
     };
+
+    if (record.signature === previousSignature) {
+      hints.push(REPEATED_COMPOSITION);
+    }
+
+    previousSignature = record.signature;
 
     if (preferAttempt(record, best, options.used)) {
       best = record;
