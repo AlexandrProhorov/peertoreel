@@ -3,9 +3,8 @@ import { MIN_NON_FADE_ENTRANCES, enforceEntranceVariety } from './entrances.js';
 
 /**
  * A hard cut is not a transition: every scene after the first dissolves unless
- * the model asked for a slide, and the film keeps at least two slides so the
- * beats have some direction. The rule is applied to the assembled film, because
- * each scene prompt is blind to its neighbours.
+ * the model asked for a slide. Directions are used once per film, and the film
+ * keeps at least two slides so the beats have some shape.
  */
 
 interface Scene {
@@ -32,11 +31,8 @@ describe('entrance variety', () => {
   });
 
   it('turns a hard cut into a dissolve and keeps the first cut', () => {
-    const scenes = film(['fade', 'cut', 'cut', 'cut']);
-    const result = enforceEntranceVariety(scenes);
+    const result = enforceEntranceVariety(film(['fade', 'cut', 'cut', 'cut']));
 
-    /* The first scene always arrives on a cut; the rest dissolve. Two slides are
-       still added below, so the installed list is not all dissolves. */
     expect(result.scenes[0]?.enter).toBe('cut');
     expect(result.changed).toContain(1);
     expect(result.changed).toContain(2);
@@ -45,10 +41,36 @@ describe('entrance variety', () => {
   it('adds slides to the longest scenes when the film has none', () => {
     const scenes = film(['cut', 'fade', 'fade', 'fade'], [4, 3, 9, 6]);
     const result = enforceEntranceVariety(scenes);
-    const installed = result.scenes.map((scene) => scene.enter);
 
     expect(result.changed).toEqual([2, 3]);
-    expect(installed).toEqual(['cut', 'fade', 'slide-up', 'slide-right']);
+    expect(result.scenes.map((scene) => scene.enter)).toEqual([
+      'cut',
+      'fade',
+      'slide-up',
+      'slide-right',
+    ]);
+  });
+
+  it('never repeats a slide direction', () => {
+    const result = enforceEntranceVariety(
+      film(['cut', 'slide-up', 'slide-up', 'slide-down', 'slide-down']),
+    );
+
+    expect(result.scenes.map((scene) => scene.enter)).toEqual([
+      'cut',
+      'slide-up',
+      'slide-right',
+      'slide-down',
+      'slide-left',
+    ]);
+  });
+
+  it('falls back to a dissolve when every direction is taken', () => {
+    const result = enforceEntranceVariety(
+      film(['cut', 'slide-up', 'slide-right', 'slide-down', 'slide-left', 'slide-up']),
+    );
+
+    expect(result.scenes[5]?.enter).toBe('fade');
   });
 
   it('counts slides, not cuts, as variety', () => {
