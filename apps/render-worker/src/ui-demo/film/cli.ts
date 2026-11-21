@@ -223,13 +223,28 @@ async function generateScene(options: {
 
     const violations: string[] = [];
     const hints: string[] = [];
+    /* Frame checks that were calibrated and promoted: a scene that renders with
+       text over text is retried with the measurement's own words. Rules still in
+       calibration stay out of the gate. */
+    const blockingFrame = repaired.violations.filter((violation) =>
+      violation.startsWith('critical-overlap:'),
+    );
+
+    if (blockingFrame.length > 0) {
+      violations.push(...blockingFrame.map((violation) => `кадр: ${violation}`));
+      hints.push(
+        ...blockingFrame.map(
+          (violation) => `${violation}: разведи элементы или сократи текст, чтобы кадр читался`,
+        ),
+      );
+    }
 
     if (repaired.overflowing.length > 0) {
       violations.push(`переполнение: ${repaired.overflowing.join(', ')}`);
       hints.push(
         `текст не влезает даже на минимальном кегле (${repaired.overflowing.join(', ')}): сократи текст или увеличь бокс`,
       );
-    } else {
+    } else if (blockingFrame.length === 0) {
       let motion: Awaited<ReturnType<typeof checkVisibleChange>>;
 
       try {
