@@ -1029,11 +1029,44 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       const ordered = (Array.isArray(sequence) ? sequence.filter(isObject) : []).filter(
         (step) => !dropped.has(String(step['element'])),
       );
-      const needsTiming = ordered.some((step) => step['at'] === undefined);
+      /* A press the model wrote must have an answer: if the target has no
+         activate step, one is inserted right after the tap. The gesture stays,
+         and the frame shows a reaction instead of a cursor that lands for nothing. */
+      const answered = new Set(
+        ordered
+          .filter((step) => step['transition'] === 'activate')
+          .map((step) => String(step['element'])),
+      );
+      const withAnswers: Unknown[] = [];
+
+      for (const step of ordered) {
+        withAnswers.push(step);
+
+        const target = step['target'];
+
+        if (
+          step['transition'] === 'tap' &&
+          typeof target === 'string' &&
+          !answered.has(target)
+        ) {
+          withAnswers.push({ element: target, transition: 'activate' });
+          answered.add(target);
+          repairs.push({
+            element: target,
+            path: 'tap-answer',
+            reason: 'the target answers the press',
+            from: '-',
+            to: 'activate',
+          });
+        }
+      }
+
+      const steps = withAnswers;
+      const needsTiming = steps.some((step) => step['at'] === undefined);
       const planned = typeof scene['durationSec'] === 'number' ? scene['durationSec'] : 0;
       const derived = needsTiming
         ? deriveTiming(
-            ordered.map((step) => ({
+            steps.map((step) => ({
               element: String(step['element'] ?? ''),
               transition: String(step['transition'] ?? ''),
               ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
@@ -1048,7 +1081,7 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
          cue times are derived here — re-fitting an already timed scene must not
          cut it twice. */
       const cues = derived === null
-        ? ordered.map((step) => ({
+        ? steps.map((step) => ({
             at: typeof step['at'] === 'number' ? step['at'] : 0,
             transition: String(step['transition'] ?? ''),
           }))
@@ -1072,8 +1105,8 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         spec: {
           ...spec,
           ...(timing === null ? {} : { sequence: timing.cues }),
-          ...(timing !== null ? {} : dropped.size === 0 ? {} : {
-            sequence: ordered,
+          ...(timing !== null ? {} : dropped.size === 0 && steps === ordered ? {} : {
+            sequence: steps,
           }),
           ...(focus === undefined ? { focus: undefined } : { focus }),
           elements: finalElements,

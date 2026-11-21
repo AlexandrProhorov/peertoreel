@@ -518,3 +518,59 @@ describe('track stacking', () => {
     expect(second['x']).toBe(first['x']);
   });
 });
+
+/**
+ * A press must have an answer: a cursor that lands on a card with no reaction is
+ * a gesture, not an interaction. The answer is inserted right after the tap.
+ */
+describe('tap answer', () => {
+  function pressScene(withAnswer: boolean): unknown {
+    return {
+      schemaVersion: 1,
+      themeId: 'studio-dark',
+      captions: false,
+      speech: [],
+      scenes: [
+        {
+          id: 'press',
+          device: 'spec',
+          durationSec: 4,
+          themeId: 'studio-dark',
+          spec: {
+            kind: 'composition',
+            focus: 'card',
+            elements: [
+              { id: 'card', primitive: 'card', layout: { x: 140, y: 700, width: 520, height: 320 }, params: { background: '#CCFF00', text: 'Кнопка', token: 'headline' } },
+              { id: 'dot', primitive: 'thumb', layout: { x: 760, y: 1150, width: 260, height: 80 }, params: { size: 44, axis: 'x' } },
+            ],
+            sequence: [
+              { element: 'card', transition: 'appear' },
+              { element: 'dot', transition: 'appear' },
+              { element: 'dot', transition: 'tap', target: 'card' },
+              ...(withAnswer ? [{ element: 'card', transition: 'activate' }] : []),
+            ],
+          },
+        },
+      ],
+    };
+  }
+
+  it('inserts an activate step for the pressed target', () => {
+    const repairs: Repair[] = [];
+    const normalized = normalizeRawEpisode(pressScene(false), repairs) as {
+      scenes: ReadonlyArray<{ spec: { sequence: ReadonlyArray<{ element: string; transition: string }> } }>;
+    };
+    const steps = normalized.scenes[0]?.spec.sequence ?? [];
+
+    expect(steps.map((step) => `${step.element}:${step.transition}`)).toContain('card:activate');
+    expect(repairs.map((repair) => repair.path)).toContain('tap-answer');
+  });
+
+  it('leaves a scene that already answers untouched', () => {
+    const repairs: Repair[] = [];
+
+    normalizeRawEpisode(pressScene(true), repairs);
+
+    expect(repairs.map((repair) => repair.path)).not.toContain('tap-answer');
+  });
+});
