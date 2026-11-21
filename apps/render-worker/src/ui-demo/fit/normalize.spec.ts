@@ -254,6 +254,9 @@ describe('surface separation', () => {
     expect(repairs.map((repair) => repair.path)).toEqual([
       'accent-transferred',
       'surface-removed',
+      /* The removed accent block was also the main token: the kept card takes
+         the hierarchy back instead of failing the gate. */
+      'hierarchy-promoted',
     ]);
   });
 

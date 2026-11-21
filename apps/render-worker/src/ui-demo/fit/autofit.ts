@@ -142,9 +142,28 @@ export async function repairEpisode(
               .filter((other) => other.id !== element.id)
               .map(rectOf)
               .filter((rect) => rect.width > 0 && rect.height > 0);
+            /* The probe reports the copy itself; padding is part of the box, so
+               it must be added back or a padded card can never satisfy the need. */
+            const elementParams = element.params as Record<string, unknown>;
+            const value = (key: string, fallback: number): number =>
+              typeof elementParams[key] === 'number'
+                ? (elementParams[key] as number)
+                : fallback;
+            const padX =
+              element.primitive === 'pill'
+                ? value('paddingX', 24)
+                : element.primitive === 'bubble'
+                  ? value('paddingX', 20)
+                  : value('padding', 0);
+            const padY =
+              element.primitive === 'pill'
+                ? value('paddingY', 16)
+                : element.primitive === 'bubble'
+                  ? value('paddingY', 14)
+                  : value('padding', 0);
             const need = {
-              width: (box.contentWidth ?? 0) + 8,
-              height: (box.contentHeight ?? 0) + 8,
+              width: (box.contentWidth ?? 0) + 2 * padX + 8,
+              height: (box.contentHeight ?? 0) + 2 * padY + 8,
             };
             const grown = growToFit(rectOf(element), need, obstacles, CRITICAL_SAFE_BOUNDS);
 
@@ -178,6 +197,8 @@ export async function repairEpisode(
             const layout = grown.grew
               ? {
                   ...element.layout,
+                  x: grown.layout.x,
+                  y: grown.layout.y,
                   width: grown.layout.width,
                   height: grown.layout.height,
                 }

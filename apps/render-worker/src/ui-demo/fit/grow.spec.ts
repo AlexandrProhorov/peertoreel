@@ -19,18 +19,41 @@ describe('grow to fit', () => {
     expect(result.layout.height).toBe(200);
   });
 
-  it('never moves the element', () => {
-    const result = growToFit(box(72, 700, 400, 120), { width: 900, height: 900 }, [], FRAME);
+  it('prefers the right and bottom edges, so most boxes stay in place', () => {
+    const result = growToFit(box(72, 700, 400, 120), { width: 500, height: 200 }, [], FRAME);
 
     expect(result.layout.x).toBe(72);
     expect(result.layout.y).toBe(700);
+    expect(result.layout.width).toBe(500);
+    expect(result.layout.height).toBe(200);
+  });
+
+  it('grows left when the right side is blocked by a neighbour', () => {
+    const neighbour = box(500, 700, 200, 120);
+    const result = growToFit(box(72, 700, 400, 120), { width: 500, height: 120 }, [neighbour], FRAME);
+
+    /* The right edge stops 16 px before the neighbour, the rest comes from the
+       left until the frame bound is reached. */
+    expect(result.layout.width).toBe(484);
+    expect(result.layout.x).toBe(0);
+  });
+
+  it('grows up when the element below is too close', () => {
+    const below = box(72, 860, 400, 120);
+    const result = growToFit(box(72, 700, 400, 120), { width: 400, height: 300 }, [below], FRAME);
+
+    expect(result.layout.height).toBe(300);
+    expect(result.layout.y).toBe(544);
   });
 
   it('stops at the next element with a gap instead of covering it', () => {
     const neighbour = box(72, 900, 400, 120);
     const result = growToFit(box(72, 700, 400, 120), { width: 400, height: 400 }, [neighbour], FRAME);
 
-    expect(result.layout.height).toBe(900 - 16 - 700);
+    /* The bottom stops 16 px before the neighbour; the deficit is taken from
+       the top, so the box reaches the size the copy asked for. */
+    expect(result.layout.height).toBe(400);
+    expect(result.layout.y).toBe(484);
     expect(result.grew).toBe(true);
   });
 
@@ -48,7 +71,7 @@ describe('grow to fit', () => {
     expect(result.layout).toEqual(box(72, 700, 400, 200));
   });
 
-  it('is bounded by the safe area', () => {
+  it('is bounded by the safe area and uses both sides of it', () => {
     const result = growToFit(box(900, 700, 100, 100), { width: 900, height: 500 }, [], {
       left: 72,
       top: 220,
@@ -56,7 +79,8 @@ describe('grow to fit', () => {
       bottom: 1600,
     });
 
-    expect(result.layout.width).toBe(1008 - 900);
+    expect(result.layout.width).toBe(900);
+    expect(result.layout.x).toBe(108);
     expect(result.layout.height).toBe(500);
   });
 });

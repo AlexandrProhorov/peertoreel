@@ -1,4 +1,4 @@
-import { tokenForHeight } from '../typography-rules.js';
+import { TYPE_BOX_RULES, tokenForHeight } from '../typography-rules.js';
 import { CANVAS, CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import { deriveTiming, sceneDurationSec, sceneFloorSec } from '../timing-plan.js';
 import {
@@ -710,6 +710,83 @@ function stackTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[]
   return stacked;
 }
 
+/** Tokens the hierarchy gate accepts as the main message. */
+const HIERARCHY_TOKENS = ['card', 'headline', 'display'] as const;
+
+/** The smallest accepted token that fits the box, so promotion adds as little copy pressure as possible. */
+function hierarchyTokenFor(height: number): string {
+  for (const token of HIERARCHY_TOKENS) {
+    const rule = TYPE_BOX_RULES[token];
+
+    if (height >= rule.minHeight && height <= rule.maxHeight) {
+      return token;
+    }
+  }
+
+  return 'card';
+}
+
+/**
+ * An empty surface may have been the main message: the model draws a big coin,
+ * the empty-surface rule removes it, and the scene is left with body copy only.
+ * Instead of failing the hierarchy gate, the largest remaining text is promoted
+ * to the smallest large token its box can hold — the copy stays, the frame gets
+ * a main message back.
+ */
+function ensureHierarchy(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
+  const withText = elements
+    .map((element, index) => ({ element, index }))
+    .filter(({ element }) => element['primitive'] !== 'stage')
+    .filter(({ element }) => {
+      const params = isObject(element['params']) ? element['params'] : null;
+
+      return (
+        params !== null &&
+        typeof params['text'] === 'string' &&
+        params['text'].trim() !== ''
+      );
+    });
+
+  const hasLarge = withText.some(({ element }) => {
+    const token = (element['params'] as Record<string, unknown>)['token'];
+
+    return typeof token === 'string' && (HIERARCHY_TOKENS as readonly string[]).includes(token);
+  });
+
+  if (hasLarge || withText.length === 0) {
+    return [...elements];
+  }
+
+  const target = withText
+    .map(({ element, index }) => {
+      const layout = isObject(element['layout']) ? element['layout'] : {};
+      const width = typeof layout['width'] === 'number' ? layout['width'] : 0;
+      const height = typeof layout['height'] === 'number' ? layout['height'] : 0;
+
+      return { element, index, area: width * height, height };
+    })
+    .sort((left, right) => right.area - left.area || left.index - right.index)[0];
+
+  if (target === undefined) {
+    return [...elements];
+  }
+
+  const params = target.element['params'] as Record<string, unknown>;
+  const token = hierarchyTokenFor(target.height);
+  const next = [...elements];
+
+  next[target.index] = { ...target.element, params: { ...params, token } };
+  repairs.push({
+    element: typeof target.element['id'] === 'string' ? target.element['id'] : null,
+    path: 'hierarchy-promoted',
+    reason: 'the main token left with a removed surface; the largest text takes its place',
+    from: typeof params['token'] === 'string' ? params['token'] : '-',
+    to: token,
+  });
+
+  return next;
+}
+
 export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unknown {
   const salvaged = salvageEpisode(raw, repairs);
 
@@ -832,6 +909,7 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
 
       /* Rails last: the box must agree with the contract before the quality gate
          sees the scene. */
+      finalElements = ensureHierarchy(finalElements, repairs);
       finalElements = stackTracks(repairTracks(finalElements, repairs), repairs);
 
       return {
