@@ -18,6 +18,8 @@
     "ui:direct": "tsx src/ui-demo/director/cli.ts",
     "ui:gallery": "tsx src/ui-demo/gallery/build.ts",
     "ui:film": "tsx src/ui-demo/film/cli.ts",
+    "ui:voice": "tsx src/ui-demo/film/voice-cli.ts",
+    "ui:mux": "tsx src/ui-demo/film/mux.ts",
     "ui:assemble": "tsx src/ui-demo/film/assemble.ts",
     "ui:import": "tsx src/ui-demo/film/import.ts",
     "ui:review": "tsx src/ui-demo/review.ts",
