@@ -602,7 +602,7 @@
     },
     {
       "id": "thumb",
-      "semantics": "положение или указатель на шкале",
+      "semantics": "курсор: указатель на шкале или палец, который нажимает цель",
       "offeredToDirector": true,
       "parameters": [
         {
@@ -644,7 +644,7 @@
         "scale"
       ],
       "prompt": [
-        "- thumb — положение или указатель на шкале",
+        "- thumb — курсор: указатель на шкале или палец, который нажимает цель",
         "    size: number, 12..80\n    color: color\n    axis: enum, одно из [\"x\",\"y\"]",
         "    переходы: appear, disappear, tap, drag, release",
         "    состояния: rest, dragging, released",
