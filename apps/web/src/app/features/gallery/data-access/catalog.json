@@ -185,7 +185,8 @@
       ],
       "states": [
         "rest",
-        "highlighted"
+        "highlighted",
+        "active"
       ],
       "transitions": [
         "appear",
@@ -193,7 +194,8 @@
         "hold",
         "move",
         "scale",
-        "highlight"
+        "highlight",
+        "activate"
       ],
       "operations": [
         "reveal",
@@ -203,8 +205,8 @@
       "prompt": [
         "- card — видимая поверхность, контейнер или объект",
         "    background: color\n    radius: number, 0..48\n    padding: number, 0..80\n    border: color\n    elevation: enum, одно из [\"low\",\"high\"]\n    shadow: enum, одно из [\"none\",\"soft\",\"strong\"]\n    shadowColor: color\n    text: string, до 80 символов\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    fontScale: number, 0.85..1\n    align: enum, одно из [\"left\",\"center\",\"right\"]",
-        "    переходы: appear, disappear, hold, move, scale, highlight",
-        "    состояния: rest, highlighted",
+        "    переходы: appear, disappear, hold, move, scale, highlight, activate",
+        "    состояния: rest, highlighted, active",
         "    операции: reveal, move, scale"
       ]
     },
@@ -384,13 +386,15 @@
       ],
       "states": [
         "rest",
-        "shown"
+        "shown",
+        "active"
       ],
       "transitions": [
         "appear",
         "disappear",
         "type",
-        "hold"
+        "hold",
+        "activate"
       ],
       "operations": [
         "reveal",
@@ -400,8 +404,8 @@
       "prompt": [
         "- bubble — реплика или сообщение",
         "    side: enum, одно из [\"left\",\"right\"]\n    background: color\n    textColor: color\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    text: string, до 160 символов",
-        "    переходы: appear, disappear, type, hold",
-        "    состояния: rest, shown",
+        "    переходы: appear, disappear, type, hold, activate",
+        "    состояния: rest, shown, active",
         "    операции: reveal, type-on, move"
       ]
     },
@@ -570,7 +574,8 @@
         }
       ],
       "states": [
-        "rest"
+        "rest",
+        "active"
       ],
       "transitions": [
         "appear",
@@ -579,7 +584,8 @@
         "hold",
         "move",
         "scale",
-        "highlight"
+        "highlight",
+        "activate"
       ],
       "operations": [
         "reveal",
@@ -589,8 +595,8 @@
       "prompt": [
         "- label — текстовый смысловой акцент",
         "    text: string, до 80 символов\n    tone: enum, одно из [\"ink\",\"muted\",\"accent\",\"surface\",\"accent-ink\"]\n    textColor: color\n    token: enum, одно из [\"display\",\"headline\",\"card\",\"body\",\"bubble\",\"selection\",\"input\",\"caption\",\"label\",\"name\"]\n    weight: enum, одно из [400,500,600,700,800]\n    align: enum, одно из [\"left\",\"center\",\"right\"]\n    fontScale: number, 0.85..1\n    mark: boolean",
-        "    переходы: appear, disappear, type, hold, move, scale, highlight",
-        "    состояния: rest",
+        "    переходы: appear, disappear, type, hold, move, scale, highlight, activate",
+        "    состояния: rest, active",
         "    операции: reveal, type-on, move"
       ]
     },

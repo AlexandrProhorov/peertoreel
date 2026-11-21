@@ -25,4 +25,19 @@ describe('motion cues', () => {
     expect(behaviorStyle('appear', 0).opacity).toBe(0);
     expect(behaviorStyle('hold', 0.5)).toEqual({});
   });
+
+  it('answers a press with a visible pulse that returns to rest', () => {
+    expect(behaviorStyle('activate', 0)).toEqual({
+      transform: 'scale(1.0000)',
+      filter: 'brightness(1.0000)',
+    });
+    expect(behaviorStyle('activate', 0.5)).toEqual({
+      transform: 'scale(1.0200)',
+      filter: 'brightness(1.2000)',
+    });
+    expect(behaviorStyle('activate', 1)).toEqual({
+      transform: 'scale(1.0000)',
+      filter: 'brightness(1.0000)',
+    });
+  });
 });
