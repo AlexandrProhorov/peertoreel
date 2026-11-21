@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-21 | Ремонты до KPI: 0 потерянных сцен, 0 % degraded, 1.46 попытки | [2026-11-21-04](docs/sessions/2026-11/2026-11-21-04-repairs-to-kpi.md) |
 | 2026-11-21 | Серия DeepSeek (8c) и кадровые проверки (8d): 26/26, degraded 7.7 % | [2026-11-21-03](docs/sessions/2026-11/2026-11-21-03-deepseek-series.md) |
 | 2026-11-20 | Кадровые проверки по измерениям и экспорт промптов для внешнего прогона | [2026-11-20-11](docs/sessions/2026-11/2026-11-20-11-frame-checks-and-prompts.md) |
 | 2026-11-20 | Ретрай с информацией: подсказки по кодам и повтор композиции | [2026-11-20-10](docs/sessions/2026-11/2026-11-20-10-informed-retry.md) |
