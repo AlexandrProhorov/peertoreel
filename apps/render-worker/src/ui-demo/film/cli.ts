@@ -15,7 +15,7 @@ import { uiEpisodeSchema, type UiEpisode, type SpecScene, type UiScene } from '.
 import { sceneSignature } from '../signature.js';
 import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
-import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt, type Arc } from './arc.js';
+import { ARC_SYSTEM_PROMPT, arcPlanFor, arcSchema, arcSchemaFor, buildArcPrompt, type Arc } from './arc.js';
 import { degradeScene, fallbackScene, hasContent, preferAttempt, titleFromAttempts, type AttemptCandidate } from './degraded.js';
 import { enforceEntranceVariety } from './entrances.js';
 import { issuesWithHints, REPEATED_COMPOSITION } from './hints.js';
@@ -360,6 +360,8 @@ async function main(): Promise<void> {
   const cwd = process.cwd();
   const outRoot = path.resolve(cwd, optionValue('--out') ?? 'out/film');
   const withAction = !process.argv.includes('--no-action');
+  const targetRaw = optionValue('--seconds');
+  const targetSeconds = targetRaw === undefined ? null : Number(targetRaw);
   const topics = topicsSchema.parse(
     JSON.parse(stripBom(await readFile(path.resolve(cwd, input), 'utf8'))),
   );
@@ -383,6 +385,7 @@ async function main(): Promise<void> {
 
     let arc: Arc | null = null;
     const arcErrors: string[] = [];
+    const arcParser = targetSeconds === null ? arcSchema : arcSchemaFor(arcPlanFor(targetSeconds).seconds);
 
     for (let attempt = 1; attempt <= 3 && arc === null; attempt += 1) {
       const response = await client.complete({
@@ -392,6 +395,7 @@ async function main(): Promise<void> {
             action: withAction,
             form: assignment.form,
             carrier: assignment.carrier,
+            ...(targetSeconds === null ? {} : { seconds: targetSeconds }),
           }) +
           (arcErrors.length === 0
             ? ''
@@ -407,7 +411,7 @@ async function main(): Promise<void> {
       await writeFile(path.join(dir, `arc-attempt-${attempt}.json`), `${raw}\n`, 'utf8');
 
       try {
-        arc = arcSchema.parse(parseJsonResponse(raw));
+        arc = arcParser.parse(parseJsonResponse(raw));
       } catch (error: unknown) {
         arcErrors.splice(0, arcErrors.length, ...issuesOf(error));
       }
@@ -463,7 +467,12 @@ async function main(): Promise<void> {
         fallbackCount += 1;
       }
 
-      scenes.push(result.scene);
+      const plannedScene = arc.scenes[index];
+
+      scenes.push({
+        ...result.scene,
+        ...(plannedScene === undefined ? {} : { narration: plannedScene.narration }),
+      });
       usedSignatures.add(sceneSignature(result.scene).key);
       sceneReport.push({
         index: index + 1,

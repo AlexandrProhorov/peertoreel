@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arcSchema } from './arc.js';
+import { arcPlanFor, arcSchema, arcSchemaFor } from './arc.js';
 
 /**
  * The arc is prose: the model describes the visual action in one or two
@@ -12,6 +12,7 @@ describe('arc contract', () => {
     role: 'крючок',
     action,
     intent: 'зритель понимает механизм',
+    narration: 'Голос объясняет мысль сцены.',
     seconds,
     theme: 'studio-dark' as const,
   });
@@ -34,6 +35,24 @@ describe('arc contract', () => {
         thesis: 'мысль',
         scenes: [scene('a', 2), scene('b', 2), scene('c', 2)],
       }),
-    ).toThrow(/25–30/);
+    ).toThrow(/24–32/);
+  });
+
+  it('plans a minute-long film: more scenes and a wider window', () => {
+    const plan = arcPlanFor(60);
+
+    expect(plan.seconds).toEqual({ min: 55, max: 65 });
+    expect(plan.scenes.min).toBe(8);
+    expect(plan.scenes.max).toBe(10);
+
+    const minute = arcSchemaFor(plan.seconds);
+    const scenes = Array.from({ length: 9 }, (_, index) => scene(`действие ${index}`, 7));
+
+    expect(() =>
+      minute.parse({ thesis: 'минутный фильм', scenes }),
+    ).not.toThrow();
+    expect(() => minute.parse({ thesis: 'короткий', scenes: scenes.slice(0, 3) })).toThrow(
+      /55–65/,
+    );
   });
 });
