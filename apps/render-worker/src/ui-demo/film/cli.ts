@@ -190,11 +190,27 @@ async function generateScene(options: {
       continue;
     }
 
-    const repaired = await repairEpisode(wrapScene(first, planned.theme), {
-      outDir: path.join(options.dir, `fit-${options.index + 1}`),
-    });
+    let repaired: Awaited<ReturnType<typeof repairEpisode>>;
 
-    const candidate = asSpecScene(repaired.episode.scenes[0]);
+    try {
+      repaired = await repairEpisode(wrapScene(first, planned.theme), {
+        outDir: path.join(options.dir, `fit-${options.index + 1}`),
+      });
+    } catch (error: unknown) {
+      /* A repair that breaks the contract is a failed attempt, not a crashed
+         run: the whole film must survive one bad scene. */
+      errors.splice(0, errors.length, ...issuesOf(error));
+      continue;
+    }
+
+    const fitted = uiEpisodeSchema.safeParse(repaired.episode);
+
+    if (!fitted.success) {
+      errors.splice(0, errors.length, ...issuesWithHints(issuesOf(fitted.error)));
+      continue;
+    }
+
+    const candidate = asSpecScene(fitted.data.scenes[0]);
 
     if (candidate === null || !hasContent(candidate)) {
       errors.splice(
@@ -214,10 +230,18 @@ async function generateScene(options: {
         `текст не влезает даже на минимальном кегле (${repaired.overflowing.join(', ')}): сократи текст или увеличь бокс`,
       );
     } else {
-      const motion = await checkVisibleChange(
-        repaired.episode,
-        path.join(options.dir, `motion-${options.index + 1}`),
-      );
+      let motion: Awaited<ReturnType<typeof checkVisibleChange>>;
+
+      try {
+        motion = await checkVisibleChange(
+          fitted.data,
+          path.join(options.dir, `motion-${options.index + 1}`),
+        );
+      } catch (error: unknown) {
+        /* A frame that cannot be measured is a failed attempt too. */
+        errors.splice(0, errors.length, ...issuesOf(error));
+        continue;
+      }
 
       if (!motion.changed) {
         violations.push('сцена статична');
