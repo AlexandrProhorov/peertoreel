@@ -90,9 +90,10 @@ async function main(): Promise<void> {
     '-map',
     '[aout]',
     /* Subtitle path stays relative: FFmpeg on Windows chokes on `C\:` in filter
-       arguments, and the process runs inside the voice directory. */
+       arguments, and the process runs inside the voice directory. MarginV keeps
+       the line above the platform's bottom bar, not under it. */
     '-vf',
-    `subtitles=${manifest.subtitles}`,
+    `subtitles=${manifest.subtitles}:force_style='Alignment=2,MarginV=55,Fontsize=14,Outline=2,Shadow=0,BorderStyle=1'`,
     '-c:v',
     'libx264',
     '-crf',
