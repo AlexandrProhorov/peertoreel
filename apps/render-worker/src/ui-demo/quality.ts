@@ -52,7 +52,7 @@ function luminance(channel: number): number {
   return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
 
-function contrast(a: string, b: string): number | null {
+export function contrast(a: string, b: string): number | null {
   const first = parseHex(a);
   const second = parseHex(b);
 
@@ -66,7 +66,7 @@ function contrast(a: string, b: string): number | null {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-function toneColor(theme: UiTheme, tone: string | undefined): string | null {
+export function toneColor(theme: UiTheme, tone: string | undefined): string | null {
   switch (tone) {
     case 'ink':
       return theme.ink;
@@ -325,7 +325,10 @@ export function lintQuality(
     const container = surfaces
       .filter((surface) => contains(surface.layout, element.layout))
       .pop();
-    const background = container?.background ?? frameBackground;
+    /* A card's copy sits on the card's own fill. A coincident surface above it
+       is an overlap defect, not a background: measuring against it reported a
+       contrast failure that was not there. */
+    const background = isCard ? cardFill : (container?.background ?? frameBackground);
     const ratio = color === null ? null : contrast(color, background);
 
     if (ratio !== null) {

@@ -11,6 +11,7 @@ import {
 } from '../themes.js';
 import { clampLayout } from './clamp.js';
 import { snapThemeColors } from './colors.js';
+import { contrast, toneColor } from '../quality.js';
 import { salvageEpisode, salvageScene, type Repair } from './salvage.js';
 
 /**
@@ -713,6 +714,96 @@ function stackTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[]
 /** Tokens the hierarchy gate accepts as the main message. */
 const HIERARCHY_TOKENS = ['card', 'headline', 'display'] as const;
 
+/**
+ * Colour is the code's job. When the model puts white copy on an accent plate,
+ * the gate rejects the scene for contrast; the honest repair is to pick the ink
+ * the palette already has rather than burn a retry on a colour.
+ */
+function fixContrast(
+  elements: readonly Unknown[],
+  theme: UiTheme | null,
+  repairs: Repair[],
+): Unknown[] {
+  if (theme === null) {
+    return [...elements];
+  }
+
+  const stageFill = elements
+    .map((element) => (element['primitive'] === 'stage' ? element['params'] : null))
+    .map((params) => (isObject(params) && typeof params['background'] === 'string' ? params['background'] : null))
+    .find((value) => value !== null);
+  const frame = stageFill ?? theme.background;
+
+  return elements.map((element) => {
+    const primitive = element['primitive'];
+    const layout = element['layout'];
+
+    if (
+      !['label', 'pill', 'bubble'].includes(String(primitive)) ||
+      !isObject(element['params']) ||
+      !isObject(layout)
+    ) {
+      return element;
+    }
+
+    const params = element['params'];
+    const box = rawBox(element);
+    const tone = typeof params['tone'] === 'string' ? params['tone'] : undefined;
+    const explicit = typeof params['textColor'] === 'string' ? params['textColor'] : null;
+    const color = explicit ?? toneColor(theme, tone);
+
+    if (color === null || box === null) {
+      return element;
+    }
+
+    const container = elements
+      .filter((other) => other !== element && ['card', 'pill', 'bubble'].includes(String(other['primitive'])))
+      .map((other) => ({
+        background: (other['params'] as Record<string, unknown> | undefined)?.['background'],
+        box: rawBox(other),
+      }))
+      .filter(
+        (item): item is { background: string; box: { x: number; y: number; width: number; height: number } } =>
+          item.box !== null && typeof item.background === 'string' && containsBox(item.box, box),
+      )
+      .pop();
+    const background =
+      (typeof params['background'] === 'string' ? params['background'] : null) ??
+      container?.background ??
+      frame;
+    const large = typeof params['token'] === 'string' && HIERARCHY_TOKENS.includes(params['token'] as never);
+    const threshold = large ? 3 : 4.5;
+    const current = contrast(color, background);
+
+    if (current === null || current >= threshold) {
+      return element;
+    }
+
+    const candidates = [theme.ink, theme.accentInk, '#FFFFFF', '#0B0B0C'];
+    const best = candidates
+      .map((candidate) => ({ candidate, ratio: contrast(candidate, background) ?? 0 }))
+      .sort((left, right) => right.ratio - left.ratio)[0];
+
+    if (best === undefined || best.ratio < threshold) {
+      return element;
+    }
+
+    repairs.push({
+      element: typeof element['id'] === 'string' ? element['id'] : null,
+      path: 'contrast-fixed',
+      reason: `ink on ${background} had ${current.toFixed(2)}:1`,
+      from: color,
+      to: best.candidate,
+    });
+
+    const rest = { ...params };
+
+    delete rest['tone'];
+
+    return { ...element, params: { ...rest, textColor: best.candidate } };
+  });
+}
+
 /** The smallest accepted token that fits the box, so promotion adds as little copy pressure as possible. */
 function hierarchyTokenFor(height: number): string {
   for (const token of HIERARCHY_TOKENS) {
@@ -972,6 +1063,7 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
       /* Rails last: the box must agree with the contract before the quality gate
          sees the scene. */
       finalElements = ensureHierarchy(finalElements, repairs);
+      finalElements = fixContrast(finalElements, theme, repairs);
       finalElements = stackTracks(repairTracks(finalElements, repairs), repairs);
 
       return {
