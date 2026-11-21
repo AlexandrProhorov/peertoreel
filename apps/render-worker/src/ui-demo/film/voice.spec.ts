@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cuesFromWords, toSrt, wordsFromAlignment, type AlignedChars } from './voice.js';
+import { cuesFromWords, estimateWords, toSrt, wordsFromAlignment, type AlignedChars } from './voice.js';
 
 /**
  * Words and cues are derived from the provider's character alignment: the
@@ -42,5 +42,22 @@ describe('voice alignment', () => {
 
     expect(srt).toContain('00:00:01,500 --> ');
     expect(srt.trim().endsWith('да')).toBe(true);
+  });
+});
+
+describe('estimated word times', () => {
+  it('spreads the words over the measured audio', () => {
+    const words = estimateWords('раз два три', 3);
+
+    expect(words).toHaveLength(3);
+    expect(words[0]?.start).toBe(0);
+    expect(words.at(-1)?.end).toBeLessThanOrEqual(3);
+    expect(words[1]?.start).toBeGreaterThan(0);
+  });
+
+  it('gives a short word a visible minimum', () => {
+    const words = estimateWords('а оченьдлинноеслово', 2);
+
+    expect(words[0]?.end ?? 0).toBeGreaterThanOrEqual(0.12);
   });
 });

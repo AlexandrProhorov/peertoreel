@@ -1,19 +1,32 @@
+import { spawn } from 'node:child_process';
 import { config as loadEnv } from 'dotenv';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { synthesizeWithTimestamps } from '@peertoreel/providers';
+import {
+  synthesizeGoogleTts,
+  synthesizeWithTimestamps,
+  TtsError,
+} from '@peertoreel/providers';
 import { uiEpisodeSchema, type UiEpisode } from '../spec.js';
-import { cuesFromWords, toSrt, wordsFromAlignment, type Cue } from './voice.js';
+import {
+  cuesFromWords,
+  estimateWords,
+  toSrt,
+  wordsFromAlignment,
+  type Cue,
+  type SpokenWord,
+} from './voice.js';
 
 /**
  * Voice step: one TTS call per scene, then the picture is retimed to the voice.
  *
- * The scene is at least as long as its narration plus a short tail. A subtitle
- * that drifts from the audio is worse than none, so the SRT is built from the
- * provider's character alignment and the same scene offsets the renderer uses.
+ * ElevenLabs gives character alignment, so its word times are exact. Google
+ * Translate TTS is the free fallback and has no alignment: word times are
+ * distributed over the measured audio and marked `estimated` in the manifest.
+ * A quota error is terminal and names the switch — there is no silent failover.
  *
- *   ui:voice --input out/film/episode.json --out out/film/voice [--voice-id <id>]
+ *   ui:voice --input out/film/episode.json --out out/film/voice [--provider elevenlabs|google]
  */
 
 function optionValue(name: string): string | undefined {
@@ -38,6 +51,39 @@ interface SceneVoice {
 
 const AUDIO_TAIL = 0.35;
 
+function probeDuration(file: string): Promise<number> {
+  const binary = process.env['FFPROBE_BIN'] ?? 'ffprobe';
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=nw=1:nk=1',
+      file,
+    ]);
+    let output = '';
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      output = `${output}${chunk.toString()}`;
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      const seconds = Number(output.trim());
+
+      if (code !== 0 || !Number.isFinite(seconds)) {
+        reject(new Error(`ffprobe could not read ${path.basename(file)}`));
+
+        return;
+      }
+
+      resolve(seconds);
+    });
+  });
+}
+
 async function main(): Promise<void> {
   loadEnv({
     path: fileURLToPath(new URL('../../../../../.env', import.meta.url)),
@@ -51,16 +97,19 @@ async function main(): Promise<void> {
     throw new Error('--input <episode.json> is required');
   }
 
+  const provider = (optionValue('--provider') ?? 'elevenlabs') as 'elevenlabs' | 'google';
   const apiKey = process.env['ELEVENLABS_API_KEY'];
   const voiceId = optionValue('--voice-id') ?? process.env['ELEVENLABS_VOICE_ID'];
   const modelId = process.env['ELEVENLABS_MODEL_ID'] ?? 'eleven_multilingual_v2';
 
-  if (apiKey === undefined || apiKey.length === 0) {
-    throw new Error('ELEVENLABS_API_KEY is missing');
-  }
+  if (provider === 'elevenlabs') {
+    if (apiKey === undefined || apiKey.length === 0) {
+      throw new Error('ELEVENLABS_API_KEY is missing');
+    }
 
-  if (voiceId === undefined || voiceId.length === 0) {
-    throw new Error('ELEVENLABS_VOICE_ID is missing (or pass --voice-id)');
+    if (voiceId === undefined || voiceId.length === 0) {
+      throw new Error('ELEVENLABS_VOICE_ID is missing (or pass --voice-id)');
+    }
   }
 
   const inputPath = path.resolve(cwd, input);
@@ -86,19 +135,48 @@ async function main(): Promise<void> {
       throw new Error(`scene ${index + 1} has no narration: run the arc with narration first`);
     }
 
-    const result = await synthesizeWithTimestamps({ text: narration, voiceId, modelId, apiKey });
     const file = `scene-${index + 1}.mp3`;
+    let words: SpokenWord[];
+    let audioSec: number;
 
-    await writeFile(path.join(outDir, file), result.audio);
+    if (provider === 'google') {
+      const audio = await synthesizeGoogleTts(narration, { language: 'ru' });
 
-    const words = wordsFromAlignment(narration, result.alignment);
-    const audioSec = words.at(-1)?.end ?? 0;
+      await writeFile(path.join(outDir, file), audio);
+      audioSec = await probeDuration(path.join(outDir, file));
+      words = estimateWords(narration, audioSec);
+    } else {
+      let result;
+
+      try {
+        result = await synthesizeWithTimestamps({ text: narration, voiceId: voiceId ?? '', modelId, apiKey: apiKey ?? '' });
+      } catch (error: unknown) {
+        if (error instanceof TtsError && /quota/i.test(error.message)) {
+          throw new Error(
+            'квота ElevenLabs исчерпана; повторите с --provider google (бесплатный, тайминги оценочные)',
+          );
+        }
+
+        throw error;
+      }
+
+      await writeFile(path.join(outDir, file), result.audio);
+      words = wordsFromAlignment(narration, result.alignment);
+      audioSec = words.at(-1)?.end ?? 0;
+    }
+
     const durationSec = Number(
       Math.min(20, Math.max(scene.durationSec, audioSec + AUDIO_TAIL)).toFixed(2),
     );
 
     scenes[index] = { ...scene, durationSec };
-    voices.push({ index: index + 1, file, audioSec: Number(audioSec.toFixed(2)), startSec: Number(cursor.toFixed(2)), durationSec });
+    voices.push({
+      index: index + 1,
+      file,
+      audioSec: Number(audioSec.toFixed(2)),
+      startSec: Number(cursor.toFixed(2)),
+      durationSec,
+    });
     cues.push(...cuesFromWords(words, cursor));
     cursor += durationSec;
 
@@ -106,17 +184,27 @@ async function main(): Promise<void> {
   }
 
   const voiced: UiEpisode = { ...episode, scenes };
-  const srtPath = path.join(outDir, 'subtitles.srt');
 
   await writeFile(path.join(outDir, 'episode.json'), `${JSON.stringify(voiced, null, 2)}\n`, 'utf8');
-  await writeFile(srtPath, toSrt(cues), 'utf8');
+  await writeFile(path.join(outDir, 'subtitles.srt'), toSrt(cues), 'utf8');
   await writeFile(
     path.join(outDir, 'manifest.json'),
-    `${JSON.stringify({ input: path.relative(cwd, inputPath), totalSec: Number(cursor.toFixed(2)), scenes: voices, subtitles: 'subtitles.srt' }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        input: path.relative(cwd, inputPath),
+        provider,
+        alignment: provider === 'google' ? 'estimated' : 'exact',
+        totalSec: Number(cursor.toFixed(2)),
+        scenes: voices,
+        subtitles: 'subtitles.srt',
+      },
+      null,
+      2,
+    )}\n`,
     'utf8',
   );
 
-  console.log(`voice: ${voices.length} scene(s), ${cursor.toFixed(1)}s -> ${outDir}`);
+  console.log(`voice: ${voices.length} scene(s), ${cursor.toFixed(1)}s, ${provider} -> ${outDir}`);
 }
 
 main().catch((error: unknown) => {

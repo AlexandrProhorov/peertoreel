@@ -102,6 +102,24 @@ export function cuesFromWords(words: readonly SpokenWord[], offset: number): Cue
   return cues;
 }
 
+/** Approximate word times for a provider without alignment (Google TTS). */
+export function estimateWords(text: string, durationSec: number): SpokenWord[] {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const totalChars = words.reduce((sum, word) => sum + word.length, 0) || 1;
+  const spoken = Math.max(0.4, durationSec);
+  let cursor = 0;
+
+  return words.map((word) => {
+    const span = Math.max(0.12, (word.length / totalChars) * spoken);
+    const start = cursor;
+    const end = Math.min(spoken, start + span);
+
+    cursor = end + 0.02;
+
+    return { word, start, end };
+  });
+}
+
 function stamp(seconds: number): string {
   const total = Math.max(0, seconds);
   const hours = Math.floor(total / 3600);
@@ -112,8 +130,7 @@ function stamp(seconds: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(millis).padStart(3, '0')}`;
 }
 
-export function toSrt(cues: readonly Cue[]): string {
-  return cues
+export function toSrt(cues: readonly Cue[]): string {  return cues
     .map((cue, index) => {
       const end = Math.max(cue.end, cue.start + CUE_GAP);
 
