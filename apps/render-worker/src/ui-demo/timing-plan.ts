@@ -57,6 +57,8 @@ export interface OrderedStep {
   readonly element: string;
   readonly transition: string;
   readonly text?: string;
+  /** `tap`: the element that receives the press and reacts. */
+  readonly target?: string;
   /** 1..3: a heavier step keeps the frame longer before the next one. */
   readonly weight?: number;
 }

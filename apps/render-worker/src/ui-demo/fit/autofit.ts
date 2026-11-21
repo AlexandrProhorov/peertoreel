@@ -180,9 +180,9 @@ export async function repairEpisode(
             const satisfied =
               grown.layout.width >= need.width - 0.5 && grown.layout.height >= need.height - 0.5;
             const heightRatio =
-              grown.layout.height / Math.max(1, box.contentHeight ?? 1);
+              (grown.layout.height - 2 * padY) / Math.max(1, box.contentHeight ?? 1);
             const widthRatio =
-              grown.layout.width / Math.max(1, box.contentWidth ?? 1);
+              (grown.layout.width - 2 * padX) / Math.max(1, box.contentWidth ?? 1);
             const next = satisfied
               ? currentScale
               : Math.max(

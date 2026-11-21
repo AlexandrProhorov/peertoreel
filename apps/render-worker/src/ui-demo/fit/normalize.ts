@@ -872,6 +872,66 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         finalElements = applyFocus(kept, focus, theme);
       }
 
+      /* A scene without an accent has no focus: the model often draws the accent
+         on a surface the empty-surface rule removes. The largest remaining
+         element becomes the focus, which is both the accent and the hierarchy. */
+      if (focus === undefined && finalElements.length > 0) {
+        const accent = theme?.accent.toLowerCase();
+        const hasAccent = finalElements.some((element) => {
+          const params = isObject(element['params']) ? element['params'] : {};
+          const tone = params['tone'];
+
+          if (tone === 'accent') {
+            return true;
+          }
+
+          return [params['color'], params['background'], params['textColor']].some(
+            (value) =>
+              accent !== undefined &&
+              typeof value === 'string' &&
+              value.toLowerCase() === accent,
+          );
+        });
+
+        if (!hasAccent) {
+          /* Prefer copy over surfaces: painting a focus on a card would repair
+             its visibility, and an invisible surface is the model's defect, not
+             ours to hide. */
+          const target = finalElements
+            .map((element, index) => {
+              const params = isObject(element['params']) ? element['params'] : {};
+
+              return {
+                element,
+                index,
+                box: rawBox(element),
+                text: typeof params['text'] === 'string' && params['text'].trim() !== '',
+                copy: ['label', 'pill', 'bubble'].includes(String(element['primitive'])),
+              };
+            })
+            .filter((item) => item.element['primitive'] !== 'stage' && item.box !== null && item.text)
+            .sort(
+              (left, right) =>
+                Number(right.copy) - Number(left.copy) ||
+                (right.box?.width ?? 0) * (right.box?.height ?? 0) -
+                  (left.box?.width ?? 0) * (left.box?.height ?? 0) ||
+                left.index - right.index,
+            )[0];
+
+          if (target !== undefined && typeof target.element['id'] === 'string') {
+            focus = target.element['id'];
+            finalElements = applyFocus(finalElements, focus, theme);
+            repairs.push({
+              element: target.element['id'],
+              path: 'focus-assigned',
+              reason: 'the scene had no accent: the largest element becomes the focus',
+              from: '-',
+              to: target.element['id'],
+            });
+          }
+        }
+      }
+
       /* Timing: an ordered list without `at` becomes absolute cues here. The
          cue list fills the planned scene instead of leaving a frozen tail. */
       const sequence = spec['sequence'];
@@ -887,6 +947,8 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
               transition: String(step['transition'] ?? ''),
               ...(typeof step['weight'] === 'number' ? { weight: step['weight'] } : {}),
               ...(typeof step['text'] === 'string' ? { text: step['text'] } : {}),
+              ...(typeof step['target'] === 'string' ? { target: step['target'] } : {}),
+              ...(typeof step['at'] === 'number' ? { at: step['at'] } : {}),
             })),
           )
         : null;

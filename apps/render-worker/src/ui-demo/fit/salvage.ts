@@ -455,6 +455,26 @@ function salvageSequence(
       continue;
     }
 
+    /* A press without a target is a gesture with no reaction: it does not fail
+       the scene, it is dropped with the reason. A removed target is the same
+       case — the tap has nothing left to press. */
+    if (transition === 'tap') {
+      const target = step['target'];
+      const targetExists =
+        target === undefined ? false : byId.has(String(target));
+
+      if (!targetExists) {
+        drop(
+          repairs,
+          typeof elementId === 'string' ? elementId : null,
+          typeof elementId === 'string' ? `${elementId as string}.tap` : 'tap',
+          target === undefined ? 'tap without a target' : 'tap on a removed target',
+          String(target ?? '(missing)'),
+        );
+        continue;
+      }
+    }
+
     kept.push(step);
   }
 
