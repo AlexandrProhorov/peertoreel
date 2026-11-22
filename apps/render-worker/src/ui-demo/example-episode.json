@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "prompt-1",
+      "device": "prompt-card",
+      "durationSec": 4.3,
+      "revealSec": 1.4,
+      "themeId": "studio-dark",
+      "badge": { "label": "AI-чат", "mark": "star" },
+      "cardText": "Исходя из всех наших разговоров, назови пять вещей, которые ты понял обо мне, хотя я прямо тебе их не говорил.",
+      "caption": "промпт 1"
+    },
+    {
+      "id": "between-lines",
+      "device": "text-selection",
+      "durationSec": 2.8,
+      "revealSec": 1.2,
+      "themeId": "studio-dark",
+      "title": "он читает",
+      "lines": [
+        "я опять не успел к сроку",
+        "наверное, это не так важно",
+        "между строк",
+        "просто устал на этой неделе",
+        "ладно, разберусь сам"
+      ],
+      "selectionLineIndex": 2
+    },
+    {
+      "id": "same-chat",
+      "device": "chat-reconstruction",
+      "durationSec": 4.9,
+      "revealSec": 1.4,
+      "themeId": "studio-light",
+      "title": "в том же чате",
+      "avatar": {
+        "key": "owl",
+        "contentHash": "7dfcdcdebd599787719d98f3057b0822522678e6752369ca3498a780ca7ba443"
+      },
+      "messages": [
+        { "text": "какие закономерности ты видишь", "appearAtSec": 0.55 },
+        { "text": "в том, как я думаю и принимаю решения?", "appearAtSec": 1.75 },
+        { "text": "и что я в себе отрицаю?", "appearAtSec": 3 }
+      ]
+    }
+  ]
+}

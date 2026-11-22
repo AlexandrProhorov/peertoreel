@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest';
+import { PRIMITIVES, type PrimitiveId } from '../catalog.js';
+import { TYPE_SCALE, type TypeToken } from '../typography.js';
+import {
+  DIRECTOR_SYSTEM_PROMPT,
+  PRIMITIVE_SEMANTICS,
+  buildContractBrief,
+  buildTypographyBrief,
+  buildUserPrompt,
+} from './contract-brief.js';
+
+/**
+ * The prompt is generated from the catalogue. These tests fail when the two
+ * drift: a new primitive or token must reach the model or the prompt is lying.
+ */
+describe('director prompt covers the catalogue', () => {
+  it('describes every drawable primitive', () => {
+    const brief = buildContractBrief();
+
+    for (const id of Object.keys(PRIMITIVES)) {
+      if (id === 'avatar' || id === 'object') {
+        continue;
+      }
+
+      expect(brief).toContain(`- ${id} — `);
+    }
+  });
+
+  it('gives every drawable primitive a semantic line', () => {
+    for (const id of Object.keys(PRIMITIVES) as PrimitiveId[]) {
+      if (id === 'avatar' || id === 'object') {
+        continue;
+      }
+
+      expect(PRIMITIVE_SEMANTICS[id]).toBeTruthy();
+    }
+  });
+
+  it('lists every type token with its box range', () => {
+    const brief = buildTypographyBrief();
+
+    for (const token of Object.keys(TYPE_SCALE) as TypeToken[]) {
+      expect(brief).toContain(`- ${token} (`);
+    }
+  });
+
+  it('carries the real safe bounds and budgets', () => {
+    const prompt = buildUserPrompt('тема');
+
+    expect(prompt).toContain('x 72..890');
+    expect(prompt).toContain('y 80..1620');
+    expect(prompt).toContain('от 2 до 5 единиц контента');
+  });
+
+  it('asks for one spec scene with a sequence', () => {
+    const prompt = buildUserPrompt('тема');
+
+    expect(prompt).toContain('"device": "spec"');
+    expect(prompt).toContain('sequence');
+    expect(DIRECTOR_SYSTEM_PROMPT).toContain('JSON');
+  });
+
+  it('does not offer transitions the contract dropped', () => {
+    /* `move` and `scale` left the transition set; naming them in the event list
+       made the model write cues that salvage then cut, and the scene lost its
+       only action. */
+    const prompt = buildUserPrompt('тема');
+    const eventLine = prompt.split('\n').find((line) => line.includes('событие')) ?? '';
+
+    expect(eventLine).not.toContain('move');
+    expect(eventLine).not.toContain('scale');
+  });
+
+  it('keeps direction in the system prompt, not a list of bans', () => {
+    expect(DIRECTOR_SYSTEM_PROMPT).toContain('Что зритель должен понять');
+    expect(DIRECTOR_SYSTEM_PROMPT).toContain('Что изменилось к концу');
+    expect(DIRECTOR_SYSTEM_PROMPT).not.toContain('запрещено');
+  });
+
+  it('makes the spoken lines the scene text, one element per line', () => {
+    const prompt = buildUserPrompt('тема', {
+      voiceLines: ['Первая строка.', 'Вторая строка.'],
+    });
+
+    expect(prompt).toContain('1. Первая строка.');
+    expect(prompt).toContain('2. Вторая строка.');
+    expect(prompt).toContain('На экране — главный тезис');
+    expect(prompt).toContain('Каждая строка должна получить свой тезис');
+    expect(prompt).toContain('дословно взятая из строки');
+    expect(prompt).toContain('Элемент появляется, когда произносят его слова');
+    expect(prompt).toContain('Никакой элемент не пересекает текст');
+    expect(prompt).not.toContain('Полоса реплики');
+  });
+
+  it('adds no script rule when the scene has no voice lines', () => {
+    expect(buildUserPrompt('тема')).not.toContain('Экранный текст сцены');
+  });
+});

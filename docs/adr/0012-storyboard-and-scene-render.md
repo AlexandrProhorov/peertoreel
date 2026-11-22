@@ -9,9 +9,9 @@ photo: mixed styles, frozen stills, hard cuts and no scene-level typography. The
 step is **original animated scenes** produced from a structured storyboard instead of stock
 footage.
 
-The design was researched in `docs/ignore/research/2026-11-08-ai-video-production-research.md`
-and sliced in `docs/ignore/plans/2026-11-08-animated-factory-plan.md` (both are local-only:
-`docs/ignore/` is gitignored). M3.1 fixes the data model **before** any renderer exists, so the
+The design was researched in `docs/workspace/research/2026-11-08-ai-video-production-research.md`
+and sliced in `docs/workspace/plans/2026-11-08-animated-factory-plan.md` (both are local-only:
+`docs/workspace/` is gitignored). M3.1 fixes the data model **before** any renderer exists, so the
 render worker and the AI director cannot invent incompatible shapes. The contract must be
 generic for any topic; the «−15°» storyboard is a fixed acceptance fixture, not a product
 limitation.
@@ -202,6 +202,87 @@ so assets will first be consumed visually in M3.6.
 
 `camera.shot`, `camera.parallax`, `scene.transition`, `effects`, recipes, DeepSeek, the
 `scene-render` queue, `scene_clip`, `ImageProvider` and the review UI are unchanged.
+
+## M3.4 implementation
+
+M3.4 adds recipes, layers and a local subject pack; the full contract is ADR-0016.
+
+- `implementation.type = 'recipe'` (`recipeId`, `variant`, `slots`) is a new branch; `scene.objects`
+  must be empty for recipe scenes, so a recipe has exactly one visual source.
+- `packages/contracts/src/storyboard.recipes.ts` holds the catalog (5 recipes × 2 variants), slot
+  specs, layer plans, camera hints and the 12-key `STARTER_ASSET_KEYS` pack. Slots are validated at
+  the storyboard boundary; unknown ids, required slots and starter keys fail with a JSON path.
+- `apps/render-worker/src/recipes.ts` binds slots to the selected variant once; `mapping.ts`
+  returns `{ componentId, params, source, recipe, slotDiagnostics, diagnostics }`.
+- `SceneObjects` is now a thin dispatcher over `components/layers/*` (`text`, `pill`, `hud-chip`,
+  `subject`/`image`, `chart`, `particles`, `light`, `overlay`, `character`). `image`/`subject`
+  renders local SVG through `resolveAssetKey()` + `assetUrl()`; unknown kinds throw.
+- `camera.ts` owns `shot`/`movement`/`speed`/`parallax`; `ParallaxCity` and `KineticTypography`
+  consume it. `shot` maps to a base scale, `parallax` defaults to
+  `[0.15, 0.35, 0.6, 0.8, 1]` sampled by depth.
+- `kinetic-typography` gains `preset: 'backdrop'` for recipe backgrounds, and
+  `sceneObjectKindSchema` gains `subject`. Both are additive.
+- `examples/recipe-showcase.json` mixes all five recipes and is rendered by the existing CLI;
+  the M3.3 fixture and `custom-storyboard.json` still render with their original scene data.
+
+## M3.5 implementation
+
+M3.5 is a CLI spike, not a new pipeline stage. It proves the recipe vocabulary on two topics
+without API/DB/queue changes.
+
+- `packages/contracts/src/storyboard.director.ts` defines the DeepSeek draft
+  (`{ title, scenes[] }`, 5–8 scenes, no timings). Recipe/variant/slots are validated with the
+  same `parseRecipeSlots` as the final storyboard.
+- `apps/worker/src/storyboard/` contains the director prompt (built from
+  `STORYBOARD_RECIPES` + `STARTER_ASSET_KEYS`), `buildStoryboardFromDraft` (timings from real
+  TTS word counts, camera from the variant hint, empty `objects`, kinetic fallback), and the
+  `storyboard:episode` CLI.
+- The CLI reuses `generateJson`, `synthesizeWithTimestamps`, `deriveWordTimings`,
+  `buildKaraokeAss`, `buildVisualConcatArgs`, `renderDraft` and `probeMedia`; scene clips are
+  rendered by the existing render-worker CLI.
+- The production TTS path is ElevenLabs. Because the session quota was exhausted (290 credits
+  left), the spike also accepts `--tts google`: per-scene Google Translate TTS with exact scene
+  durations and proportional word times. It is CLI-only; the `voiceover` stage stays on
+  ElevenLabs and the manifest records the provider.
+- Measured: «собака» — 7 scenes / 50.4 s, «кирпичи» — 6 scenes / 46.0 s; both 1080×1920/30,
+  H.264 + AAC, BT.709. Scene render 146/137 s, concat 3.2/3.3 s, final render 6.4/5.5 s.
+
+## M3.6a implementation
+
+M3.6a is the asset-library half of M3.6; the paid generators stay in M3.6b (ADR-0017).
+
+- `SceneInputProps` gains optional `assets: Record<string, { url: string }>`. `SubjectLayer`
+  uses an injected URL first and falls back to the M3.3 `resolveAssetKey` + `assetUrl` path, so
+  fixture/custom/M3.5 storyboards render unchanged.
+- `render-storyboard --resolve-assets [--provider=fake]` resolves subject keys through the
+  `@peertoreel/assets` resolver, turns Tier 0 files into data URIs and records
+  `assets.resolutions`/`assets.usage` in the manifest. There is no network access in the
+  renderer.
+- `storyboardStyleSchema` gains optional `assetPalette`; `studio_flat_2d_v1` is a style id and
+  `examples/recipe-showcase.json` now uses it. Palette changes alter frames, not timing or
+  output format.
+- Measured: showcase 79.5 s (5 scenes), fixture 137.1 s (6), custom 78.2 s (4); every clip
+  1080×1920/30, h264, `yuv420p`, BT.709.
+
+## M3.5.1 episode mode
+
+Episode mode is a second run path (`runs.mode = 'episode'`) with two stages, not a new
+renderer: `episode_plan` (`DRAFT → SCRIPT_READY`) produces the storyboard and its artifacts,
+`episode_render` (`SCRIPT_READY → REVIEW`) renders scenes through the existing render-worker
+CLI and FFmpeg assembly. The factory storyboard contract is unchanged.
+
+- `episode_plan` uses DeepSeek for the director draft, Google Translate TTS for the cheap
+  prototype voiceover and Pixabay only for subject slots: starter tags first, then
+  `scene.description` with `lang: 'ru'`; at most two queries per slot. Images stay data URIs in
+  `episode_visuals_json`, outside the Asset Library.
+- `GET /runs/:id/storyboard` returns `{ storyboard, visuals, manifest }` so the Angular UI does
+  not download or parse S3 objects. The preview is available on `SCRIPT_READY` and `REVIEW`.
+- Episode runs skip the QC stage. `REVIEW → SCHEDULED` is allowed without `qc_report` and the UI
+  says «QC не запускался». This is an explicit prototype exception for `mode === 'episode'`;
+  pipeline runs still require a passing report. `REVIEW → SCRIPT_READY` stays the way back to
+  the script gate, and the same plan is reused for a re-render.
+- The episode manifest title, not `script_json` (which an episode run never produces), seeds
+  the publish-card title.
 
 ## Contract details
 

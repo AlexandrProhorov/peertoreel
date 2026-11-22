@@ -1,0 +1,217 @@
+{
+  "schemaVersion": "peertoreel.storyboard.v1",
+  "runId": "7f3c1a52-2222-4a2b-8c3d-000000000047",
+  "style": {
+    "styleId": "flat_2d_motion",
+    "palette": {
+      "background": ["#0b1220", "#1b2a41"],
+      "accent": "#f2a025",
+      "text": "#ffffff",
+      "cold": "#35b4d8",
+      "danger": "#e2604a"
+    },
+    "typography": {
+      "heading": "Montserrat",
+      "body": "Inter",
+      "headingWeight": 900
+    },
+    "effects": ["vignette", "glow"]
+  },
+  "characters": [],
+  "audio": {
+    "wordTimingsKey": "runs/7f3c1a52-2222-4a2b-8c3d-000000000047/voiceover/word_timings.json",
+    "durationSec": 15
+  },
+  "scenes": [
+    {
+      "id": "character-neutral",
+      "part": "hook",
+      "beatIndex": null,
+      "voiceover": { "text": "Нейтральное лицо ведущего", "startSec": 0, "endSec": 3 },
+      "durationSec": 3,
+      "description": "Персонаж в нейтральной эмоции",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "label-neutral",
+          "kind": "text",
+          "content": "НЕЙТРАЛЬНО",
+          "animation": "fade-in",
+          "syncToWord": null,
+          "startSec": 0,
+          "endSec": 3
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "cartoon-character",
+        "params": { "emotion": "neutral", "pose": "idle", "anchor": "right" }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "НЕЙТРАЛЬНО" }
+      },
+      "version": 1
+    },
+    {
+      "id": "character-happy",
+      "part": "beat",
+      "beatIndex": 0,
+      "voiceover": { "text": "Радость и приветствие", "startSec": 3, "endSec": 6 },
+      "durationSec": 3,
+      "description": "Персонаж радуется и машет рукой",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "label-happy",
+          "kind": "text",
+          "content": "РАДОСТЬ",
+          "animation": "fade-in",
+          "syncToWord": null,
+          "startSec": 3,
+          "endSec": 6
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "cartoon-character",
+        "params": { "emotion": "happy", "pose": "wave", "anchor": "right" }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "РАДОСТЬ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "character-surprised",
+      "part": "beat",
+      "beatIndex": 1,
+      "voiceover": { "text": "Удивление от факта", "startSec": 6, "endSec": 9 },
+      "durationSec": 3,
+      "description": "Персонаж удивлён",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "label-surprised",
+          "kind": "text",
+          "content": "УДИВЛЕНИЕ",
+          "animation": "fade-in",
+          "syncToWord": null,
+          "startSec": 6,
+          "endSec": 9
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "cartoon-character",
+        "params": { "emotion": "surprised", "pose": "idle", "anchor": "left" }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "УДИВЛЕНИЕ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "character-angry",
+      "part": "beat",
+      "beatIndex": 2,
+      "voiceover": { "text": "Злость на миф", "startSec": 9, "endSec": 12 },
+      "durationSec": 3,
+      "description": "Персонаж хмурится",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "label-angry",
+          "kind": "text",
+          "content": "ЗЛОСТЬ",
+          "animation": "fade-in",
+          "syncToWord": null,
+          "startSec": 9,
+          "endSec": 12
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "cartoon-character",
+        "params": {
+          "emotion": "angry",
+          "pose": "idle",
+          "anchor": "center",
+          "accent": "#e2604a"
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ЗЛОСТЬ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "character-sad",
+      "part": "cta",
+      "beatIndex": null,
+      "voiceover": { "text": "Грустный вывод и подписка", "startSec": 12, "endSec": 15 },
+      "durationSec": 3,
+      "description": "Персонаж грустит, финальный призыв",
+      "environment": { "setting": "flat-studio", "layers": ["background"] },
+      "camera": { "shot": "medium", "movement": "static", "speed": 0 },
+      "objects": [
+        {
+          "id": "label-sad",
+          "kind": "text",
+          "content": "ГРУСТЬ",
+          "animation": "fade-in",
+          "syncToWord": null,
+          "startSec": 12,
+          "endSec": 15
+        }
+      ],
+      "effects": ["text-glow"],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "programmatic",
+        "componentId": "cartoon-character",
+        "params": { "emotion": "sad", "pose": "idle", "anchor": "right" }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ГРУСТЬ" }
+      },
+      "version": 1
+    }
+  ]
+}

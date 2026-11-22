@@ -13,6 +13,8 @@ const TYPE_LABELS: Record<string, string> = {
   scene_clip: 'Анимированная сцена',
   qc_report: 'Проверка качества',
   draft_mp4: 'Черновик видео',
+  episode_visuals_json: 'Картинки эпизода',
+  episode_manifest: 'Манифест эпизода',
 };
 
 export function artifactLabel(type: string): string {
@@ -45,6 +47,8 @@ const STAGE_ORDER: RunStage[] = [
   'render',
   'qc',
   'publish',
+  'episode_plan',
+  'episode_render',
 ];
 
 export function sortArtifacts(artifacts: readonly Artifact[]): Artifact[] {

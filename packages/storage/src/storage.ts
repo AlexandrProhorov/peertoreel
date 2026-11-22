@@ -1,10 +1,13 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { buildAssetObjectKey as contractAssetObjectKey } from '@peertoreel/contracts';
 
 export interface StorageConfig {
   endpoint: string;
@@ -16,6 +19,19 @@ export interface StorageConfig {
 }
 
 const SAFE_NAME = /[^a-zA-Z0-9._-]/g;
+
+/** AWS SDK shapes a missing key as `NotFound` (HEAD) or `NoSuchKey` (GET). */
+export function isNotFoundError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const name = (error as { name?: unknown }).name;
+  const status = (error as { $metadata?: { httpStatusCode?: unknown } }).$metadata
+    ?.httpStatusCode;
+
+  return name === 'NotFound' || name === 'NoSuchKey' || status === 404;
+}
 
 /** `runs/<runId>/<stage>/<name>` — one prefix per run, easy to wipe or audit. */
 export function buildArtifactKey(
@@ -31,6 +47,18 @@ export function buildArtifactKey(
   }
 
   return `runs/${runId}/${safeStage}/${safeName}`;
+}
+
+/**
+ * Content-addressed key for a normalized asset (`assets/<hash[0..1]>/<hash>/<hash>.<ext>`).
+ * The format is owned by `@peertoreel/contracts` so the resolver, the DB row and
+ * this storage adapter cannot drift (ADR-0017 D1/D3).
+ */
+export function buildAssetObjectKey(
+  contentHash: string,
+  extension: string,
+): string {
+  return contractAssetObjectKey(contentHash, extension);
 }
 
 export class ObjectStorage {
@@ -79,6 +107,59 @@ export class ObjectStorage {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }),
     );
+  }
+
+  /**
+   * Every key under `prefix`, sorted for deterministic reports. Used by
+   * `assets:prune`; pagination is explicit because a silent first-page limit
+   * would leave orphans behind and look like a clean run.
+   */
+  async listKeys(prefix: string): Promise<readonly string[]> {
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const response = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.config.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+
+      for (const object of response.Contents ?? []) {
+        if (object.Key !== undefined) {
+          keys.push(object.Key);
+        }
+      }
+
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined;
+    } while (continuationToken !== undefined);
+
+    return keys.sort();
+  }
+
+  /**
+   * Cheap existence probe for content-addressed keys (`HEAD`, no body).
+   * Only a missing object is a `false`; auth/network errors propagate so a
+   * transient failure cannot be mistaken for "not uploaded yet".
+   */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.config.bucket, Key: key }),
+      );
+
+      return true;
+    } catch (error: unknown) {
+      if (isNotFoundError(error)) {
+        return false;
+      }
+
+      throw error;
+    }
   }
 
   /**

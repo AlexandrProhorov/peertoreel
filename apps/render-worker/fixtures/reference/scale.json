@@ -1,0 +1,142 @@
+{
+  "thesis": "Одна маленькая сумма в месяц вырастает в заметную сумму за год — механизм «через масштаб».",
+  "scenes": [
+    {
+      "id": "hook",
+      "role": "крючок",
+      "seconds": 5,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 },
+            "params": { "background": "#0A0A0B", "grid": false, "vignette": true }
+          },
+          {
+            "id": "price",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 640, "width": 760, "height": 190 },
+            "params": { "text": "99 ₽", "token": "display", "tone": "ink", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "month",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 900, "width": 620, "height": 112 },
+            "params": {
+              "text": "в месяц · одна подписка",
+              "token": "caption",
+              "background": "#CCFF00",
+              "textColor": "#0B0B0C",
+              "paddingX": 32,
+              "paddingY": 20
+            }
+          }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "price", "transition": "appear" },
+          { "element": "price", "transition": "type" },
+          { "element": "month", "transition": "appear" }
+        ]
+      }
+    },
+    {
+      "id": "pile",
+      "role": "развитие",
+      "seconds": 7,
+      "theme": "studio-light",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 },
+            "params": { "background": "#FFFFFF", "grid": false, "vignette": false }
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 180, "width": 600, "height": 200 },
+            "params": { "text": "Их пять", "token": "headline", "tone": "ink", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "p1",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 520, "width": 360, "height": 112 },
+            "params": { "text": "музыка", "token": "caption", "background": "#F3F3F5", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          },
+          {
+            "id": "p2",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 700, "width": 360, "height": 112 },
+            "params": { "text": "кино", "token": "caption", "background": "#F3F3F5", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          },
+          {
+            "id": "p3",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 880, "width": 360, "height": 112 },
+            "params": { "text": "облако", "token": "caption", "background": "#F3F3F5", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          },
+          {
+            "id": "p4",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 1060, "width": 520, "height": 112 },
+            "params": { "text": "и ещё одна", "token": "caption", "background": "#CCFF00", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "title", "transition": "appear" },
+          { "element": "title", "transition": "type" },
+          { "element": "p1", "transition": "appear" },
+          { "element": "p2", "transition": "appear" },
+          { "element": "p3", "transition": "appear" },
+          { "element": "p4", "transition": "appear" }
+        ]
+      }
+    },
+    {
+      "id": "total",
+      "role": "вывод",
+      "seconds": 7,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 },
+            "params": { "background": "#0A0A0B", "grid": false, "vignette": true }
+          },
+          {
+            "id": "year",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 620, "width": 800, "height": 190 },
+            "params": { "text": "1 188 ₽", "token": "display", "tone": "ink", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "note",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 840, "width": 600, "height": 100 },
+            "params": { "text": "те же 99 ₽ в месяц", "token": "body", "tone": "muted", "weight": 500, "align": "left" }
+          },
+          {
+            "id": "per",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 980, "width": 240, "height": 112 },
+            "params": { "text": "за год", "token": "caption", "background": "#CCFF00", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "per", "transition": "appear" },
+          { "element": "note", "transition": "appear" },
+          { "element": "year", "transition": "appear" },
+          { "element": "year", "transition": "type" }
+        ]
+      }
+    }
+  ]
+}

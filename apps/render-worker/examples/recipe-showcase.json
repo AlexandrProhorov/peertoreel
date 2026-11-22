@@ -1,0 +1,261 @@
+{
+  "schemaVersion": "peertoreel.storyboard.v1",
+  "runId": "9a1c4e60-1111-4a2b-8c3d-000000000034",
+  "style": {
+    "styleId": "studio_flat_2d_v1",
+    "palette": {
+      "background": ["#0B1220", "#16233C"],
+      "accent": "#F59E0B",
+      "text": "#F4F1EA",
+      "cold": "#38BDF8",
+      "danger": "#EF4444"
+    },
+    "typography": {
+      "heading": "Montserrat",
+      "body": "Inter",
+      "headingWeight": 900
+    },
+    "effects": ["vignette", "glow"],
+    "assetPalette": [
+      "#0B1220",
+      "#16233C",
+      "#F4F1EA",
+      "#F59E0B",
+      "#FBBF24",
+      "#38BDF8",
+      "#7DD3FC",
+      "#EF4444"
+    ]
+  },
+  "characters": [],
+  "audio": {
+    "wordTimingsKey": "runs/9a1c4e60-1111-4a2b-8c3d-000000000034/voiceover/word_timings.json",
+    "durationSec": 28
+  },
+  "scenes": [
+    {
+      "id": "recipe-hook",
+      "part": "hook",
+      "beatIndex": null,
+      "voiceover": {
+        "text": "Почему у собак мокрый нос и зачем он вообще нужен?",
+        "startSec": 0,
+        "endSec": 6
+      },
+      "durationSec": 6,
+      "description": "Крупная морда собаки и вопрос о мокром носе",
+      "environment": {
+        "setting": "night-lab",
+        "layers": ["sky", "buildings-far", "subject"]
+      },
+      "camera": {
+        "shot": "wide",
+        "movement": "pan",
+        "speed": 0.18,
+        "parallax": [0.15, 0.35, 0.6, 0.8, 1]
+      },
+      "objects": [],
+      "effects": [],
+      "transition": { "type": "crossfade", "durationSec": 0.3 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "hook-hero",
+        "variant": "subject-lead",
+        "slots": {
+          "title": "ПОЧЕМУ У СОБАК МОКРЫЙ НОС?",
+          "kicker": "НАУКА ЗА 30 СЕКУНД",
+          "subject": { "assetKey": "dog-snout" }
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "МОКРЫЙ НОС" }
+      },
+      "version": 1
+    },
+    {
+      "id": "recipe-fact",
+      "part": "beat",
+      "beatIndex": 0,
+      "voiceover": {
+        "text": "На влажном носу запахи растворяются и держатся в сотни раз лучше.",
+        "startSec": 6,
+        "endSec": 12
+      },
+      "durationSec": 6,
+      "description": "Предметный факт: влажная плёнка ловит молекулы запаха",
+      "environment": {
+        "setting": "night-stage",
+        "layers": ["lamp", "road", "subject"]
+      },
+      "camera": {
+        "shot": "medium",
+        "movement": "dolly",
+        "speed": 0.16,
+        "parallax": [0.2, 0.4, 0.7, 1]
+      },
+      "objects": [],
+      "effects": [],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "fact-object",
+        "variant": "stage",
+        "slots": {
+          "subject": { "assetKey": "scent-wave" },
+          "fact": "ВЛАЖНАЯ ПЛЁНКА ЛОВИТ МОЛЕКУЛЫ ЗАПАХА",
+          "caption": "НОС РАБОТАЕТ КАК ДАТЧИК",
+          "metric": "×1000"
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "НОС — ДАТЧИК" }
+      },
+      "version": 1
+    },
+    {
+      "id": "recipe-comparison",
+      "part": "beat",
+      "beatIndex": 1,
+      "voiceover": {
+        "text": "Сухой нос теряет большую часть сигнала, влажный сохраняет его почти полностью.",
+        "startSec": 12,
+        "endSec": 18
+      },
+      "durationSec": 6,
+      "description": "Сравнение мокрого и сухого носа",
+      "environment": {
+        "setting": "night-skyline",
+        "layers": ["sky", "buildings-far", "chart"]
+      },
+      "camera": {
+        "shot": "medium",
+        "movement": "static",
+        "speed": 0,
+        "parallax": [0.1, 0.3, 0.6, 1]
+      },
+      "objects": [],
+      "effects": [],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "comparison",
+        "variant": "bars",
+        "slots": {
+          "title": "СРАВНИМ",
+          "left": { "label": "МОКРЫЙ НОС", "value": "100%", "fraction": 1 },
+          "right": { "label": "СУХОЙ НОС", "value": "35%", "fraction": 0.35 },
+          "verdict": "ВЛАГА УСИЛИВАЕТ ЗАПАХ"
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "МОКРЫЙ vs СУХОЙ" }
+      },
+      "version": 1
+    },
+    {
+      "id": "recipe-process",
+      "part": "beat",
+      "beatIndex": 2,
+      "voiceover": {
+        "text": "Сначала молекулы растворяются, потом рецепторы считывают сигнал, и мозг узнаёт запах.",
+        "startSec": 18,
+        "endSec": 23
+      },
+      "durationSec": 5,
+      "description": "Три шага: молекулы, слизь, рецепторы",
+      "environment": {
+        "setting": "night-backdrop",
+        "layers": ["grid", "glow", "steps"]
+      },
+      "camera": {
+        "shot": "medium",
+        "movement": "tilt",
+        "speed": 0.1,
+        "parallax": [0.2, 0.5, 0.9]
+      },
+      "objects": [],
+      "effects": [],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "process",
+        "variant": "timeline",
+        "slots": {
+          "title": "КАК ЭТО РАБОТАЕТ",
+          "steps": [
+            { "label": "МОЛЕКУЛЫ ЗАПАХА", "detail": "Попадают на нос" },
+            { "label": "РАСТВОРЯЮТСЯ В СЛИЗИ", "detail": "Влажная плёнка" },
+            { "label": "РЕЦЕПТОРЫ ЧИТАЮТ СИГНАЛ", "detail": "Мозг узнаёт запах" }
+          ]
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ТРИ ШАГА" }
+      },
+      "version": 1
+    },
+    {
+      "id": "recipe-cta",
+      "part": "cta",
+      "beatIndex": null,
+      "voiceover": {
+        "text": "Подписывайся, чтобы узнать больше о том, как устроен мир.",
+        "startSec": 23,
+        "endSec": 28
+      },
+      "durationSec": 5,
+      "description": "Финальный призыв с крупной плашкой",
+      "environment": {
+        "setting": "night-backdrop",
+        "layers": ["grid", "glow", "text"]
+      },
+      "camera": {
+        "shot": "medium",
+        "movement": "zoom_in",
+        "speed": 0.08,
+        "parallax": [0.2, 0.5, 1]
+      },
+      "objects": [],
+      "effects": [],
+      "transition": { "type": "cut", "durationSec": 0 },
+      "imagePrompt": null,
+      "videoPrompt": null,
+      "refs": null,
+      "implementation": {
+        "type": "recipe",
+        "recipeId": "cta",
+        "variant": "pill-button",
+        "slots": {
+          "action": "ПОДПИШИСЬ",
+          "subtitle": "БОЛЬШЕ НАУКИ КАЖДЫЙ ДЕНЬ"
+        }
+      },
+      "fallback": {
+        "type": "programmatic",
+        "componentId": "kinetic-typography",
+        "params": { "text": "ПОДПИШИСЬ" }
+      },
+      "version": 1
+    }
+  ]
+}

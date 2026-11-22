@@ -14,7 +14,9 @@ repeated here. Token secrets never appear in logs, DTOs or error messages.
   `code_verifier` during the code exchange.
 - Upload: `FILE_UPLOAD` (5–64 MB chunks, sequential) is the first path; `PULL_FROM_URL`
   requires verified domain/URL-prefix ownership and a publicly reachable https URL (no redirects,
-  available ~1 h).
+  available ~1 h). A **single-chunk** upload must declare `chunk_size === video_size`: TikTok
+  rejects `chunk_size 10 000 000 / total_chunk_count 1` for a 13 MB file with
+  `The chunk size is invalid`, even though the docs let the final chunk absorb the remainder.
 - Publish flow: `creator_info/query` → `video/init` → poll `status/fetch` + webhooks
   (`post.publish.complete/failed/publicly_available`). Adapter details live here; the scheduling
   rule (no TikTok scheduling parameter, our delayed job triggers `video/init`) is in the root

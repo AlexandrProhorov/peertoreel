@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "spec-demo",
+      "device": "spec",
+      "durationSec": 3,
+      "revealSec": 1,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "e1",
+            "primitive": "card",
+            "layout": { "x": 72, "y": 600, "width": 936, "height": 420 },
+            "params": { "background": "#161618", "radius": 40, "padding": 48 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "e2",
+            "primitive": "label",
+            "layout": { "x": 132, "y": 660, "width": 758, "height": 90 },
+            "params": {
+              "text": "композиция из примитивов",
+              "token": "headline",
+              "tone": "ink",
+              "weight": 700,
+              "align": "left"
+            },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": ["e1"]
+          },
+          {
+            "id": "e3",
+            "primitive": "line",
+            "layout": { "x": 132, "y": 980 },
+            "params": {
+              "color": "#CCFF00",
+              "width": 6,
+              "fromX": 132,
+              "fromY": 980,
+              "toX": 700,
+              "toY": 980
+            },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "e1", "transition": "appear" },
+          { "at": 0.35, "element": "e2", "transition": "appear" },
+          { "at": 0.6, "element": "e3", "transition": "draw" }
+        ]
+      }
+    }
+  ]
+}

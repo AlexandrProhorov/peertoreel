@@ -1,0 +1,234 @@
+<section class="gallery">
+  <header class="gallery__header">
+    <div>
+      <p class="gallery__eyebrow">UI sandbox</p>
+      <h1>Примитивы</h1>
+      <p class="gallery__subtitle">
+        Контракт так, как его читает режиссёр: назначение, параметры, переходы и
+        состояния. Превью рисует тот же renderer, что и ролики.
+      </p>
+    </div>
+
+    <div class="gallery__tools">
+      <label class="gallery__control">
+        <span>Тема</span>
+        <select [value]="store.themeId()" (change)="onTheme($event)">
+          @for (theme of store.themes(); track theme.id) {
+            <option [value]="theme.id" [selected]="theme.id === store.themeId()">
+              {{ theme.id }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <mat-checkbox
+        [checked]="store.showHidden()"
+        (change)="store.setShowHidden($event.checked)"
+      >
+        Скрытые от модели
+      </mat-checkbox>
+    </div>
+  </header>
+
+  <div class="gallery__layout">
+    <nav class="gallery__list" aria-label="Примитивы">
+      @for (primitive of store.visiblePrimitives(); track primitive.id) {
+        <button
+          type="button"
+          class="gallery__item"
+          [class.gallery__item--active]="primitive.id === store.selectedId()"
+          (click)="store.select(primitive.id)"
+        >
+          <span class="gallery__item-name">{{ primitive.id }}</span>
+          <span class="gallery__item-note">{{ primitive.semantics }}</span>
+          @if (!primitive.offeredToDirector) {
+            <span class="gallery__item-badge">недоступно модели</span>
+          }
+        </button>
+      }
+    </nav>
+
+    @if (store.selected(); as primitive) {
+      <article class="gallery__detail">
+        <div class="gallery__stage">
+          <app-primitive-preview
+            [primitiveId]="primitive.id"
+            [params]="store.params()"
+            [themeId]="store.themeId()"
+          />
+        </div>
+
+        <div class="gallery__info">
+          <header class="gallery__info-header">
+            <h2>{{ primitive.id }}</h2>
+            <p>{{ primitive.semantics }}</p>
+          </header>
+
+          <section class="gallery__section">
+            <h3>Параметры</h3>
+            <table class="gallery__table">
+              <thead>
+                <tr>
+                  <th scope="col">Имя</th>
+                  <th scope="col">Тип</th>
+                  <th scope="col">Допустимо</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (parameter of primitive.parameters; track parameter.name) {
+                  <tr>
+                    <td>{{ parameter.name }}</td>
+                    <td>{{ parameter.type }}</td>
+                    <td class="gallery__range">
+                      @if (parameter.min !== undefined || parameter.max !== undefined) {
+                        <span>{{ parameter.min ?? '*' }}…{{ parameter.max ?? '*' }}</span>
+                      }
+                      @if (parameter.values; as values) {
+                        <span>{{ values.join(' | ') }}</span>
+                      }
+                      @if (parameter.maxLength !== undefined) {
+                        <span>до {{ parameter.maxLength }} символов</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </section>
+
+          <section class="gallery__section">
+            <h3>Поведение</h3>
+            <dl class="gallery__facts">
+              <dt>Переходы</dt>
+              <dd>{{ primitive.transitions.join(', ') }}</dd>
+              <dt>Состояния</dt>
+              <dd>{{ primitive.states.join(', ') }}</dd>
+              <dt>Операции</dt>
+              <dd>{{ primitive.operations.join(', ') }}</dd>
+            </dl>
+          </section>
+
+          <section class="gallery__section">
+            <h3>Текст для модели</h3>
+            @if (primitive.offeredToDirector) {
+              <pre class="gallery__prompt">{{ primitive.prompt.join('\n') }}</pre>
+            } @else {
+              <p class="gallery__notice">
+                Примитив не попадает в промпт: он работает только с локальной
+                библиотекой ассетов, ключ из ответа модели не разрешается.
+              </p>
+            }
+          </section>
+
+          <section class="gallery__section">
+            <div class="gallery__section-header">
+              <h3>Настройки</h3>
+              <button mat-stroked-button type="button" (click)="store.resetParams()">
+                Сбросить
+              </button>
+            </div>
+
+            <div class="gallery__params">
+              @for (parameter of primitive.parameters; track parameter.name) {
+                <div class="gallery__param">
+                  <label class="gallery__param-label" [for]="'param-' + parameter.name">
+                    {{ parameter.name }}
+                  </label>
+
+                  @switch (parameter.type) {
+                    @case ('number') {
+                      @if (parameter.min !== undefined && parameter.max !== undefined) {
+                        <input
+                          class="gallery__param-control"
+                          [id]="'param-' + parameter.name"
+                          type="range"
+                          [min]="parameter.min"
+                          [max]="parameter.max"
+                          [step]="stepFor(parameter)"
+                          [value]="valueOf(parameter.name)"
+                          (input)="onNumber(parameter, $event)"
+                        />
+                      } @else {
+                        <input
+                          class="gallery__param-control"
+                          [id]="'param-' + parameter.name"
+                          type="number"
+                          [value]="valueOf(parameter.name)"
+                          (input)="onNumber(parameter, $event)"
+                        />
+                      }
+                      <output class="gallery__param-value">{{ valueOf(parameter.name) }}</output>
+                    }
+                    @case ('boolean') {
+                      <mat-checkbox
+                        class="gallery__param-control"
+                        [checked]="isTrue(parameter.name)"
+                        (change)="store.setParam(parameter.name, $event.checked)"
+                      >
+                        включено
+                      </mat-checkbox>
+                    }
+                    @case ('enum') {
+                      <select
+                        class="gallery__param-control"
+                        [id]="'param-' + parameter.name"
+                        [value]="valueOf(parameter.name)"
+                        (change)="onEnum(parameter, $event)"
+                      >
+                        @for (value of parameter.values ?? []; track value) {
+                          <option
+                            [value]="value"
+                            [selected]="valueOf(parameter.name) === value"
+                          >
+                            {{ value }}
+                          </option>
+                        }
+                      </select>
+                    }
+                    @case ('asset') {
+                      <select
+                        class="gallery__param-control"
+                        [id]="'param-' + parameter.name"
+                        [value]="valueOf(parameter.name)"
+                        (change)="onEnum(parameter, $event)"
+                      >
+                        @for (asset of store.catalog().assets; track asset) {
+                          <option
+                            [value]="asset"
+                            [selected]="valueOf(parameter.name) === asset"
+                          >
+                            {{ asset }}
+                          </option>
+                        }
+                      </select>
+                    }
+                    @case ('color') {
+                      <input
+                        class="gallery__param-control"
+                        [id]="'param-' + parameter.name"
+                        type="color"
+                        [value]="valueOf(parameter.name)"
+                        (input)="onText(parameter, $event)"
+                      />
+                      <output class="gallery__param-value">{{ displayValue(valueOf(parameter.name)) }}</output>
+                    }
+                    @default {
+                      <input
+                        class="gallery__param-control"
+                        [id]="'param-' + parameter.name"
+                        type="text"
+                        [attr.maxlength]="parameter.maxLength ?? 200"
+                        [value]="valueOf(parameter.name)"
+                        (input)="onText(parameter, $event)"
+                      />
+                    }
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        </div>
+      </article>
+    }
+  </div>
+</section>

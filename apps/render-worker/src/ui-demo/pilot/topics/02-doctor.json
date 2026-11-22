@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "doctor",
+      "device": "spec",
+      "durationSec": 6,
+      "revealSec": 2,
+      "themeId": "studio-dark",
+      "spec": {
+        "kind": "composition",
+        "elements": [
+          {
+            "id": "stage",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0 },
+            "params": { "background": "#0A0A0B", "vignette": true },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["hold"],
+            "links": []
+          },
+          {
+            "id": "loud",
+            "primitive": "card",
+            "layout": { "x": 72, "y": 620, "width": 380, "height": 420 },
+            "params": { "background": "#CCFF00", "radius": 36, "padding": 32 },
+            "states": ["rest"],
+            "transitions": ["appear", "disappear"],
+            "operations": ["reveal", "scale"],
+            "links": []
+          },
+          {
+            "id": "quiet",
+            "primitive": "card",
+            "layout": { "x": 510, "y": 620, "width": 380, "height": 420 },
+            "params": { "background": "#161618", "radius": 36, "padding": 32 },
+            "states": ["rest"],
+            "transitions": ["appear", "disappear"],
+            "operations": ["reveal"],
+            "links": []
+          },
+          {
+            "id": "loud-rating",
+            "primitive": "label",
+            "layout": { "x": 96, "y": 700, "width": 332, "height": 120, "align": "center" },
+            "params": { "text": "4.9 · 20", "token": "headline", "tone": "accent-ink", "weight": 800 },
+            "states": ["rest"],
+            "transitions": ["appear", "disappear"],
+            "operations": ["reveal"],
+            "links": ["loud"]
+          },
+          {
+            "id": "quiet-rating",
+            "primitive": "label",
+            "layout": { "x": 534, "y": 700, "width": 332, "height": 120, "align": "center" },
+            "params": { "text": "4.7 · 1200", "token": "headline", "tone": "ink", "weight": 800 },
+            "states": ["rest"],
+            "transitions": ["appear", "disappear"],
+            "operations": ["reveal"],
+            "links": ["quiet"]
+          },
+          {
+            "id": "verdict",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 1240, "width": 818, "height": 140, "align": "left" },
+            "params": { "text": "выбрали не того", "token": "headline", "tone": "ink", "weight": 700 },
+            "states": ["rest"],
+            "transitions": ["appear"],
+            "operations": ["reveal"],
+            "links": []
+          }
+        ],
+        "sequence": [
+          { "at": 0.1, "element": "stage", "transition": "appear" },
+          { "at": 0.3, "element": "loud", "transition": "appear" },
+          { "at": 0.5, "element": "quiet", "transition": "appear" },
+          { "at": 0.9, "element": "loud-rating", "transition": "appear" },
+          { "at": 1.1, "element": "quiet-rating", "transition": "appear" },
+          { "at": 2.9, "element": "verdict", "transition": "appear" },
+          { "at": 2.9, "element": "loud", "transition": "disappear" },
+          { "at": 2.9, "element": "quiet", "transition": "disappear" },
+          { "at": 3.2, "element": "loud-rating", "transition": "disappear" },
+          { "at": 3.3, "element": "quiet-rating", "transition": "disappear" }
+        ]
+      }
+    }
+  ]
+}

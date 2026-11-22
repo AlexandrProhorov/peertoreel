@@ -1,0 +1,138 @@
+{
+  "thesis": "План и факт сталкиваются: то, что держалось, ломается — механизм «через столкновение».",
+  "scenes": [
+    {
+      "id": "clash",
+      "role": "крючок",
+      "seconds": 6,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 },
+            "params": { "background": "#0A0A0B", "grid": false, "vignette": true }
+          },
+          {
+            "id": "plan",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 520, "width": 400, "height": 160 },
+            "params": { "text": "план", "token": "headline", "tone": "muted", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "fact",
+            "primitive": "label",
+            "layout": { "x": 560, "y": 520, "width": 400, "height": 160 },
+            "params": { "text": "факт", "token": "headline", "tone": "ink", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "rail",
+            "primitive": "track",
+            "layout": { "x": 72, "y": 760, "width": 800, "height": 24 },
+            "params": { "length": 800, "thickness": 14, "color": "#CCFF00", "fill": 1, "breakAt": 0.5 }
+          }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "plan", "transition": "appear" },
+          { "element": "fact", "transition": "appear" },
+          { "element": "rail", "transition": "appear" },
+          { "element": "rail", "transition": "fill" },
+          { "element": "rail", "transition": "break" }
+        ]
+      }
+    },
+    {
+      "id": "hold",
+      "role": "развитие",
+      "seconds": 7,
+      "theme": "studio-light",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 },
+            "params": { "background": "#FFFFFF", "grid": false, "vignette": false }
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 200, "width": 700, "height": 200 },
+            "params": { "text": "держалось", "token": "headline", "tone": "ink", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "plate",
+            "primitive": "card",
+            "layout": { "x": 96, "y": 520, "width": 800, "height": 420 },
+            "params": { "background": "#F3F3F5", "radius": 32, "padding": 24, "shadow": "soft" }
+          },
+          {
+            "id": "rail",
+            "primitive": "track",
+            "layout": { "x": 140, "y": 700, "width": 700, "height": 24 },
+            "params": { "length": 700, "thickness": 14, "color": "#0B0B0C", "fill": 1, "breakAt": 0.6 }
+          },
+          {
+            "id": "snap",
+            "primitive": "pill",
+            "layout": { "x": 96, "y": 1000, "width": 240, "height": 112 },
+            "params": { "text": "срыв", "token": "caption", "background": "#CCFF00", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "plate", "transition": "appear" },
+          { "element": "title", "transition": "appear" },
+          { "element": "title", "transition": "type" },
+          { "element": "rail", "transition": "appear" },
+          { "element": "rail", "transition": "fill" },
+          { "element": "rail", "transition": "break" },
+          { "element": "snap", "transition": "appear" }
+        ]
+      }
+    },
+    {
+      "id": "after",
+      "role": "вывод",
+      "seconds": 6,
+      "theme": "studio-lime",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": { "x": 0, "y": 0, "width": 1080, "height": 1920 },
+            "params": { "background": "#CCFF00", "grid": false, "vignette": false }
+          },
+          {
+            "id": "left",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 260, "width": 700, "height": 200 },
+            "params": { "text": "осталось", "token": "headline", "tone": "ink", "weight": 800, "align": "left" }
+          },
+          {
+            "id": "only",
+            "primitive": "pill",
+            "layout": { "x": 72, "y": 560, "width": 520, "height": 120 },
+            "params": { "text": "только факт", "token": "card", "background": "#FFFFFF", "textColor": "#0B0B0C", "paddingX": 32, "paddingY": 20 }
+          },
+          {
+            "id": "gone",
+            "primitive": "label",
+            "layout": { "x": 72, "y": 760, "width": 700, "height": 100 },
+            "params": { "text": "план не вернулся", "token": "body", "tone": "ink", "weight": 500, "align": "left" }
+          }
+        ],
+        "sequence": [
+          { "element": "bg", "transition": "appear" },
+          { "element": "left", "transition": "appear" },
+          { "element": "left", "transition": "type" },
+          { "element": "only", "transition": "appear" },
+          { "element": "gone", "transition": "appear" }
+        ]
+      }
+    }
+  ]
+}

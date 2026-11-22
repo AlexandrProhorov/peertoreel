@@ -1,0 +1,1 @@
+ALTER TABLE "assets" ALTER COLUMN "style_id" SET DEFAULT 'studio_flat_2d_v2';

@@ -13,12 +13,24 @@ export { SCENE_FPS, SCENE_HEIGHT, SCENE_WIDTH } from './video-target.js';
 
 export const SCENE_COMPOSITION_ID = 'Scene';
 
+/**
+ * Assets already resolved by the Asset Resolver (ADR-0017 D6). Keys are the
+ * asset references the scene uses (`assets/starter/dog-snout.svg`, a logical
+ * key, …); the renderer never resolves libraries or URLs itself.
+ */
+export const resolvedAssetMapSchema = z.record(
+  z.string().min(1).max(500),
+  z.object({ url: z.string().min(1).max(2_000_000) }),
+);
+export type ResolvedAssetMap = z.infer<typeof resolvedAssetMapSchema>;
+
 export const sceneInputPropsSchema = z.object({
   scene: storyboardSceneSchema,
   style: storyboardStyleSchema,
   /** Already resolved by `mapping.ts`; the composition does not choose again. */
   resolved: resolvedScenePropsSchema,
   wordTimings: z.array(derivedWordSchema).optional(),
+  assets: resolvedAssetMapSchema.optional(),
 });
 export type SceneInputProps = z.infer<typeof sceneInputPropsSchema>;
 
@@ -89,5 +101,5 @@ export const DEFAULT_SCENE_INPUT_PROPS: SceneInputProps =
   sceneInputPropsSchema.parse({
     scene: DEFAULT_PREVIEW_SCENE,
     style: DEFAULT_PREVIEW_STYLE,
-    resolved: { componentId: 'kinetic-typography', params: {} },
+    resolved: { componentId: 'kinetic-typography', params: {}, recipe: null },
   });

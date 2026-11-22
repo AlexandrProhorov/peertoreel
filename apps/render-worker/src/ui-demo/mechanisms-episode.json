@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "themeId": "studio-dark",
+  "captions": false,
+  "speech": [],
+  "scenes": [
+    {
+      "id": "typing-submit",
+      "device": "input-transform",
+      "durationSec": 2.8,
+      "revealSec": 1.2,
+      "themeId": "studio-dark",
+      "prompt": "назови пять вещей обо мне",
+      "waitingLabel": "формирует ответ",
+      "answer": null
+    },
+    {
+      "id": "card-lands",
+      "device": "impact-arrival",
+      "durationSec": 2.6,
+      "revealSec": 0.8,
+      "themeId": "studio-dark",
+      "headline": "первый ответ пугает",
+      "index": "01",
+      "object": {
+        "key": "framed-picture",
+        "contentHash": "e70eeb3cd3b5c8bd6633a9ddf0c5f0bb7e0c4be45c89b9b2aad689276aad35bc"
+      },
+      "caption": "ты боишься быть незаменимым"
+    },
+    {
+      "id": "five-years",
+      "device": "scale-break",
+      "durationSec": 3.2,
+      "revealSec": 1.0,
+      "themeId": "studio-dark",
+      "fromLabel": "сейчас",
+      "toLabel": "через 5 лет",
+      "title": "если ничего не изменится"
+    }
+  ]
+}

@@ -1,0 +1,221 @@
+{
+  "thesis": "Подписки перестали быть выгодными, когда платишь за набор, а пользуешься одной.",
+  "scenes": [
+    {
+      "id": "hook",
+      "role": "крючок",
+      "action": "На телефон одна за другой налипают карточки подписок; стопка растёт и перекрывает экран.",
+      "seconds": 7,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": {"x": 0, "y": 0, "width": 1080, "height": 1920},
+            "params": {"background": "#0A0A0B", "grid": false, "vignette": true}
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": {"x": 72, "y": 180, "width": 818, "height": 150},
+            "params": {"text": "Подписка на всё", "token": "headline", "tone": "ink", "weight": 800, "align": "left"}
+          },
+          {
+            "id": "phone",
+            "primitive": "card",
+            "layout": {"x": 72, "y": 400, "width": 818, "height": 1080},
+            "params": {"background": "#161618", "radius": 36, "padding": 24, "border": "#2A2A2E", "shadow": true}
+          },
+          {
+            "id": "sub1",
+            "primitive": "card",
+            "layout": {"x": 120, "y": 740, "width": 680, "height": 180},
+            "params": {"background": "#F3F3F5", "radius": 24, "padding": 20, "border": "#FFFFFF", "shadow": true}
+          },
+          {
+            "id": "sub2",
+            "primitive": "card",
+            "layout": {"x": 140, "y": 620, "width": 680, "height": 180},
+            "params": {"background": "#FFFFFF", "radius": 24, "padding": 20, "border": "#CCFF00", "shadow": true}
+          },
+          {
+            "id": "swipe",
+            "primitive": "pill",
+            "layout": {"x": 72, "y": 1420, "width": 360, "height": 96},
+            "params": {"background": "#CCFF00", "textColor": "#0B0B0C", "token": "caption", "text": "листаю", "paddingX": 24, "paddingY": 18}
+          }
+        ],
+        "sequence": [
+          {"element": "bg", "transition": "appear"},
+          {"element": "phone", "transition": "appear"},
+          {"element": "title", "transition": "type"},
+          {"element": "sub1", "transition": "appear"},
+          {"element": "sub2", "transition": "appear"},
+          {"element": "swipe", "transition": "appear"}
+        ]
+      }
+    },
+    {
+      "id": "drain",
+      "role": "причина",
+      "action": "Телефон вибрирует, монеты уходят из кошелька по дорожке и обрываются за краем.",
+      "seconds": 7,
+      "theme": "studio-light",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": {"x": 0, "y": 0, "width": 1080, "height": 1920},
+            "params": {"background": "#FFFFFF", "grid": false, "vignette": false}
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": {"x": 72, "y": 180, "width": 818, "height": 130},
+            "params": {"text": "Списания по чуть-чуть", "token": "headline", "tone": "ink", "weight": 800, "align": "left"}
+          },
+          {
+            "id": "wallet",
+            "primitive": "card",
+            "layout": {"x": 140, "y": 700, "width": 600, "height": 420},
+            "params": {"background": "#F3F3F5", "radius": 32, "padding": 24, "border": "#0B0B0C", "shadow": false}
+          },
+          {
+            "id": "drain",
+            "primitive": "track",
+            "layout": {"x": 160, "y": 1140, "width": 600, "height": 14},
+            "params": {"length": 600, "thickness": 14, "color": "#CCFF00", "fill": 0.85, "breakAt": 0.35}
+          },
+          {
+            "id": "minus",
+            "primitive": "pill",
+            "layout": {"x": 72, "y": 1360, "width": 420, "height": 100},
+            "params": {"background": "#CCFF00", "textColor": "#0B0B0C", "token": "caption", "text": "уходит", "paddingX": 24, "paddingY": 18}
+          }
+        ],
+        "sequence": [
+          {"element": "bg", "transition": "appear"},
+          {"element": "title", "transition": "type"},
+          {"element": "wallet", "transition": "appear"},
+          {"element": "drain", "transition": "appear"},
+          {"element": "drain", "transition": "fill"},
+          {"element": "drain", "transition": "break"},
+          {"element": "minus", "transition": "appear"}
+        ]
+      }
+    },
+    {
+      "id": "check",
+      "role": "поворот",
+      "action": "Веер карточек раскрывается, большинство тускнеют, подсвечивается только одна.",
+      "seconds": 7,
+      "theme": "studio-lime",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": {"x": 0, "y": 0, "width": 1080, "height": 1920},
+            "params": {"background": "#CCFF00", "grid": false, "vignette": false}
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": {"x": 72, "y": 180, "width": 818, "height": 150},
+            "params": {"text": "А открываю одну", "token": "headline", "tone": "ink", "weight": 800, "align": "left"}
+          },
+          {
+            "id": "card1",
+            "primitive": "card",
+            "layout": {"x": 72, "y": 760, "width": 260, "height": 420},
+            "params": {"background": "#F3F3F5", "radius": 28, "padding": 18, "border": "#0B0B0C", "shadow": false}
+          },
+          {
+            "id": "card2",
+            "primitive": "card",
+            "layout": {"x": 300, "y": 700, "width": 260, "height": 420},
+            "params": {"background": "#F3F3F5", "radius": 28, "padding": 18, "border": "#0B0B0C", "shadow": false}
+          },
+          {
+            "id": "card3",
+            "primitive": "card",
+            "layout": {"x": 528, "y": 760, "width": 260, "height": 420},
+            "params": {"background": "#FFFFFF", "radius": 28, "padding": 18, "border": "#0B0B0C", "shadow": true}
+          },
+          {
+            "id": "one",
+            "primitive": "pill",
+            "layout": {"x": 72, "y": 1360, "width": 360, "height": 100},
+            "params": {"background": "#0B0B0C", "textColor": "#CCFF00", "token": "caption", "text": "одна", "paddingX": 24, "paddingY": 18}
+          }
+        ],
+        "sequence": [
+          {"element": "bg", "transition": "appear"},
+          {"element": "title", "transition": "type"},
+          {"element": "card1", "transition": "appear"},
+          {"element": "card2", "transition": "appear"},
+          {"element": "card3", "transition": "appear"},
+          {"element": "one", "transition": "appear"}
+        ]
+      }
+    },
+    {
+      "id": "turn",
+      "role": "вывод",
+      "action": "Лишняя карточка соскальзывает с телефона, остаётся одна выбранная; кошелёк закрывается.",
+      "seconds": 7,
+      "theme": "studio-dark",
+      "spec": {
+        "elements": [
+          {
+            "id": "bg",
+            "primitive": "stage",
+            "layout": {"x": 0, "y": 0, "width": 1080, "height": 1920},
+            "params": {"background": "#0A0A0B", "grid": false, "vignette": true}
+          },
+          {
+            "id": "title",
+            "primitive": "label",
+            "layout": {"x": 72, "y": 180, "width": 818, "height": 170},
+            "params": {"text": "Оставь то, чем пользуешься", "token": "headline", "tone": "ink", "weight": 800, "align": "left"}
+          },
+          {
+            "id": "phone",
+            "primitive": "card",
+            "layout": {"x": 72, "y": 420, "width": 818, "height": 980},
+            "params": {"background": "#161618", "radius": 36, "padding": 24, "border": "#2A2A2E", "shadow": true}
+          },
+          {
+            "id": "extra",
+            "primitive": "card",
+            "layout": {"x": 140, "y": 680, "width": 680, "height": 220},
+            "params": {"background": "#F3F3F5", "radius": 24, "padding": 20, "border": "#FFFFFF", "shadow": true}
+          },
+          {
+            "id": "kept",
+            "primitive": "card",
+            "layout": {"x": 140, "y": 680, "width": 680, "height": 220},
+            "params": {"background": "#FFFFFF", "radius": 24, "padding": 20, "border": "#CCFF00", "shadow": true}
+          },
+          {
+            "id": "done",
+            "primitive": "pill",
+            "layout": {"x": 72, "y": 1420, "width": 520, "height": 100},
+            "params": {"background": "#CCFF00", "textColor": "#0B0B0C", "token": "caption", "text": "готово", "paddingX": 24, "paddingY": 18}
+          }
+        ],
+        "sequence": [
+          {"element": "bg", "transition": "appear"},
+          {"element": "title", "transition": "type"},
+          {"element": "phone", "transition": "appear"},
+          {"element": "extra", "transition": "appear"},
+          {"element": "extra", "transition": "disappear"},
+          {"element": "kept", "transition": "appear"},
+          {"element": "done", "transition": "appear"}
+        ]
+      }
+    }
+  ]
+}
