@@ -16,6 +16,8 @@ export interface PrimitiveMarkers {
   readonly within?: string;
   readonly surface?: string;
   readonly decoration?: string;
+  /** The spoken thesis: no primitive may paint across it. */
+  readonly thesis?: boolean;
 }
 
 export interface PrimitiveBase {
@@ -34,6 +36,7 @@ function markerProps(markers: PrimitiveMarkers | undefined): Record<string, stri
     ...(markers.within === undefined ? {} : { 'data-ui-within': markers.within }),
     ...(markers.surface === undefined ? {} : { 'data-ui-surface': markers.surface }),
     ...(markers.decoration === undefined ? {} : { 'data-ui-decoration': markers.decoration }),
+    ...(markers.thesis === true ? { 'data-ui-thesis': 'true' } : {}),
   };
 }
 
@@ -128,6 +131,7 @@ export function Card({
   fontScale = 1,
   align,
   elementId,
+  thesis = false,
   style,
   children,
   markers,
@@ -144,16 +148,23 @@ export function Card({
   token?: TypeToken;
   fontScale?: number;
   align?: 'left' | 'center' | 'right';
+  /** The caption is the spoken thesis; no primitive may cross it. */
+  thesis?: boolean;
   /** Gives the measurement pass an owner for the caption's overflow. */
   elementId?: string;
 }) {
   const fill = background ?? theme.surface;
   const base = textStyle(token, inkOn(fill));
   const { fontSize, ...rest } = base;
+  /* A card that owns its caption owns the overflow too: the copy grows with
+     its text, so measuring the span alone never sees the spill past the card. */
+  const ownText = text !== undefined && children === undefined;
 
   return (
     <div
       {...markerProps(markers)}
+      data-ui-overflow={ownText ? 'spec-card' : undefined}
+      data-ui-element={ownText ? elementId : undefined}
       style={{
         background: fill,
         borderRadius: radius,
@@ -168,7 +179,7 @@ export function Card({
     >
       {children ?? (text === undefined ? null : (
         <span
-          {...markerProps({ critical: 'spec-text' })}
+          {...markerProps({ critical: 'spec-text', thesis })}
           {...(elementId === undefined ? {} : { 'data-ui-element': elementId })}
           style={{
             ...rest,
@@ -242,7 +253,10 @@ export function Pill({
         <span
           /* Typography lives on the text node: measuring the wrapper reports
              the inherited browser default, not the font the pill uses. */
-          {...markerProps({ critical: markers?.critical })}
+          {...markerProps({
+            critical: markers?.critical,
+            thesis: markers?.thesis,
+          })}
           style={{
             ...textStyle(token, textColor ?? toneColor(theme, tone) ?? theme.surfaceInk),
             ...(weight === undefined ? {} : { fontWeight: weight }),
@@ -309,6 +323,10 @@ export function Label({
             color: accentPlateInk(theme),
             padding: '4px 18px',
             borderRadius: 14,
+            /* A wrapped highlight is several line fragments: each one keeps its
+               own rounded plate instead of the last fragment ending square. */
+            boxDecorationBreak: 'clone',
+            WebkitBoxDecorationBreak: 'clone',
           }}
         >
           {text}
@@ -385,7 +403,7 @@ export function Avatar({
         borderRadius: size / 2,
         objectFit: 'contain',
         background,
-        border: ring === true ? '2px solid rgba(255,255,255,0.4)' : undefined,
+        border: ring ? '2px solid rgba(255,255,255,0.4)' : undefined,
         flexShrink: 0,
         ...style,
       }}
@@ -606,6 +624,7 @@ export function Line({
   toY = 0,
   style,
   markers,
+  elementId,
 }: {
   color: string;
   width?: number;
@@ -616,10 +635,13 @@ export function Line({
   toY?: number;
   style?: CSSProperties;
   markers?: PrimitiveMarkers;
+  elementId?: string;
 }) {
   return (
     <svg
       {...markerProps(markers)}
+      data-ui-line={`${String(fromX)},${String(fromY)},${String(toX)},${String(toY)}`}
+      data-ui-element={elementId}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', ...style }}
       aria-hidden
     >

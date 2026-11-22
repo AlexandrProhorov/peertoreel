@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { cuesFromWords, estimateWords, toSrt, wordsFromAlignment, type AlignedChars } from './voice.js';
+import {
+  CLAUSE_PAUSE_SEC,
+  SENTENCE_PAUSE_SEC,
+  cuesFromWords,
+  estimateWords,
+  placeLines,
+  splitNarrationLines,
+  toSrt,
+  wordsFromAlignment,
+  type AlignedChars,
+} from './voice.js';
 
 /**
  * Words and cues are derived from the provider's character alignment: the
@@ -51,7 +61,7 @@ describe('estimated word times', () => {
 
     expect(words).toHaveLength(3);
     expect(words[0]?.start).toBe(0);
-    expect(words.at(-1)?.end).toBeLessThanOrEqual(3);
+    expect(words.at(-1)?.end).toBeCloseTo(3, 3);
     expect(words[1]?.start).toBeGreaterThan(0);
   });
 
@@ -59,5 +69,67 @@ describe('estimated word times', () => {
     const words = estimateWords('а оченьдлинноеслово', 2);
 
     expect(words[0]?.end ?? 0).toBeGreaterThanOrEqual(0.12);
+  });
+
+  it('gives a punctuation pause to the word that carries it', () => {
+    const words = estimateWords('да, нет.', 2);
+    const first = (words[0]?.end ?? 0) - (words[0]?.start ?? 0);
+    const second = (words[1]?.end ?? 0) - (words[1]?.start ?? 0);
+
+    expect(second).toBeGreaterThan(first);
+    expect(words.at(-1)?.end).toBeCloseTo(2, 3);
+  });
+});
+
+describe('narration lines', () => {
+  it('cuts at sentence boundaries and marks a full stop as a beat', () => {
+    const lines = splitNarrationLines('Первое предложение. Второе предложение.');
+
+    expect(lines.map((line) => line.text)).toEqual([
+      'Первое предложение.',
+      'Второе предложение.',
+    ]);
+    expect(lines[0]?.pauseAfterSec).toBe(SENTENCE_PAUSE_SEC);
+  });
+
+  it('splits an over-long sentence at the comma nearest the middle', () => {
+    const narration =
+      'Чем дольше рассрочка, тем дальше уезжает итоговая сумма от настоящей цены, и это расстояние стоит денег.';
+    const lines = splitNarrationLines(narration);
+
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.every((line) => line.text.length <= 80)).toBe(true);
+    expect(lines[0]?.text.endsWith(',')).toBe(true);
+    expect(lines[0]?.pauseAfterSec).toBe(CLAUSE_PAUSE_SEC);
+    expect(lines.map((line) => line.text).join(' ')).toBe(narration);
+  });
+
+  it('falls back to a word boundary when no clause separator is left', () => {
+    const narration = Array.from({ length: 20 }, () => 'слово').join(' ');
+    const lines = splitNarrationLines(narration);
+
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.every((line) => line.text.length <= 80)).toBe(true);
+    expect(lines.map((line) => line.text).join(' ')).toBe(narration);
+  });
+
+  it('returns nothing for empty narration', () => {
+    expect(splitNarrationLines('   ')).toEqual([]);
+  });
+});
+
+describe('line placement', () => {
+  it('places lines with pauses between them and none after the last', () => {
+    const lines = splitNarrationLines('Первая строка. Вторая строка.');
+    const { cues, totalSec } = placeLines(lines, [0.8, 1.2]);
+
+    expect(cues[0]).toEqual({ text: 'Первая строка.', startSec: 0, endSec: 0.8 });
+    expect(cues[1]?.startSec).toBeCloseTo(1.1, 3);
+    expect(cues[1]?.endSec).toBeCloseTo(2.3, 3);
+    expect(totalSec).toBeCloseTo(2.3, 3);
+  });
+
+  it('rejects a line without a measured duration', () => {
+    expect(() => placeLines(splitNarrationLines('Одна строка.'), [])).toThrow();
   });
 });

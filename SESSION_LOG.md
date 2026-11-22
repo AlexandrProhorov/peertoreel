@@ -6,6 +6,7 @@ follow `docs/templates/session-record.md`. Theory notes belong in local `LEARNIN
 
 | Date | Session | Record |
 | --- | --- | --- |
+| 2026-11-22 | Озвучка как источник времени: строки по 80 символов, обрезка тишины, экранный текст, 68.8 с | [2026-11-22-01](docs/sessions/2026-11/2026-11-22-01-voice-lines.md) |
 | 2026-11-21 | Минутный ролик: длинная арка, озвучка Google TTS, субтитры, mux | [2026-11-21-06](docs/sessions/2026-11/2026-11-21-06-minute-film.md) |
 | 2026-11-21 | Внешние ответы (8e): Claude и GPT приняты 3/3, Gemini вернул арку | [2026-11-21-05](docs/sessions/2026-11/2026-11-21-05-external-answers.md) |
 | 2026-11-21 | Ремонты до KPI: 0 потерянных сцен, 0 % degraded, 1.46 попытки | [2026-11-21-04](docs/sessions/2026-11/2026-11-21-04-repairs-to-kpi.md) |

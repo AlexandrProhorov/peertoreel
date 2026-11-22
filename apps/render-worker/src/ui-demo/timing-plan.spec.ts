@@ -113,25 +113,31 @@ describe('scene duration', () => {
     expect(motion).toBe(6.1);
   });
 
-  it('packs a long plan by ten percent', () => {
+  it('honours the plan instead of packing it down', () => {
     const cues = [{ at: 7.6, transition: 'move' }];
 
-    /* The action ends at 8.0 s and the hold adds 0.8 s; the plan's nine seconds
-       still win, but ten seconds are packed down to nine. */
+    /* The action ends at 8.0 s and the hold adds 0.8 s; the plan's ten seconds
+       are the film's timing contract and are not shortened silently. */
     expect(sceneDurationSec({ plannedSec: 10, cues })).toBe(
       Number((10 * PLAN_COMPACTION).toFixed(2)),
     );
   });
 
-  it('does not leave a long static tail behind the plan', () => {
-    const cues = [
-      { at: 0, transition: 'appear' },
-      { at: 2.6, transition: 'scale' },
-    ];
+  it('fills a long plan by stretching the action, not with a frozen tail', () => {
+    const action = deriveTiming([
+      { element: 'a', transition: 'appear' },
+      { element: 'a', transition: 'scale' },
+    ]);
+    const target = sceneDurationSec({ plannedSec: 10, cues: action.cues });
+    const stretched = stretchTiming(action, target);
+    const last = stretched.cues.at(-1);
 
-    /* A ten-second plan for an action that ends at 3.0 s used to stand still for
-       five seconds. The plan may add one second; the rest is not filmed. */
-    expect(sceneDurationSec({ plannedSec: 10, cues })).toBe(4.8);
+    /* Ten seconds are filmed: the action is spread across them and ends before
+       the hold, so no frame stands still for seconds. */
+    expect(target).toBe(10);
+    expect(stretched.durationSec).toBe(10);
+    expect(last?.at).toBeGreaterThan(action.cues.at(-1)?.at ?? 0);
+    expect((last?.at ?? 0) + (TRANSITION_SECONDS['scale'] ?? 0)).toBeLessThan(10);
   });
 
   it('never compresses the plan below the action', () => {

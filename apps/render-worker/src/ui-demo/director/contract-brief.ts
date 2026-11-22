@@ -91,6 +91,11 @@ export interface UserPromptOptions {
   readonly themeId?: string;
   /** Lines prepended above the task: where this scene sits in the film. */
   readonly context?: readonly string[];
+  /**
+   * The spoken lines of this scene. They already own the lower band of the
+   * frame, so the scene must support them instead of repeating them.
+   */
+  readonly voiceLines?: readonly string[];
 }
 
 export function buildUserPrompt(
@@ -104,8 +109,29 @@ export function buildUserPrompt(
       : String(Math.max(1, options.seconds));
   const theme = options.themeId ?? '<любая тема из списка ниже>';
 
+  const voice =
+    options.voiceLines === undefined || options.voiceLines.length === 0
+      ? []
+      : [
+          '',
+          'Голос произнесёт эти строки. На экране — главный тезис каждой строки, а не вся',
+          'речь: короткая фраза из 2–6 слов, дословно взятая из строки, по порядку. Если',
+          'строка короткая (до ~45 символов), можно взять её целиком:',
+          ...options.voiceLines.map((line, index) => `  ${String(index + 1)}. ${line}`),
+          'Каждая строка должна получить свой тезис на экране; тезис не выдумывай, бери',
+          'слова из строки. Короткие служебные подписи (например, «промпт 1», число) допустимы.',
+          'Тезис — главный текст сцены: крупный токен (display или headline) или заметная',
+          'поверхность (card, pill, bubble). Не превращай его в мелкую подпись у нижнего края.',
+          'Никакой элемент не пересекает текст: ни линия, ни плашка, ни карточка. Оставь вокруг',
+          'тезиса свободное поле и не рисуй поверх него.',
+          'Элемент появляется, когда произносят его слова; время считает код, секунды в',
+          'sequence не указывай.',
+          'Дай тезису крупный бокс: текст должен влезать без обрезки.',
+        ];
+
   return [
     ...(options.context === undefined ? [] : [...options.context, '']),
+    ...voice,
     `Тема: ${topic}`,
     '',
     'Форма ответа (поля с фиксированными значениями оставь как есть):',

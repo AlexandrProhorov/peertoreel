@@ -20,7 +20,7 @@ import {
   Thumb,
   Track,
   type Tone,
-} from '../primitives/index.js';
+} from '../primitives';
 import type { SpecScene } from '../spec.js';
 import type { UiTheme } from '../themes.js';
 import type { TypeToken } from '../typography.js';
@@ -204,6 +204,8 @@ export function SpecRenderer({
         const transition = cue?.transition;
         const progress = reveal(frame, start, 6);
         const params = element.params as Params;
+        /* The spoken thesis: the one text the frame gate protects. */
+        const thesis = scene.thesisIds?.includes(element.id) === true;
         /* A cue can carry its own copy: counters, prices and totals change with
            the sequence instead of spawning one element per value. */
         const textState = resolveText(list, frame, str(params, 'text'));
@@ -257,6 +259,7 @@ export function SpecRenderer({
                 token={tokenOf(params)}
                 fontScale={num(params, 'fontScale', 1)}
                 elementId={element.id}
+                thesis={thesis}
                 align={
                   (str(params, 'align') as 'left' | 'center' | 'right' | undefined) ?? undefined
                 }
@@ -288,7 +291,7 @@ export function SpecRenderer({
                 fontScale={num(params, 'fontScale', 1)}
                 mark={flag(params, 'mark')}
                 elementId={element.id}
-                markers={{ critical: 'spec-text' }}
+                markers={{ critical: 'spec-text', thesis }}
               />
             );
           case 'pill':
@@ -316,7 +319,11 @@ export function SpecRenderer({
                   width: 'auto',
                   maxWidth: CRITICAL_SAFE_BOUNDS.right - CRITICAL_SAFE_BOUNDS.left,
                 }}
-                markers={{ critical: 'spec-text', surface: element.id }}
+                markers={{
+                  critical: 'spec-text',
+                  surface: element.id,
+                  thesis,
+                }}
               />
             );
           case 'bubble':
@@ -331,7 +338,7 @@ export function SpecRenderer({
                 tone={toneOf(params)}
                 token={tokenOf(params)}
                 style={textStyle}
-                markers={{ critical: 'spec-text' }}
+                markers={{ critical: 'spec-text', thesis }}
               />
             );
           case 'avatar':
@@ -480,6 +487,7 @@ export function SpecRenderer({
                 fromY={points.fromY}
                 toX={points.toX}
                 toY={points.toY}
+                elementId={element.id}
                 /* The SVG covers the frame; only the line's own points move. */
                 style={{
                   position: 'absolute',

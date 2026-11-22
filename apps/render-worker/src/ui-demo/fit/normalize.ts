@@ -1,6 +1,11 @@
 import { TYPE_BOX_RULES, tokenForHeight } from '../typography-rules.js';
 import { CANVAS, CRITICAL_SAFE_BOUNDS } from '../platform.js';
-import { deriveTiming, sceneDurationSec, sceneFloorSec } from '../timing-plan.js';
+import {
+  deriveTiming,
+  sceneDurationSec,
+  sceneFloorSec,
+  stretchTiming,
+} from '../timing-plan.js';
 import {
   accentPlate,
   accentPlateInk,
@@ -1076,10 +1081,9 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
             })),
           )
         : null;
-      /* The arc's seconds are intent, not a cap: a scene lives until its action
-         finishes and holds long enough to be read. Compaction applies only when
-         cue times are derived here — re-fitting an already timed scene must not
-         cut it twice. */
+      /* The arc's seconds are the timing contract: a scene lives until its
+         action finishes and holds long enough to be read, and a longer plan is
+         filled by stretching the action, not by a frozen tail. */
       const cues = derived === null
         ? steps.map((step) => ({
             at: typeof step['at'] === 'number' ? step['at'] : 0,
@@ -1091,7 +1095,12 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
         : derived === null
           ? Math.max(planned, sceneFloorSec(cues))
           : sceneDurationSec({ plannedSec: planned, cues });
-      const timing = derived === null ? null : { cues: derived.cues, durationSec };
+      const stretched =
+        derived === null ? null : stretchTiming(derived, durationSec);
+      const timing =
+        stretched === null
+          ? null
+          : { cues: stretched.cues, durationSec: stretched.durationSec };
 
       /* Rails last: the box must agree with the contract before the quality gate
          sees the scene. */

@@ -42,16 +42,12 @@ const TEXT_HOLD_SECONDS = 1.6;
 const TEXT_TRANSITIONS: ReadonlySet<string> = new Set(['type', 'fill', 'draw', 'break']);
 /** Hard floor: below this even an instant state change is cut mid-motion. */
 export const MIN_HOLD_SECONDS = 0.25;
-/** The plan is packed by ten percent: shorter scenes, same rhythm of steps. */
-export const PLAN_COMPACTION = 0.9;
 /**
- * A plan may extend a scene past its action, but only this much. The arc is
- * written by the same model that wrote the steps, and it regularly promises ten
- * seconds for five steps; honouring that literally leaves four seconds of a
- * frozen frame, which the frame review flags as dead time. The stable run kept
- * the action and the beat cadence, not the promise.
+ * The arc's seconds are the film's timing contract: a sixty-second film is a
+ * sum of its scenes. The plan is no longer packed down by ten percent — that
+ * silently shortened every film and made the requested length unreachable.
  */
-export const PLAN_EXTRA_SECONDS = 1;
+export const PLAN_COMPACTION = 1;
 
 export interface OrderedStep {
   readonly element: string;
@@ -134,30 +130,33 @@ export function sceneFloorSec(
 }
 
 /**
- * Scene length is derived, not chosen: the action finishes, the last frame
- * holds long enough to be read or to land, and the plan is packed by ten
- * percent. The planned seconds never cut a step and never win over the hold.
+ * Scene length is derived, not chosen: the action finishes and holds long
+ * enough to be read or to land. The planned seconds are honoured; they never
+ * cut a step, but they are not silently shortened either.
  */
 export function sceneDurationSec(input: SceneTimingInput): number {
   const floor = sceneFloorSec(input.cues);
-  const packed = input.plannedSec > 0 ? input.plannedSec * PLAN_COMPACTION : 0;
+  const planned = input.plannedSec > 0 ? input.plannedSec * PLAN_COMPACTION : 0;
 
-  return Number(Math.max(floor, Math.min(packed, floor + PLAN_EXTRA_SECONDS)).toFixed(2));
+  return Number(Math.max(floor, planned).toFixed(2));
 }
 
 /**
  * A planned scene may be longer than its action: the arc asks for seven seconds,
  * the model writes four. Keeping `max(planned, action)` leaves a dead tail that
  * reads as a frozen frame; stretching the cue list keeps the plan and removes
- * the hang. The last animation still ends before the tail.
+ * the hang. The last animation still ends before the hold that the transition
+ * needs.
  */
 export function stretchTiming(timing: DerivedTiming, targetSec: number): DerivedTiming {
   if (!(targetSec > timing.durationSec)) {
     return timing;
   }
 
-  const endContent = Math.max(0.1, timing.durationSec - TAIL_SECONDS);
-  const targetEnd = Math.max(endContent, targetSec - TAIL_SECONDS);
+  const last = timing.cues.at(-1);
+  const hold = holdAfterSec(last?.transition);
+  const endContent = Math.max(0.1, last?.at ?? 0.1);
+  const targetEnd = Math.max(endContent, targetSec - hold);
   const factor = targetEnd / endContent;
 
   return {

@@ -76,4 +76,23 @@ describe('director prompt covers the catalogue', () => {
     expect(DIRECTOR_SYSTEM_PROMPT).toContain('Что изменилось к концу');
     expect(DIRECTOR_SYSTEM_PROMPT).not.toContain('запрещено');
   });
+
+  it('makes the spoken lines the scene text, one element per line', () => {
+    const prompt = buildUserPrompt('тема', {
+      voiceLines: ['Первая строка.', 'Вторая строка.'],
+    });
+
+    expect(prompt).toContain('1. Первая строка.');
+    expect(prompt).toContain('2. Вторая строка.');
+    expect(prompt).toContain('На экране — главный тезис');
+    expect(prompt).toContain('Каждая строка должна получить свой тезис');
+    expect(prompt).toContain('дословно взятая из строки');
+    expect(prompt).toContain('Элемент появляется, когда произносят его слова');
+    expect(prompt).toContain('Никакой элемент не пересекает текст');
+    expect(prompt).not.toContain('Полоса реплики');
+  });
+
+  it('adds no script rule when the scene has no voice lines', () => {
+    expect(buildUserPrompt('тема')).not.toContain('Экранный текст сцены');
+  });
 });

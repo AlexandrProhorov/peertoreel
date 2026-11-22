@@ -13,6 +13,7 @@ import type { UiDevice } from '../spec.js';
 import type {
   MeasuredBox,
   MeasuredRect,
+  MeasuredSegment,
   SceneMeasurement,
   Violation,
 } from './measure.js';
@@ -172,6 +173,64 @@ function overlapArea(a: Bounds, b: Bounds): number {
   const height = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
 
   return width > 0 && height > 0 ? width * height : 0;
+}
+
+/**
+ * Liang–Barsky: does the painted segment cross the rectangle? A line's
+ * bounding box lies about a diagonal, so the segment is checked directly.
+ */
+export function segmentCrossesRect(
+  segment: MeasuredSegment,
+  rect: MeasuredRect,
+  inset = 0,
+): boolean {
+  const left = rect.x + inset;
+  const right = rect.x + rect.width - inset;
+  const top = rect.y + inset;
+  const bottom = rect.y + rect.height - inset;
+
+  if (right <= left || bottom <= top) {
+    return false;
+  }
+
+  const dx = segment.x2 - segment.x1;
+  const dy = segment.y2 - segment.y1;
+  let t0 = 0;
+  let t1 = 1;
+  const edges: ReadonlyArray<readonly [number, number]> = [
+    [-dx, segment.x1 - left],
+    [dx, right - segment.x1],
+    [-dy, segment.y1 - top],
+    [dy, bottom - segment.y1],
+  ];
+
+  for (const [p, q] of edges) {
+    if (Math.abs(p) < 1e-9) {
+      if (q < 0) {
+        return false;
+      }
+
+      continue;
+    }
+
+    const r = q / p;
+
+    if (p < 0) {
+      if (r > t1) {
+        return false;
+      }
+
+      t0 = Math.max(t0, r);
+    } else {
+      if (r < t0) {
+        return false;
+      }
+
+      t1 = Math.min(t1, r);
+    }
+  }
+
+  return t0 <= t1;
 }
 
 function formatRect(rect: MeasuredRect): string {
@@ -420,6 +479,71 @@ export function lintScene(
           `Unrelated boxes overlap: "${first.name}" and "${second.name}"`,
           first.rect,
           'warning',
+        );
+      }
+    }
+  }
+
+  /* A primitive must not run through the film's text: a diagonal behind a title
+     reads as a strikethrough, not a style. A line is checked by its painted
+     segment; a surface by the two boxes. A surface that contains the text is its
+     background, and a backdrop is under everything. */
+  for (const text of measurement.boxes) {
+    /* Only the spoken thesis is protected: a service label may sit on a card. */
+    if (text.kind !== 'critical' || text.thesis !== true) {
+      continue;
+    }
+
+    for (const box of measurement.boxes) {
+      if (box === text || box.kind === 'device') {
+        continue;
+      }
+
+      if (box.elementId !== undefined && box.elementId === text.elementId) {
+        continue;
+      }
+
+      if (box.kind !== 'line' && box.kind !== 'surface') {
+        continue;
+      }
+
+      if (isBackdrop(box)) {
+        continue;
+      }
+
+      if (box.kind === 'line') {
+        if (
+          box.segment !== undefined &&
+          segmentCrossesRect(box.segment, text.rect, 3)
+        ) {
+          add(
+            'text-crossed',
+            `${box.name}+${text.name}`,
+            `Line crosses text "${text.name}"`,
+            text.rect,
+          );
+        }
+
+        continue;
+      }
+
+      /* A surface painted before the text is its background, even when it does
+         not contain it; one painted after covers the words, even when it would
+         contain them. Order unknown: fall back to containment. */
+      if (box.order !== undefined && text.order !== undefined) {
+        if (box.order < text.order) {
+          continue;
+        }
+      } else if (contains(toBounds(box.rect), toBounds(text.rect))) {
+        continue;
+      }
+
+      if (overlapArea(toBounds(box.rect), toBounds(text.rect)) > 4) {
+        add(
+          'text-crossed',
+          `${box.name}+${text.name}`,
+          `"${box.name}" paints over text "${text.name}"`,
+          text.rect,
         );
       }
     }

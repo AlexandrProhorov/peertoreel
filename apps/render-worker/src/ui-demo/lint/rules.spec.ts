@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MeasuredBox, MeasuredRect, SceneMeasurement } from './measure.js';
-import { lintMeasurements, lintScene } from './rules.js';
+import { lintMeasurements, lintScene, segmentCrossesRect } from './rules.js';
 
 function rect(x: number, y: number, width: number, height: number): MeasuredRect {
   return { x, y, width, height };
@@ -303,5 +303,89 @@ describe('ui lint rules', () => {
     expect(
       violations.every((violation) => violation.sceneId === 'chat'),
     ).toBe(true);
+  });
+
+  it('checks the painted segment, not the diagonal bounding box', () => {
+    const diagonal = { x1: 0, y1: 0, x2: 100, y2: 100 };
+
+    expect(segmentCrossesRect(diagonal, rect(30, 30, 20, 20))).toBe(true);
+    /* Inside the bounding box, far above the painted line. */
+    expect(segmentCrossesRect(diagonal, rect(82, 0, 16, 10))).toBe(false);
+  });
+
+  it('flags a line painted across the film text and keeps it out of warnings', () => {
+    const violations = lintScene(
+      measurement({
+        device: 'spec',
+        boxes: [
+          box('device', 'spec', rect(0, 0, 1080, 1920)),
+          box('critical', 'spec-text', rect(72, 1200, 400, 100), {
+            fontFamily: 'Onest, sans-serif',
+            elementId: 'thesis',
+            thesis: true,
+          }),
+          box('line', 'cross', rect(0, 1150, 1080, 400), {
+            elementId: 'cross',
+            segment: { x1: 0, y1: 1150, x2: 1080, y2: 1550 },
+          }),
+        ],
+      }),
+    );
+    const crossed = violations.find(
+      (violation) => violation.rule === 'text-crossed',
+    );
+
+    expect(crossed?.severity).toBe('error');
+  });
+
+  it('lets a card behind the thesis be its background but not one painted after', () => {
+    const build = (cardOrder: number) =>
+      lintScene(
+        measurement({
+          device: 'spec',
+          boxes: [
+            box('device', 'spec', rect(0, 0, 1080, 1920)),
+            box('critical', 'spec-text', rect(72, 1200, 400, 100), {
+              fontFamily: 'Onest, sans-serif',
+              elementId: 'thesis',
+              thesis: true,
+              order: 5,
+            }),
+            box('surface', 'card', rect(72, 1100, 500, 400), {
+              elementId: 'card',
+              order: cardOrder,
+            }),
+          ],
+        }),
+      );
+
+    expect(
+      build(4).some((violation) => violation.rule === 'text-crossed'),
+    ).toBe(false);
+    expect(
+      build(6).some((violation) => violation.rule === 'text-crossed'),
+    ).toBe(true);
+  });
+
+  it('does not protect a service label from a surface', () => {
+    const violations = lintScene(
+      measurement({
+        device: 'spec',
+        boxes: [
+          box('device', 'spec', rect(0, 0, 1080, 1920)),
+          box('critical', 'spec-text', rect(72, 1200, 400, 100), {
+            fontFamily: 'Onest, sans-serif',
+            elementId: 'hint',
+          }),
+          box('surface', 'card', rect(72, 1100, 500, 400), {
+            elementId: 'card',
+          }),
+        ],
+      }),
+    );
+
+    expect(
+      violations.some((violation) => violation.rule === 'text-crossed'),
+    ).toBe(false);
   });
 });

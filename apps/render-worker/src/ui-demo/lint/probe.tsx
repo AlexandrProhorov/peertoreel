@@ -111,6 +111,7 @@ function criticalBox(element: HTMLElement, root: HTMLElement): MeasuredBox {
     boxHeight: element.offsetHeight,
     boxWidth: element.offsetWidth,
     overlapAllowed: element.dataset.uiOverlapAllowed === 'true',
+    thesis: element.dataset.uiThesis === 'true',
     within,
     ...(element.textContent === null
       ? {}
@@ -133,6 +134,13 @@ function measureDocument(): SceneMeasurement[] {
     );
     const device = deviceElement?.dataset.uiDevice ?? 'unknown';
     const boxes: MeasuredBox[] = [];
+    /* Paint order is DOM order: a card before the text is its background, a
+       card after it covers the text. */
+    const order = new Map<HTMLElement, number>();
+
+    sceneRoot.querySelectorAll<HTMLElement>('[data-ui-element]').forEach((element, index) => {
+      order.set(element, index);
+    });
 
     if (stage !== null) {
       boxes.push({
@@ -149,13 +157,64 @@ function measureDocument(): SceneMeasurement[] {
         kind: 'surface',
         name: surface.dataset.uiSurface ?? 'unnamed',
         rect: rectOf(surface, root),
+        ...(order.has(surface) ? { order: order.get(surface) } : {}),
       });
     }
 
     for (const critical of sceneRoot.querySelectorAll<HTMLElement>(
       '[data-ui-critical]',
     )) {
-      boxes.push(criticalBox(critical, root));
+      boxes.push({
+        ...criticalBox(critical, root),
+        ...(order.has(critical) ? { order: order.get(critical) } : {}),
+      });
+    }
+
+    /* A containing surface can clip its own copy while the copy itself grows
+       with the text. These boxes are measured for overflow only; they take no
+       part in the critical-overlap rules. */
+    for (const overflow of sceneRoot.querySelectorAll<HTMLElement>(
+      '[data-ui-overflow]',
+    )) {
+      boxes.push({
+        ...criticalBox(overflow, root),
+        kind: 'surface',
+        name: overflow.dataset.uiOverflow ?? 'overflow',
+        ...(order.has(overflow) ? { order: order.get(overflow) } : {}),
+      });
+    }
+
+    /* Lines paint a segment inside a full-frame SVG: a bounding box would lie
+       about where they are, so the segment itself travels to the rules. */
+    for (const line of sceneRoot.querySelectorAll<HTMLElement>('[data-ui-line]')) {
+      const parts = (line.dataset.uiLine ?? '').split(',').map(Number);
+
+      if (parts.length !== 4 || !parts.every((value) => Number.isFinite(value))) {
+        continue;
+      }
+
+      const [x1, y1, x2, y2] = parts as [number, number, number, number];
+      const origin = rectOf(sceneRoot, root);
+
+      boxes.push({
+        kind: 'line',
+        name: line.dataset.uiElement ?? 'line',
+        rect: {
+          x: Math.min(x1, x2) - origin.x,
+          y: Math.min(y1, y2) - origin.y,
+          width: Math.abs(x2 - x1),
+          height: Math.abs(y2 - y1),
+        },
+        segment: {
+          x1: x1 - origin.x,
+          y1: y1 - origin.y,
+          x2: x2 - origin.x,
+          y2: y2 - origin.y,
+        },
+        ...(line.dataset.uiElement === undefined
+          ? {}
+          : { elementId: line.dataset.uiElement }),
+      });
     }
 
     measurements.push({

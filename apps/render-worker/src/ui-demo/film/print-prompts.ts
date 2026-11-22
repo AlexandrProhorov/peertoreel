@@ -8,6 +8,7 @@ import {
 import { ARC_SYSTEM_PROMPT, arcSchema, buildArcPrompt } from './arc.js';
 import { sceneContext } from './scene-context.js';
 import { topicsSchema } from './topics.js';
+import { splitNarrationLines } from './voice.js';
 
 /**
  * Prints the exact prompts the film director sends, ready to paste into another
@@ -105,6 +106,7 @@ function sceneSection(): string {
     seconds: planned.seconds,
     themeId: planned.theme,
     context: sceneContext(SAMPLE_ARC, planned, 1),
+    voiceLines: splitNarrationLines(planned.narration).map((line) => line.text),
   });
 
   return [
@@ -175,6 +177,7 @@ if (input === undefined) {
       seconds: planned.seconds,
       themeId: planned.theme,
       context: sceneContext(SAMPLE_ARC, planned, Math.min(sceneIndex, SAMPLE_ARC.scenes.length) - 1),
+      voiceLines: splitNarrationLines(planned.narration).map((line) => line.text),
     }),
   );
   console.log('\n===== CALL =====');

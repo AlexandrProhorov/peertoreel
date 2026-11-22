@@ -10,13 +10,22 @@ export interface MeasuredRect {
   readonly height: number;
 }
 
-export type MeasuredKind = 'device' | 'surface' | 'critical';
+export type MeasuredKind = 'device' | 'surface' | 'critical' | 'line';
+
+export interface MeasuredSegment {
+  readonly x1: number;
+  readonly y1: number;
+  readonly x2: number;
+  readonly y2: number;
+}
 
 export interface MeasuredBox {
   readonly kind: MeasuredKind;
   /** `data-ui-surface` value, `data-ui-critical` role, or the device id. */
   readonly name: string;
   readonly rect: MeasuredRect;
+  /** A line's painted segment; its rect is only the bounding box. */
+  readonly segment?: MeasuredSegment;
   readonly fontFamily?: string;
   readonly overflowX?: boolean;
   readonly overflowY?: boolean;
@@ -29,6 +38,10 @@ export interface MeasuredBox {
   readonly boxHeight?: number;
   readonly boxWidth?: number;
   readonly overlapAllowed?: boolean;
+  /** `data-ui-thesis`: the spoken thesis no primitive may cross. */
+  readonly thesis?: boolean;
+  /** DOM paint order: a surface painted before the text is its background. */
+  readonly order?: number;
   /** `data-ui-within`: the surface a critical box must stay inside. */
   readonly within?: string | null;
   readonly text?: string;
@@ -52,6 +65,7 @@ export type LintRule =
   | 'content-clipped'
   | 'text-overflow'
   | 'critical-overlap'
+  | 'text-crossed'
   | 'unrelated-overlap'
   | 'font-fallback'
   | 'contract';

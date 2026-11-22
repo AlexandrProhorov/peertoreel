@@ -58,6 +58,21 @@ export const uiDeviceSchema = z.enum([
 
 export type UiDevice = z.infer<typeof uiDeviceSchema>;
 
+/**
+ * One spoken line placed on screen by the voice step. Times are scene-local
+ * and come from the audio assembly, not from an estimate.
+ */
+export const narrationLineSchema = z
+  .object({
+    text: z.string().min(1).max(80),
+    startSec: z.number().finite().min(0).max(30),
+    endSec: z.number().finite().min(0).max(30),
+  })
+  .refine((line) => line.endSec >= line.startSec, {
+    message: 'a narration line must end after it starts',
+    path: ['endSec'],
+  });
+
 const sceneBaseShape = {
   id: z.string().min(1).max(64),
   /** How this scene arrives: a cut by default, a slide, a fade, a zoom or a wipe. */
@@ -76,6 +91,13 @@ const sceneBaseShape = {
    * the voice step and the subtitles read one source, not a second plan.
    */
   narration: z.string().min(1).max(400).optional(),
+  /**
+   * The spoken lines with their measured times. The frame shows them in the
+   * lower band, one at a time, exactly when the voice says them.
+   */
+  narrationLines: z.array(narrationLineSchema).max(8).optional(),
+  /** Elements whose text is the spoken thesis: nothing may cross them. */
+  thesisIds: z.array(z.string().min(1).max(24)).max(8).optional(),
   /**
    * Set when the scene was kept after its attempts ran out: the film never
    * loses a scene, so the frame carries a visible mark and the reasons travel
@@ -303,6 +325,7 @@ export type ImpactArrivalScene = z.infer<typeof impactArrivalSceneSchema>;
 export type ScaleBreakScene = z.infer<typeof scaleBreakSceneSchema>;
 export type SpecScene = z.infer<typeof specSceneSchema>;
 export type UiScene = z.infer<typeof uiSceneSchema>;
+export type NarrationLine = z.infer<typeof narrationLineSchema>;
 export type SpeechTrack = z.infer<typeof speechTrackSchema>;
 export type UiEpisode = z.infer<typeof uiEpisodeSchema>;
 export type UiEpisodeInputProps = z.infer<typeof uiEpisodeInputPropsSchema>;

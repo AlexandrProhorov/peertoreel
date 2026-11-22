@@ -7,6 +7,14 @@ import { UI_THEMES } from '../themes.js';
  * every retry rewrites the whole film.
  */
 
+/**
+ * Words that turn narration into a stage direction. The model has the visual
+ * `action` field for the frame; the voice must speak the thought, not describe
+ * the graphics. "Надпись 0% тает" was voiced in the accepted minute film.
+ */
+const STAGE_DIRECTION =
+  /(надпис|на экране|на кадре|карточк|плашк|анимац|эта линия|этот объект|эти элементы)/iu;
+
 export const arcSceneSchema = z.object({
   id: z.string().min(1).max(24),
   /** What this scene does for the story: hook, evidence, turn, conclusion. */
@@ -20,7 +28,14 @@ export const arcSceneSchema = z.object({
   /** One sentence the viewer must understand after this scene. */
   intent: z.string().min(1).max(300),
   /** What the voiceover says over this scene. Spoken, not read: one or two sentences. */
-  narration: z.string().min(1).max(400),
+  narration: z
+    .string()
+    .min(1)
+    .max(400)
+    .refine((text) => !STAGE_DIRECTION.test(text), {
+      message:
+        'narration не описывает картинку («надпись», «на экране», «карточка», «тает»): голос говорит мысль, а не графику',
+    }),
   seconds: z.number().min(1).max(12),
   theme: z.enum(['studio-dark', 'studio-light', 'studio-lime']),
 });
@@ -46,7 +61,9 @@ export function arcPlanFor(seconds: number): {
 } {
   const min = Math.round(seconds * 0.92);
   const max = Math.round(seconds * 1.08);
-  const middle = Math.min(12, Math.max(3, Math.round(seconds / 6.5)));
+  /* A scene's action settles at about 5.5 s on screen (the hold caps a longer
+     plan), so the count — not the promised seconds — decides the film length. */
+  const middle = Math.min(12, Math.max(3, Math.round(seconds / 5.5)));
 
   return {
     seconds: { min, max },
@@ -87,8 +104,9 @@ export const ARC_SYSTEM_PROMPT = [
   '- разные сцены не повторяют одно и то же действие;',
   '- сцена не повторяет предыдущую другими словами: каждая добавляет новое;',
   '- крючок короткий, доказательство и поворот длиннее;',
-  '- narration — то, что произносит голос за эту сцену: живая речь, одно-два предложения,',
-  '  без описания картинки и без служебных слов вроде «на экране»;',
+  '- narration — речь к зрителю, а не описание кадра: не упоминай «надпись», «карточку»,',
+  '  «линию», «кадр», «на экране», «тает», «появляется»; называй мысль, а не графику;',
+  '- плохо: «Надпись 0% тает»; хорошо: «Обещание 0% исчезает, а переплата остаётся»;',
   '- чередуй темы кадра, чтобы фильм не выглядел одним слайдом;',
   '- весь текст на экране и в narration по-русски, без выдуманных фактов и цифр.',
   '',
@@ -139,6 +157,8 @@ export function buildArcPrompt(
     `- theme — одна из: ${themes};`,
     '- intent — одна фраза, без описания картинки;',
     '- narration — речь голоса, её произнесут вслух за эту сцену;',
-    '- narration — примерно 2.2 слова в секунду: для сцены в 7 секунд около 15 слов.',
+    /* Google reads 1.86 words/s; the model overshoots the norm by ~15 %, so the
+       prompt asks for 1.5 and the measured film lands near the planned seconds. */
+    '- narration — примерно 1.5 слова в секунду: для сцены в 7 секунд около 11 слов.',
   ].join('\n');
 }

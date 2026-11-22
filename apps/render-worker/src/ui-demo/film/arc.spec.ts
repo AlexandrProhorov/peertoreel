@@ -29,6 +29,35 @@ describe('arc contract', () => {
     ).not.toThrow();
   });
 
+  it('rejects narration that describes the frame instead of speaking', () => {
+    expect(() =>
+      arcSchema.parse({
+        thesis: 'мысль',
+        scenes: [
+          scene('a', 8),
+          { ...scene('b', 8), narration: 'Надпись «0%» тает.' },
+          scene('c', 8),
+        ],
+      }),
+    ).toThrow(/не описывает картинку/);
+  });
+
+  it('keeps narration that names the thought', () => {
+    expect(() =>
+      arcSchema.parse({
+        thesis: 'мысль',
+        scenes: [
+          scene('a', 8),
+          {
+            ...scene('b', 8),
+            narration: 'Обещание нуля процентов исчезает, а переплата остаётся.',
+          },
+          scene('c', 8),
+        ],
+      }),
+    ).not.toThrow();
+  });
+
   it('still rejects a film outside the 24..32 second window', () => {
     expect(() =>
       arcSchema.parse({
@@ -42,8 +71,8 @@ describe('arc contract', () => {
     const plan = arcPlanFor(60);
 
     expect(plan.seconds).toEqual({ min: 55, max: 65 });
-    expect(plan.scenes.min).toBe(8);
-    expect(plan.scenes.max).toBe(10);
+    expect(plan.scenes.min).toBe(10);
+    expect(plan.scenes.max).toBe(12);
 
     const minute = arcSchemaFor(plan.seconds);
     const scenes = Array.from({ length: 9 }, (_, index) => scene(`действие ${index}`, 7));

@@ -3,9 +3,9 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * Mux step: the silent Remotion film plus the per-scene voice, the subtitles
- * burned in. Audio and subtitles are an FFmpeg concern (root AGENTS §4), so they
- * are assembled here, not inside the renderer.
+ * Mux step: the silent Remotion film plus the per-scene voice. The text of the
+ * film is rendered by Remotion from the measured line times, so nothing is
+ * burned in here: this step only places audio on the frame grid.
  *
  *   ui:mux --video out/film/render/episode.mp4 --voice out/film/voice --out out/film/final.mp4
  */
@@ -24,8 +24,15 @@ function optionValue(name: string): string | undefined {
 
 interface VoiceManifest {
   readonly totalSec: number;
-  readonly subtitles: string;
-  readonly scenes: ReadonlyArray<{ readonly index: number; readonly file: string; readonly startSec: number }>;
+  /** Frame rate of the rendered film; scenes carry their own frame boundary. */
+  readonly fps?: number;
+  readonly scenes: ReadonlyArray<{
+    readonly index: number;
+    readonly file: string;
+    readonly startSec: number;
+    /** Video boundary in frames; preferred over rounded seconds. */
+    readonly frameStart?: number;
+  }>;
 }
 
 function run(command: string, args: readonly string[], cwd: string): Promise<void> {
@@ -73,14 +80,25 @@ async function main(): Promise<void> {
     args.push('-i', path.join(voicePath, scene.file));
   }
 
-  /* Each scene's voice starts at its own offset; the mix keeps full volume. */
+  /* Each scene's voice starts at its own offset; the mix keeps full volume.
+     The frame boundary is the source of truth: seconds rounded to 0.01 drift
+     away from the rendered frame grid and drift from the voice. */
+  const fps = manifest.fps;
   const delays = manifest.scenes.map((scene, index) => {
-    const ms = Math.round(scene.startSec * 1000);
+    const startSec =
+      scene.frameStart !== undefined && fps !== undefined && fps > 0
+        ? scene.frameStart / fps
+        : scene.startSec;
+    const ms = Math.round(startSec * 1000);
 
     return `[${index + 1}:a]adelay=${ms}|${ms}[a${index + 1}]`;
   });
   const inputs = manifest.scenes.map((_, index) => `[a${index + 1}]`).join('');
-  const mix = `${inputs}amix=inputs=${manifest.scenes.length}:duration=longest:normalize=0[aout]`;
+  /* `apad` keeps the picture's tail: without it `-shortest` cuts the film on
+     the last spoken word and drops the scene's hold. */
+  const mix =
+    `${inputs}amix=inputs=${manifest.scenes.length}:duration=longest:normalize=0,` +
+    'apad[aout]';
 
   args.push(
     '-filter_complex',
@@ -89,11 +107,6 @@ async function main(): Promise<void> {
     '0:v',
     '-map',
     '[aout]',
-    /* Subtitle path stays relative: FFmpeg on Windows chokes on `C\:` in filter
-       arguments, and the process runs inside the voice directory. MarginV keeps
-       the line above the platform's bottom bar, not under it. */
-    '-vf',
-    `subtitles=${manifest.subtitles}:force_style='Alignment=2,MarginV=55,Fontsize=14,Outline=2,Shadow=0,BorderStyle=1'`,
     '-c:v',
     'libx264',
     '-crf',

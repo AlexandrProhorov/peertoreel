@@ -8,13 +8,20 @@ import {
   synthesizeWithTimestamps,
   TtsError,
 } from '@peertoreel/providers';
-import { uiEpisodeSchema, type UiEpisode } from '../spec.js';
+import { SCENE_FPS } from '../../video-target.js';
 import {
-  cuesFromWords,
+  uiEpisodeSchema,
+  uiSceneFrames,
+  type UiEpisode,
+  type UiScene,
+} from '../spec.js';
+import { alignSceneToLines } from './scene-lines.js';
+import {
   estimateWords,
-  toSrt,
+  placeLines,
+  splitNarrationLines,
   wordsFromAlignment,
-  type Cue,
+  type LineCue,
   type SpokenWord,
 } from './voice.js';
 
@@ -47,9 +54,176 @@ interface SceneVoice {
   readonly audioSec: number;
   readonly startSec: number;
   readonly durationSec: number;
+  /** Scene boundary in video frames; the mux offsets audio from this, not seconds. */
+  readonly frameStart: number;
+  /** Scene-local line starts: the same numbers that built the audio. */
+  readonly lines: readonly LineCue[];
 }
 
-const AUDIO_TAIL = 0.35;
+/* The line audio is trimmed, so the tail is only the beat after the last word. */
+const AUDIO_TAIL = 0.25;
+const AUDIO_RATE = 24000;
+const AUDIO_BITRATE = '64k';
+/**
+ * Line durations are quantized to 20 ms. ffprobe jitters by a millisecond
+ * between runs, and an unquantized cue list made a repeated run differ by
+ * ±10 ms — enough to fail an honest idempotency check.
+ */
+const LINE_QUANTUM_SEC = 0.02;
+
+function quantizeLineSec(value: number): number {
+  return Math.round(Math.round(value / LINE_QUANTUM_SEC) * LINE_QUANTUM_SEC * 1000) / 1000;
+}
+
+/**
+ * Remove the silence Google puts around every response. The trailing silence
+ * reached 0.9 s and was then counted as speech, stretching word times; the
+ * leading 0.1 s put the line on screen before its voice.
+ */
+const TRIM_SILENCE =
+  'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.02,' +
+  'areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.02,areverse';
+
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function runFfmpeg(args: readonly string[]): Promise<void> {
+  const binary = process.env['FFMPEG_BIN'] ?? 'ffmpeg';
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, [...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr = `${stderr}${chunk.toString()}`.slice(-2000);
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+
+        return;
+      }
+
+      reject(new Error(`ffmpeg exited with ${String(code)}: ${stderr}`));
+    });
+  });
+}
+
+/** Trim one synthesized line; empty or all-silence audio keeps its raw form. */
+async function trimLine(input: string, output: string): Promise<number> {
+  try {
+    await runFfmpeg([
+      '-y',
+      '-v',
+      'error',
+      '-i',
+      input,
+      '-af',
+      TRIM_SILENCE,
+      '-ar',
+      String(AUDIO_RATE),
+      '-ac',
+      '1',
+      '-c:a',
+      'libmp3lame',
+      '-b:a',
+      AUDIO_BITRATE,
+      output,
+    ]);
+
+    const duration = await probeDuration(output);
+
+    if (duration >= 0.05) {
+      return duration;
+    }
+  } catch {
+    /* Fall through to the raw transcode: a line must never disappear. */
+  }
+
+  await runFfmpeg([
+    '-y',
+    '-v',
+    'error',
+    '-i',
+    input,
+    '-ar',
+    String(AUDIO_RATE),
+    '-ac',
+    '1',
+    '-c:a',
+    'libmp3lame',
+    '-b:a',
+    AUDIO_BITRATE,
+    output,
+  ]);
+
+  return probeDuration(output);
+}
+
+/** Assemble the scene track from its lines at the exact cue offsets. */
+async function assembleScene(
+  files: readonly string[],
+  cues: readonly LineCue[],
+  output: string,
+): Promise<void> {
+  if (files.length === 0) {
+    throw new Error('assembleScene: no line audio');
+  }
+
+  if (files.length === 1) {
+    await runFfmpeg([
+      '-y',
+      '-v',
+      'error',
+      '-i',
+      files[0] ?? '',
+      '-ar',
+      String(AUDIO_RATE),
+      '-ac',
+      '1',
+      '-c:a',
+      'libmp3lame',
+      '-b:a',
+      AUDIO_BITRATE,
+      output,
+    ]);
+
+    return;
+  }
+
+  const args: string[] = ['-y', '-v', 'error'];
+
+  for (const file of files) {
+    args.push('-i', file);
+  }
+
+  const delays = files.map((_, index) => {
+    const ms = Math.round((cues[index]?.startSec ?? 0) * 1000);
+
+    return `[${index}:a]adelay=${ms}|${ms}[a${index}]`;
+  });
+  const mixed = files.map((_, index) => `[a${index}]`).join('');
+
+  args.push(
+    '-filter_complex',
+    `${delays.join(';')};${mixed}amix=inputs=${files.length}:duration=longest:normalize=0[aout]`,
+    '-map',
+    '[aout]',
+    '-ar',
+    String(AUDIO_RATE),
+    '-ac',
+    '1',
+    '-c:a',
+    'libmp3lame',
+    '-b:a',
+    AUDIO_BITRATE,
+    output,
+  );
+
+  await runFfmpeg(args);
+}
 
 function probeDuration(file: string): Promise<number> {
   const binary = process.env['FFPROBE_BIN'] ?? 'ffprobe';
@@ -117,8 +291,9 @@ async function main(): Promise<void> {
   const episode = uiEpisodeSchema.parse(JSON.parse(await readFile(inputPath, 'utf8')));
   const scenes = [...episode.scenes];
   const voices: SceneVoice[] = [];
-  const cues: Cue[] = [];
+  const speeches: UiEpisode['speech'] = [];
   let cursor = 0;
+  let frameCursor = 0;
 
   await mkdir(outDir, { recursive: true });
 
@@ -135,58 +310,153 @@ async function main(): Promise<void> {
       throw new Error(`scene ${index + 1} has no narration: run the arc with narration first`);
     }
 
-    const file = `scene-${index + 1}.mp3`;
-    let words: SpokenWord[];
-    let audioSec: number;
+    const lines = splitNarrationLines(narration);
 
-    if (provider === 'google') {
-      const audio = await synthesizeGoogleTts(narration, { language: 'ru' });
+    if (lines.length === 0) {
+      throw new Error(`scene ${index + 1} has empty narration`);
+    }
 
-      await writeFile(path.join(outDir, file), audio);
-      audioSec = await probeDuration(path.join(outDir, file));
-      words = estimateWords(narration, audioSec);
-    } else {
-      let result;
+    const lineDir = path.join(outDir, 'lines', `scene-${index + 1}`);
+    await mkdir(lineDir, { recursive: true });
 
-      try {
-        result = await synthesizeWithTimestamps({ text: narration, voiceId: voiceId ?? '', modelId, apiKey: apiKey ?? '' });
-      } catch (error: unknown) {
-        if (error instanceof TtsError && /quota/i.test(error.message)) {
-          throw new Error(
-            'квота ElevenLabs исчерпана; повторите с --provider google (бесплатный, тайминги оценочные)',
-          );
+    const files: string[] = [];
+    const durations: number[] = [];
+    /* ElevenLabs alignment is relative to its own line; the trim keeps the
+       speech start at the file start, so the same offset still holds. */
+    const alignedWords: SpokenWord[][] = [];
+
+    for (const [lineIndex, line] of lines.entries()) {
+      const raw = path.join(lineDir, `line-${lineIndex + 1}-raw.mp3`);
+      const trimmed = path.join(lineDir, `line-${lineIndex + 1}.mp3`);
+      let audio: Buffer;
+      let words: SpokenWord[] | null = null;
+
+      if (provider === 'google') {
+        audio = await synthesizeGoogleTts(line.text, { language: 'ru' });
+      } else {
+        let result;
+
+        try {
+          result = await synthesizeWithTimestamps({
+            text: line.text,
+            voiceId: voiceId ?? '',
+            modelId,
+            apiKey: apiKey ?? '',
+          });
+        } catch (error: unknown) {
+          if (error instanceof TtsError && /quota/i.test(error.message)) {
+            throw new Error(
+              'квота ElevenLabs исчерпана; повторите с --provider google (бесплатный, тайминги оценочные)',
+            );
+          }
+
+          throw error;
         }
 
-        throw error;
+        audio = result.audio;
+        words = wordsFromAlignment(line.text, result.alignment);
       }
 
-      await writeFile(path.join(outDir, file), result.audio);
-      words = wordsFromAlignment(narration, result.alignment);
-      audioSec = words.at(-1)?.end ?? 0;
+      await writeFile(raw, audio);
+      durations.push(quantizeLineSec(await trimLine(raw, trimmed)));
+      alignedWords.push(words ?? []);
+      files.push(trimmed);
+    }
+
+    const placement = placeLines(lines, durations);
+    const file = `scene-${index + 1}.mp3`;
+    await assembleScene(files, placement.cues, path.join(outDir, file));
+
+    /* The cue list is the timing source: probing the encoded file added a
+       millisecond of jitter between identical runs. */
+    const probed = await probeDuration(path.join(outDir, file));
+
+    if (Math.abs(probed - placement.totalSec) > 0.2) {
+      console.warn(
+        `scene ${index + 1}: audio ${probed.toFixed(2)}s differs from cue list ` +
+          `${placement.totalSec.toFixed(2)}s`,
+      );
+    }
+
+    const audioSec = placement.totalSec;
+    const words: SpokenWord[] = [];
+    const lineWordsByIdx: SpokenWord[][] = [];
+
+    for (const [lineIndex, cue] of placement.cues.entries()) {
+      const lineWords =
+        provider === 'google'
+          ? estimateWords(cue.text, cue.endSec - cue.startSec)
+          : (alignedWords[lineIndex] ?? []);
+
+      lineWordsByIdx.push(lineWords);
+
+      for (const word of lineWords) {
+        words.push({
+          word: word.word,
+          start: round3(cue.startSec + word.start),
+          end: round3(cue.startSec + word.end),
+        });
+      }
     }
 
     const durationSec = Number(
       Math.min(20, Math.max(scene.durationSec, audioSec + AUDIO_TAIL)).toFixed(2),
     );
+    const voicedScene: UiScene = {
+      ...scene,
+      durationSec,
+      narrationLines: [...placement.cues],
+    };
+    /* The scene's text elements are the script: put the measured line in each
+       one and show it exactly when the line is spoken. */
+    const alignment =
+      voicedScene.device === 'spec'
+        ? alignSceneToLines(voicedScene, placement.cues, lineWordsByIdx, {
+            /* A fallback keeps its one label: it cannot carry every line. */
+            requireAll: voicedScene.fallback === undefined,
+          })
+        : null;
 
-    scenes[index] = { ...scene, durationSec };
+    if (alignment !== null && !alignment.aligned) {
+      console.warn(
+        `scene ${index + 1}: the design has ${alignment.reasons.join('; ')} — ` +
+          'the text stays as the model wrote it',
+      );
+    }
+
+    const finalScene = alignment?.aligned ? alignment?.scene : voicedScene;
+    scenes[index] = finalScene;
+
     voices.push({
       index: index + 1,
       file,
       audioSec: Number(audioSec.toFixed(2)),
       startSec: Number(cursor.toFixed(2)),
       durationSec,
+      frameStart: frameCursor,
+      lines: placement.cues,
     });
-    cues.push(...cuesFromWords(words, cursor));
-    cursor += durationSec;
+    speeches.push({
+      sceneId: scene.id,
+      words: words.map((word) => ({
+        text: word.word,
+        startSec: round3(word.start),
+        endSec: round3(word.end),
+      })),
+    });
 
-    console.log(`scene ${index + 1}: ${audioSec.toFixed(2)}s voice, ${durationSec}s scene`);
+    console.log(
+      `scene ${index + 1}: ${lines.length} line(s), ${audioSec.toFixed(2)}s voice, ` +
+        `${placement.totalSec.toFixed(2)}s speech, ${durationSec}s scene`,
+    );
+
+    cursor += durationSec;
+    frameCursor += uiSceneFrames(finalScene, SCENE_FPS);
   }
 
-  const voiced: UiEpisode = { ...episode, scenes };
+  const voiced: UiEpisode = { ...episode, scenes, speech: speeches };
 
   await writeFile(path.join(outDir, 'episode.json'), `${JSON.stringify(voiced, null, 2)}\n`, 'utf8');
-  await writeFile(path.join(outDir, 'subtitles.srt'), toSrt(cues), 'utf8');
   await writeFile(
     path.join(outDir, 'manifest.json'),
     `${JSON.stringify(
@@ -194,9 +464,9 @@ async function main(): Promise<void> {
         input: path.relative(cwd, inputPath),
         provider,
         alignment: provider === 'google' ? 'estimated' : 'exact',
+        fps: SCENE_FPS,
         totalSec: Number(cursor.toFixed(2)),
         scenes: voices,
-        subtitles: 'subtitles.srt',
       },
       null,
       2,

@@ -55,11 +55,10 @@ describe('foreign model import', () => {
     const result = importForeignEpisode(foreign('claude-subscriptions.json'));
     const durations = result.episode?.scenes.map((scene) => scene.durationSec) ?? [];
 
-    /* The arc plans 5/7/8/7 seconds. A scene may not end on its last frame:
-       it lasts until the action finishes plus the hold (1.6 s — the last step is
-       text in every scene), the plan is packed by ten percent, and the plan may
-       add at most one second of air. */
-    expect(durations).toEqual([5.5, 5.6, 7, 6.9]);
+    /* The arc plans 5/7/8/7 seconds and those seconds are the contract: a scene
+       may not end on its last frame, but a longer plan is filled by stretching
+       the action, not shortened. */
+    expect(durations).toEqual([5.5, 7, 8, 7]);
   });
 
   it('rejects a scene the contract cannot repair', () => {

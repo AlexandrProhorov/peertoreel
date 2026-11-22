@@ -32,6 +32,29 @@ describe('ui episode spec', () => {
     expect(uiEpisodeFrames(episode, 30)).toBe(360);
   });
 
+  it('accepts measured narration lines and rejects a reversed span', () => {
+    const raw = exampleEpisode() as {
+      scenes: Array<Record<string, unknown>>;
+    };
+    const scene = raw.scenes[0];
+
+    if (scene === undefined) {
+      throw new Error('expected a scene');
+    }
+
+    scene['narrationLines'] = [
+      { text: 'Первая строка.', startSec: 0, endSec: 1.2 },
+    ];
+
+    const episode = uiEpisodeSchema.parse(raw);
+
+    expect(episode.scenes[0]?.narrationLines?.[0]?.text).toBe('Первая строка.');
+
+    scene['narrationLines'] = [{ text: 'Наоборот.', startSec: 2, endSec: 1 }];
+
+    expect(uiEpisodeSchema.safeParse(raw).success).toBe(false);
+  });
+
   it('parses the slider-to-break pilot episode, including the rail break', async () => {
     const pilotPath = fileURLToPath(
       new URL('./pilot/slider-to-break/episode.json', import.meta.url),

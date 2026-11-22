@@ -24,6 +24,8 @@ import { placeScenes } from '../scene-timeline.js';
 import { SCENE_FPS } from '../../video-target.js';
 import { assignmentFor } from './forms.js';
 import { sceneContext } from './scene-context.js';
+import { matchSceneLines, sceneLineMismatch } from './scene-lines.js';
+import { splitNarrationLines } from './voice.js';
 
 /**
  * Multi-scene director: one film, three to five scenes, scene-level retries.
@@ -145,6 +147,9 @@ async function generateScene(options: {
         seconds: planned.seconds,
         themeId: planned.theme,
         context: sceneContext(options.arc, planned, options.index),
+        voiceLines: splitNarrationLines(planned.narration).map(
+          (line) => line.text,
+        ),
       })}${correction}`,
       temperature: 0.7,
     });
@@ -190,6 +195,20 @@ async function generateScene(options: {
       continue;
     }
 
+    const lineTexts = splitNarrationLines(planned.narration).map(
+      (line) => line.text,
+    );
+
+    /* Mark the thesis before the frame gate: only that text is protected from
+       crossing primitives, service labels stay free. */
+    if (first.device === 'spec') {
+      const matches = matchSceneLines(first, lineTexts);
+
+      if (matches.problem === null) {
+        first.thesisIds = matches.matches.map((match) => match.elementId);
+      }
+    }
+
     let repaired: Awaited<ReturnType<typeof repairEpisode>>;
 
     try {
@@ -221,13 +240,28 @@ async function generateScene(options: {
       continue;
     }
 
+    /* The film reads itself: every spoken line must own a thesis on screen,
+       in order. A title invented next to the line would duplicate it. */
+    const lineMismatch = sceneLineMismatch(candidate, lineTexts);
+
+    if (lineMismatch !== null) {
+      errors.splice(
+        0,
+        errors.length,
+        `экранный текст сцены: ${lineMismatch}. Положи каждую строку реплики целиком в свой текстовый элемент, в том же порядке, и не добавляй других слов`,
+      );
+      continue;
+    }
+
     const violations: string[] = [];
     const hints: string[] = [];
     /* Frame checks that were calibrated and promoted: a scene that renders with
        text over text is retried with the measurement's own words. Rules still in
        calibration stay out of the gate. */
-    const blockingFrame = repaired.violations.filter((violation) =>
-      violation.startsWith('critical-overlap:'),
+    const blockingFrame = repaired.violations.filter(
+      (violation) =>
+        violation.startsWith('critical-overlap:') ||
+        violation.startsWith('text-crossed:'),
     );
 
     if (blockingFrame.length > 0) {
@@ -312,10 +346,19 @@ async function generateScene(options: {
      its place on the timeline: the model's best sentence on our own stage,
      visibly marked as ours. */
   const plannedScene = { id: planned.id, seconds: planned.seconds, theme: planned.theme, intent: planned.intent };
-  const title = titleFromAttempts(parsedAttempts);
-  const reason = title === null
-    ? 'fallback: композиция не собралась'
-    : 'fallback: композиция не собралась, заголовок из попытки модели';
+  /* A fallback still has to read: its label is the opening thesis of the line,
+     so the voice step can place it on the words it belongs to. */
+  const fallbackLine = splitNarrationLines(planned.narration)[0]?.text;
+  const fallbackThesis =
+    fallbackLine === undefined
+      ? null
+      : fallbackLine.split(/\s+/u).slice(0, 5).join(' ');
+  const title = fallbackThesis ?? titleFromAttempts(parsedAttempts);
+  const reason = fallbackThesis !== null
+    ? 'fallback: композиция не собралась, тезис из реплики'
+    : title === null
+      ? 'fallback: композиция не собралась'
+      : 'fallback: композиция не собралась, заголовок из попытки модели';
   const fallback = uiEpisodeSchema.safeParse(
     normalizeRawEpisode(
       wrapScene(fallbackScene(plannedScene, { title, reasons: [reason] }), planned.theme),
