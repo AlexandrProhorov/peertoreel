@@ -3,6 +3,7 @@ import {
   degradeScene,
   fallbackScene,
   hasContent,
+  hasUnreadableCopy,
   preferAttempt,
   sceneMarkOf,
   titleFromAttempts,
@@ -194,5 +195,20 @@ describe('attempt ladder', () => {
 
     expect(preferAttempt(late, early, none)).toBe(true);
     expect(preferAttempt(early, late, none)).toBe(false);
+  });
+});
+
+describe('unreadable copy', () => {
+  it('sends a scene with spilled text to the fallback, not to a degraded frame', () => {
+    expect(
+      hasUnreadableCopy([
+        'переполнение: basketFull "Переполненная корзина": 478px in 401px',
+      ]),
+    ).toBe(true);
+  });
+
+  it('keeps a degraded frame when the copy fits', () => {
+    expect(hasUnreadableCopy(['сцена статична'])).toBe(false);
+    expect(hasUnreadableCopy([])).toBe(false);
   });
 });

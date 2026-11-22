@@ -13,6 +13,31 @@ import { TYPE_SCALE, type TypeToken } from './typography.js';
 /** Auto-fit may shrink this far; below it the scene is rejected, not hidden. */
 export const MIN_FONT_SCALE = 0.85;
 
+/**
+ * A highlight plate is painted per wrapped line, so its padding has to fit
+ * inside the line box. With the token line height (1.02–1.3) and 4 px of
+ * padding the plate was taller than the line and covered the descenders of the
+ * line above ("д" cut in half). Both values are em-based, so the gap holds at
+ * any font scale.
+ */
+export const MARK_PLATE_PADDING_Y_EM = 0.06;
+export const MARK_PLATE_LINE_HEIGHT = 1.3;
+
+/** The plate and the line it lives in, in px, for one font size. */
+export function markPlateBox(fontSize: number): {
+  readonly paddingY: number;
+  readonly plateHeight: number;
+  readonly lineBox: number;
+} {
+  const paddingY = fontSize * MARK_PLATE_PADDING_Y_EM;
+
+  return {
+    paddingY,
+    plateHeight: fontSize + 2 * paddingY,
+    lineBox: fontSize * MARK_PLATE_LINE_HEIGHT,
+  };
+}
+
 export interface TypeBoxRule {
   /** One line with a little air; anything smaller is a squeezed token. */
   readonly minHeight: number;

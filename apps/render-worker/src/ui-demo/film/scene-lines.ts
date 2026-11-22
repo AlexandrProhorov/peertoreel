@@ -232,6 +232,47 @@ export function alignSceneToLines(
       sequence[index] = { ...step, at };
       reasons.push(`${match.elementId}: показ ${String(step.at ?? 0)}s → ${String(at)}s`);
     }
+
+    /* The reveal alone is not enough: the model's own `type`/`draw` step often
+       sits a second after the line starts, so the box was on screen but empty
+       while the voice was already speaking. Shift the element's content steps
+       by the same delta, keeping their rhythm. */
+    const contentIndex = sequence.findIndex(
+      (item) =>
+        item.element === match.elementId &&
+        (item.transition === 'type' || item.transition === 'draw'),
+    );
+    const content = sequence[contentIndex];
+
+    if (content !== undefined) {
+      const from = content.at ?? 0;
+
+      if (from !== at) {
+        const delta = at - from;
+
+        for (let i = 0; i < sequence.length; i += 1) {
+          const item = sequence[i];
+
+          if (
+            item === undefined ||
+            item.element !== match.elementId ||
+            item.transition === 'appear' ||
+            (item.at ?? 0) < from
+          ) {
+            continue;
+          }
+
+          sequence[i] = {
+            ...item,
+            at: Number(((item.at ?? 0) + delta).toFixed(3)),
+          };
+        }
+
+        reasons.push(
+          `${match.elementId}: ${content.transition} ${String(from)}s → ${String(at)}s`,
+        );
+      }
+    }
   }
 
   return {

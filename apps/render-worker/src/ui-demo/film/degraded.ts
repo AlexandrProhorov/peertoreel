@@ -151,6 +151,15 @@ export function titleFromAttempts(attempts: readonly unknown[]): string | null {
 }
 
 /**
+ * Copy that cannot fit its box is never shipped: the plate of the next element
+ * covers the spilled words and the sentence stops being readable. Such a scene
+ * goes to the marked fallback instead of a degraded frame.
+ */
+export function hasUnreadableCopy(violations: readonly string[]): boolean {
+  return violations.some((violation) => violation.startsWith('переполнение:'));
+}
+
+/**
  * Keeps a scene that failed its gates: the picture stays, the length returns to
  * the plan, and the mark says the frame is under repair.
  */

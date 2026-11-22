@@ -235,4 +235,82 @@ describe('the voice step places the thesis on its own words', () => {
     expect(aligned.aligned).toBe(false);
     expect(aligned.scene).toBe(original);
   });
+
+  it('starts the typed words when the line is spoken, not a second later', () => {
+    const target = scene(
+      [textElement('thesis', 'всех наших разговоров', 0)],
+      [
+        { element: 'thesis', transition: 'appear', at: 0 },
+        { element: 'thesis', transition: 'type', at: 1.04 },
+      ],
+    );
+    const aligned = alignSceneToLines(
+      target,
+      [{ text: lines[0] ?? '', startSec: 0 }],
+      [wordsOf(lines[0] ?? '')],
+    );
+    const steps = aligned.scene.spec.sequence
+      .filter((step) => step.element === 'thesis')
+      .map((step) => [step.transition, step.at]);
+
+    /* The thesis begins on "все" (0.6 s), and the typing starts there too. */
+    expect(steps).toEqual([
+      ['appear', 0.6],
+      ['type', 0.6],
+    ]);
+  });
+
+  it('delays a type step that started before its own line', () => {
+    const target = scene(
+      [
+        textElement('first', 'всех наших разговоров', 0),
+        textElement('second', lines[1] ?? '', 0),
+      ],
+      [
+        { element: 'first', transition: 'appear', at: 0 },
+        { element: 'second', transition: 'appear', at: 0 },
+        { element: 'second', transition: 'type', at: 0 },
+      ],
+    );
+    const cues = lines.map((text, index) => ({
+      text,
+      startSec: index === 0 ? 0 : 5,
+    }));
+    const aligned = alignSceneToLines(target, cues, lines.map((line) => wordsOf(line)));
+    const second = aligned.scene.spec.sequence.find(
+      (step) => step.element === 'second' && step.transition === 'type',
+    );
+    const first = aligned.scene.spec.sequence.find(
+      (step) => step.element === 'first' && step.transition === 'appear',
+    );
+
+    expect(second?.at).toBe(5);
+    /* The other element still lands on its own words ("все" at 0.6 s). */
+    expect(first?.at).toBe(0.6);
+  });
+
+  it('keeps the rhythm of the steps that follow the first typed one', () => {
+    const target = scene(
+      [textElement('thesis', lines[0] ?? '', 0)],
+      [
+        { element: 'thesis', transition: 'appear', at: 0 },
+        { element: 'thesis', transition: 'type', at: 2 },
+        { element: 'thesis', transition: 'highlight', at: 3 },
+      ],
+    );
+    const aligned = alignSceneToLines(
+      target,
+      [{ text: lines[0] ?? '', startSec: 1 }],
+      [wordsOf(lines[0] ?? '')],
+    );
+    const steps = aligned.scene.spec.sequence
+      .filter((step) => step.element === 'thesis')
+      .map((step) => [step.transition, step.at]);
+
+    expect(steps).toEqual([
+      ['appear', 1],
+      ['type', 1],
+      ['highlight', 2],
+    ]);
+  });
 });

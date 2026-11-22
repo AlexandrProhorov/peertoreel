@@ -16,7 +16,8 @@ import { sceneSignature } from '../signature.js';
 import { parseJsonResponse, stripBom } from '../tolerant-json.js';
 import { checkVisibleChange } from '../verify/motion.js';
 import { ARC_SYSTEM_PROMPT, arcPlanFor, arcSchema, arcSchemaFor, buildArcPrompt, type Arc } from './arc.js';
-import { degradeScene, fallbackScene, hasContent, preferAttempt, titleFromAttempts, type AttemptCandidate } from './degraded.js';
+import { degradeScene, fallbackScene, hasContent, hasUnreadableCopy, preferAttempt, titleFromAttempts, type AttemptCandidate } from './degraded.js';
+import { addLateAction, sceneOnlyAttempt } from './attempt.js';
 import { enforceEntranceVariety } from './entrances.js';
 import { issuesWithHints, REPEATED_COMPOSITION } from './hints.js';
 import { topicsSchema } from './topics.js';
@@ -177,7 +178,9 @@ async function generateScene(options: {
     parsedAttempts.push(parsed);
 
     const repairs: Repair[] = [];
-    const episode = uiEpisodeSchema.safeParse(normalizeRawEpisode(parsed, repairs));
+    const episode = uiEpisodeSchema.safeParse(
+      normalizeRawEpisode(sceneOnlyAttempt(parsed), repairs),
+    );
 
     for (const repair of repairs) {
       console.log(`salvaged ${repair.path}: ${repair.reason} (${repair.from} -> ${repair.to})`);
@@ -293,6 +296,38 @@ async function generateScene(options: {
       }
 
       if (!motion.changed) {
+        /* Repair before degrading: a scene whose cues all fire early only
+           needs one late action, and the frame stays the model's own. */
+        const repairedMotion = addLateAction(candidate, planned.seconds);
+        const rewrapped =
+          repairedMotion === null
+            ? null
+            : uiEpisodeSchema.safeParse(wrapScene(repairedMotion, planned.theme));
+
+        if (rewrapped?.success === true) {
+          const again = await checkVisibleChange(
+            rewrapped.data,
+            path.join(options.dir, `motion-${options.index + 1}-late`),
+          );
+
+          if (again.changed) {
+            const moved = asSpecScene(rewrapped.data.scenes[0]);
+
+            if (moved !== null) {
+              console.log(`${candidate.id}: repaired the still frame with a late highlight`);
+
+              return {
+                scene: moved,
+                attempts: attempt,
+                errors: [],
+                degraded: false,
+                fallback: false,
+                reasons: [],
+              };
+            }
+          }
+        }
+
         violations.push('сцена статична');
         hints.push(
           `сцена статична: кадры ${motion.earlyFrame} и ${motion.lateFrame} совпадают — добавь действие из контракта (type, fill, draw, break, drag, disappear); входы элементов действием не считаются`,
@@ -331,7 +366,12 @@ async function generateScene(options: {
     errors.splice(0, errors.length, ...hints);
   }
 
-  if (best !== null) {
+  /* A frame whose copy spills out of its box is not worth keeping: the repair
+     already failed at the minimum type size, and the neighbours cover the
+     words. Take the marked fallback, which always reads. */
+  const unreadable = best !== null && hasUnreadableCopy(best.violations);
+
+  if (best !== null && !unreadable) {
     return {
       scene: degradeScene(best.scene, planned.seconds, best.violations),
       attempts: SCENE_ATTEMPTS,
@@ -354,11 +394,12 @@ async function generateScene(options: {
       ? null
       : fallbackLine.split(/\s+/u).slice(0, 5).join(' ');
   const title = fallbackThesis ?? titleFromAttempts(parsedAttempts);
+  const cause = unreadable ? 'текст не влез в кадр' : 'композиция не собралась';
   const reason = fallbackThesis !== null
-    ? 'fallback: композиция не собралась, тезис из реплики'
+    ? `fallback: ${cause}, тезис из реплики`
     : title === null
-      ? 'fallback: композиция не собралась'
-      : 'fallback: композиция не собралась, заголовок из попытки модели';
+      ? `fallback: ${cause}`
+      : `fallback: ${cause}, заголовок из попытки модели`;
   const fallback = uiEpisodeSchema.safeParse(
     normalizeRawEpisode(
       wrapScene(fallbackScene(plannedScene, { title, reasons: [reason] }), planned.theme),

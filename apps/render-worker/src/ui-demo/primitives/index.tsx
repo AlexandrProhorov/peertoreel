@@ -2,6 +2,10 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Img } from 'remotion';
 import { accentPlate, accentPlateInk, type UiTheme } from '../themes.js';
 import { textStyle, type TypeToken } from '../typography.js';
+import {
+  MARK_PLATE_LINE_HEIGHT,
+  MARK_PLATE_PADDING_Y_EM,
+} from '../typography-rules.js';
 
 /**
  * Primitive layer: styled atoms driven by the contracts in `catalog.ts`.
@@ -299,6 +303,12 @@ export function Label({
 }) {
   const base = textStyle(token, color ?? toneColor(theme, tone) ?? theme.ink);
   const { fontSize, ...rest } = base;
+  /* A marked label paints a plate per line: the line box grows to hold it, so
+     the plate cannot cover the descenders of the line above. */
+  const lineHeight =
+    mark === true
+      ? Math.max(Number(rest.lineHeight ?? MARK_PLATE_LINE_HEIGHT), MARK_PLATE_LINE_HEIGHT)
+      : rest.lineHeight;
 
   return (
     <div
@@ -306,6 +316,7 @@ export function Label({
       {...(elementId === undefined ? {} : { 'data-ui-element': elementId })}
       style={{
         ...rest,
+        ...(lineHeight === undefined ? {} : { lineHeight }),
         /* The size is always written: dropping it when scale is 1 fell back to
            the browser default and made every label 16px. */
         ...(typeof fontSize === 'number'
@@ -321,7 +332,7 @@ export function Label({
           style={{
             background: accentPlate(theme),
             color: accentPlateInk(theme),
-            padding: '4px 18px',
+            padding: `${String(MARK_PLATE_PADDING_Y_EM)}em 18px`,
             borderRadius: 14,
             /* A wrapped highlight is several line fragments: each one keeps its
                own rounded plate instead of the last fragment ending square. */
