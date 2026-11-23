@@ -108,7 +108,7 @@ describe('speech timeline', () => {
   });
 });
 
-const RENDERER_DEVICES = new Set(['spec']);
+const RENDERER_DEVICES = new Set(['spec', 'draw']);
 
 describe('lint wiring', () => {
   it('has a contract for every device the schema accepts', () => {

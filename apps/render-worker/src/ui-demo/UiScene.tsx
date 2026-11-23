@@ -7,6 +7,7 @@ import { PredictionInput } from './devices/PredictionInput.js';
 import { PromptCard } from './devices/PromptCard.js';
 import { ScaleBreak } from './devices/ScaleBreak.js';
 import { SpecRenderer } from './devices/SpecRenderer.js';
+import { DrawScene } from './draw/DrawScene.js';
 import { SocialProof } from './devices/SocialProof.js';
 import { TextSelection } from './devices/TextSelection.js';
 import { TitleStack } from './devices/TitleStack.js';
@@ -51,6 +52,8 @@ function Device({
       return <ScaleBreak scene={scene} theme={theme} />;
     case 'spec':
       return <SpecRenderer scene={scene} theme={theme} />;
+    case 'draw':
+      return <DrawScene nodes={scene.nodes} theme={theme} />;
   }
 }
 

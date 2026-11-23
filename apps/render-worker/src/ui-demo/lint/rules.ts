@@ -85,6 +85,11 @@ export const DEVICE_CONTRACTS: Record<
     surfaces: [],
     requiredRoles: [],
   },
+  /** A drawn scene carries its own copy in text nodes. */
+  draw: {
+    surfaces: [],
+    requiredRoles: [],
+  },
 };
 
 const KNOWN_ROLES = new Set([

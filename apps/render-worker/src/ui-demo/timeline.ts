@@ -169,6 +169,16 @@ export function visualTimeline(scene: UiScene, fps: number): VisualTimeline {
         revealWindowFrames,
         stepFrames: scene.spec.sequence.map((step) => Math.round((step.at ?? 0) * fps)),
       };
+    case 'draw':
+      /* A drawn scene reveals as one gesture: the whole picture fades in during
+         the reveal window and holds for the rest of the scene. */
+      return {
+        durationInFrames,
+        titleFrame: TITLE_FRAME,
+        revealFrame,
+        revealWindowFrames,
+        stepFrames: [revealFrame],
+      };
   }
 }
 

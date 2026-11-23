@@ -2,6 +2,7 @@ import { derivedWordSchema } from '@peertoreel/contracts';
 import { z } from 'zod';
 import { ASSET_KEYS, resolveAsset } from './assets.js';
 import { compositionSpecSchema, parseComposition } from './composition.js';
+import { drawSceneNodesSchema } from './draw/schema.js';
 import { lintQuality } from './quality.js';
 import { ENTER_IDS } from './scene-enter.js';
 import { placeScenes } from './scene-timeline.js';
@@ -54,6 +55,7 @@ export const uiDeviceSchema = z.enum([
   'impact-arrival',
   'scale-break',
   'spec',
+  'draw',
 ]);
 
 export type UiDevice = z.infer<typeof uiDeviceSchema>;
@@ -244,6 +246,16 @@ export const scaleBreakSceneSchema = z.object({
 });
 
 /**
+ * A scene drawn in the four-node language: boxes, text, icons and lines. No
+ * object names, so a receipt and a push take the same path.
+ */
+export const drawSceneSchema = z.object({
+  ...sceneBaseShape,
+  device: z.literal('draw'),
+  nodes: drawSceneNodesSchema,
+});
+
+/**
  * The spec renderer: a composition the model invented, expressed in contracted
  * primitives. It is validated on the way in, so an unknown primitive, parameter
  * or operation never reaches the renderer.
@@ -286,6 +298,7 @@ export const uiSceneSchema = z.discriminatedUnion('device', [
   impactArrivalSceneSchema,
   scaleBreakSceneSchema,
   specSceneSchema,
+  drawSceneSchema,
 ]);
 
 /** Speech is a separate stream: captions and word highlight read it, devices do not. */

@@ -134,6 +134,10 @@ function speechText(scene: UiScene): string {
         .map((element) => element.params.text)
         .filter((text): text is string => typeof text === 'string')
         .join(' ');
+    case 'draw':
+      return scene.nodes
+        .map((node) => (node.kind === 'text' ? node.text : ''))
+        .join(' ');
   }
 }
 
