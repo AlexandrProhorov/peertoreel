@@ -705,6 +705,85 @@ function repairLines(elements: readonly Unknown[], repairs: Repair[]): Unknown[]
   });
 }
 
+/**
+ * A card without its own caption that swallows its children leaves a hole in
+ * the frame: the surface is drawn at a size the content never fills. Hug the
+ * content instead of keeping the author's box.
+ */
+function shrinkCards(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
+  return elements.map((element) => {
+    if (element['primitive'] !== 'card' || !isObject(element['layout'])) {
+      return element;
+    }
+
+    const params = isObject(element['params']) ? element['params'] : {};
+    const caption = params['text'];
+
+    if (typeof caption === 'string' && caption.trim() !== '') {
+      return element;
+    }
+
+    const box = element['layout'] as Record<string, number>;
+    const outer = {
+      x: box['x'] ?? 0,
+      y: box['y'] ?? 0,
+      width: box['width'] ?? 0,
+      height: box['height'] ?? 0,
+    };
+
+    if (!(outer.width > 0 && outer.height > 0)) {
+      return element;
+    }
+
+    const children = elements.filter((other) => {
+      if (other === element || !isObject(other['layout'])) {
+        return false;
+      }
+
+      const inner = other['layout'] as Record<string, number>;
+      const child = {
+        x: inner['x'] ?? 0,
+        y: inner['y'] ?? 0,
+        width: inner['width'] ?? 0,
+        height: inner['height'] ?? 0,
+      };
+
+      return child.width > 0 && child.height > 0 && containsBox(outer, child);
+    });
+
+    if (children.length === 0) {
+      return element;
+    }
+
+    const boxes = children.map((child) => child['layout'] as Record<string, number>);
+    const left = Math.min(...boxes.map((inner) => inner['x'] ?? 0));
+    const top = Math.min(...boxes.map((inner) => inner['y'] ?? 0));
+    const right = Math.max(...boxes.map((inner) => (inner['x'] ?? 0) + (inner['width'] ?? 0)));
+    const bottom = Math.max(...boxes.map((inner) => (inner['y'] ?? 0) + (inner['height'] ?? 0)));
+    const contentArea = (right - left) * (bottom - top);
+
+    if (contentArea >= 0.5 * outer.width * outer.height) {
+      return element;
+    }
+
+    const pad = 40;
+    const x = Math.max(0, left - pad);
+    const y = Math.max(0, top - pad);
+    const width = Math.min(CANVAS.width - x, right - left + pad * 2);
+    const height = Math.min(CANVAS.height - y, bottom - top + pad * 2);
+
+    repairs.push({
+      element: typeof element['id'] === 'string' ? element['id'] : null,
+      path: 'card-hugs-content',
+      reason: 'an empty surface reads as a hole: the box shrinks to the content it holds',
+      from: `${outer.width}x${outer.height}`,
+      to: `${width}x${height}`,
+    });
+
+    return { ...element, layout: { x, y, width, height } };
+  });
+}
+
 function stackTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
   /* A rail that lands on a captioned surface is unreadable: slide it below that
      surface instead of leaving the fill hidden under a card. */
@@ -1199,7 +1278,7 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
          sees the scene. */
       finalElements = ensureHierarchy(finalElements, repairs);
       finalElements = fixContrast(finalElements, theme, repairs);
-      finalElements = stackTracks(repairTracks(repairLines(finalElements, repairs), repairs), repairs);
+      finalElements = shrinkCards(stackTracks(repairTracks(repairLines(finalElements, repairs), repairs), repairs), repairs);
 
       return {
         ...scene,
