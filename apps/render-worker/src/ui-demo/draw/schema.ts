@@ -188,7 +188,131 @@ function normalizeNode(value: unknown): unknown {
   return node;
 }
 
-export const drawSceneNodesSchema = z.preprocess(
-  (value) => (Array.isArray(value) ? (value as unknown[]).map(normalizeNode) : value),
-  z.array(drawNodeSchema).min(1).max(40),
-);
+import { TYPE_SCALE, type TypeToken } from '../typography.js';
+
+/**
+ * Text that wraps needs more room than the author gave it: a headline over two
+ * lines lands on the caption below. Heights are estimated from the token and
+ * the string, then siblings are pushed down until they clear each other.
+ */
+function separateText(nodes: readonly unknown[]): unknown[] {
+  const placed: number[] = [];
+  const result = [...nodes];
+
+  const items = result
+    .map((node) => node as Record<string, unknown> | null)
+    .filter(
+      (record): record is Record<string, unknown> =>
+        record !== null && typeof record === 'object' && (record['kind'] ?? record['type']) === 'text',
+    )
+    .map((record) => {
+      const token = String(record['token'] ?? 'body') as TypeToken;
+      const fontSize = TYPE_SCALE[token]?.fontSize ?? 44;
+      const text = String(record['text'] ?? '');
+      const width = Number(record['w'] ?? 1);
+      const y = Number(record['y'] ?? 0);
+      const charsPerLine = Math.max(1, Math.floor(width / (fontSize * 0.54)));
+      const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+
+      return { record, y, height: lines * fontSize * 1.15 };
+    })
+    .sort((left, right) => left.y - right.y);
+
+  for (const item of items) {
+    const above = placed.at(-1);
+    let y = item.y;
+
+    if (above !== undefined && y < above + 12) {
+      y = above + 12;
+      item.record['y'] = y;
+    }
+
+    placed.push(y + item.height);
+  }
+
+  return result;
+}
+
+/**
+ * The model sometimes writes the same line twice, slightly offset, or drops a
+ * second text over the first. Both read as a smudge: the later node is dropped
+ * when it repeats a neighbour or covers more than half of it.
+ */
+function dedupeText(nodes: readonly unknown[]): unknown[] {
+  const kept: { text: string; x: number; y: number; index: number }[] = [];
+  const result: unknown[] = [];
+
+  for (const node of nodes) {
+    if (typeof node !== 'object' || node === null) {
+      result.push(node);
+      continue;
+    }
+
+    const record = node as Record<string, unknown>;
+    const kind = record['kind'] ?? record['type'];
+
+    if (Array.isArray(record['children'])) {
+      record['children'] = dedupeText(record['children'] as unknown[]);
+    }
+
+    if (kind !== 'text') {
+      result.push(record);
+      continue;
+    }
+
+    const text = String(record['text'] ?? '');
+    const x = Number(record['x'] ?? 0);
+    const y = Number(record['y'] ?? 0);
+    const similar = kept.find(
+      (other) =>
+        Math.abs(other.x - x) < 32 &&
+        Math.abs(other.y - y) < 120 &&
+        (other.text === text || other.text.startsWith(text) || text.startsWith(other.text)),
+    );
+
+    if (similar !== undefined) {
+      /* The longer copy wins: the model wrote the full line, then a cut one. */
+      if (text.length > similar.text.length) {
+        result[similar.index] = record;
+        similar.text = text;
+      }
+
+      continue;
+    }
+
+    const sameSpot = kept.find((other) => Math.abs(other.x - x) < 8 && Math.abs(other.y - y) < 8);
+
+    if (sameSpot !== undefined) {
+      continue;
+    }
+
+    kept.push({ text, x, y, index: result.length });
+    result.push(record);
+  }
+
+  return result;
+}
+
+export const drawSceneNodesSchema = z.preprocess((value) => {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return dedupeText(
+    separateText(
+      (value as unknown[]).map(normalizeNode).map((node) => {
+        if (typeof node !== 'object' || node === null) {
+          return node;
+        }
+
+        const record = node as Record<string, unknown>;
+
+        if (Array.isArray(record['children'])) {
+          record['children'] = separateText(record['children'] as unknown[]);
+        }
+
+        return record;
+      }),
+    ),
+  );
+}, z.array(drawNodeSchema).min(1).max(40));

@@ -1,5 +1,5 @@
 import { AbsoluteFill } from 'remotion';
-import { toneColor } from '../quality.js';
+import { contrast, toneColor } from '../quality.js';
 import { TYPE_SCALE, type TypeToken } from '../typography.js';
 import { textStyle } from '../typography.js';
 import type { UiTheme } from '../themes.js';
@@ -27,9 +27,20 @@ function tokenOf(value: string | undefined): TypeToken {
   return 'body';
 }
 
-function Node({ node, theme }: { node: DrawNode; theme: UiTheme }): React.ReactElement | null {
+function Node({
+  node,
+  theme,
+  bg,
+}: {
+  node: DrawNode;
+  theme: UiTheme;
+  bg: string;
+}): React.ReactElement | null {
   switch (node.kind) {
     case 'box': {
+      const fill = node.fill === undefined ? undefined : colour(theme, node.fill, theme.surface);
+      const inner = fill ?? bg;
+
       return (
         <div
           id={node.id}
@@ -41,7 +52,7 @@ function Node({ node, theme }: { node: DrawNode; theme: UiTheme }): React.ReactE
             height: node.h,
             borderRadius: node.r ?? 0,
             transform: node.rot === undefined ? undefined : `rotate(${String(node.rot)}deg)`,
-            background: node.fill === undefined ? 'transparent' : colour(theme, node.fill, theme.surface),
+            background: fill ?? 'transparent',
             border:
               node.stroke === undefined
                 ? undefined
@@ -52,13 +63,23 @@ function Node({ node, theme }: { node: DrawNode; theme: UiTheme }): React.ReactE
           }}
         >
           {(node.children ?? []).map((child, index) => (
-            <Node key={`${String(index)}-${child.kind}`} node={child} theme={theme} />
+            <Node key={`${String(index)}-${child.kind}`} node={child} theme={theme} bg={inner} />
           ))}
         </div>
       );
     }
     case 'text': {
-      const base = textStyle(tokenOf(node.token), colour(theme, node.color, theme.ink));
+      const wanted = colour(theme, node.color, theme.ink);
+      /* Text on its own surface must stay readable: a caption in the tone of the
+         card behind it is not styling, it is a hole. */
+      const ratio = contrast(wanted, bg);
+      const readable =
+        ratio !== null && ratio >= 3.2
+          ? wanted
+          : (contrast(theme.ink, bg) ?? 0) >= (contrast(theme.surface, bg) ?? 0)
+            ? theme.ink
+            : theme.surface;
+      const base = textStyle(tokenOf(node.token), readable);
       const { fontSize, ...rest } = base;
 
       return (
@@ -71,7 +92,6 @@ function Node({ node, theme }: { node: DrawNode; theme: UiTheme }): React.ReactE
             top: node.y,
             width: node.w,
             ...(node.h === undefined ? {} : { height: node.h }),
-            overflow: 'hidden',
             wordBreak: 'break-word',
             fontSize: typeof fontSize === 'number' ? fontSize : undefined,
             ...(node.weight === undefined ? {} : { fontWeight: node.weight }),
@@ -135,7 +155,7 @@ export function DrawScene({
   return (
     <AbsoluteFill style={{ background: theme.background }}>
       {nodes.map((node, index) => (
-        <Node key={`${String(index)}-${node.kind}`} node={node} theme={theme} />
+        <Node key={`${String(index)}-${node.kind}`} node={node} theme={theme} bg={theme.background} />
       ))}
     </AbsoluteFill>
   );
