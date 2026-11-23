@@ -173,6 +173,14 @@ function normalizeNode(value: unknown): unknown {
     node['shadow'] = true;
   }
 
+  for (const flag of ['shadow', 'clip']) {
+    const value = node[flag];
+
+    if (typeof value === 'string') {
+      node[flag] = value !== 'false' && value !== '';
+    }
+  }
+
   if (Array.isArray(node['children'])) {
     node['children'] = (node['children'] as unknown[]).map(normalizeNode);
   }
