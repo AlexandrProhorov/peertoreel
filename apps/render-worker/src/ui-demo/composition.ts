@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import {
   MAX_CONTENT_ELEMENTS,
   MAX_INSTANCES_PER_PRIMITIVE,
@@ -77,7 +77,8 @@ export type CompositionIssueCode =
   | 'text-not-supported'
   | 'grid-overlap'
   | 'track-outside-content'
-  | 'surface-overlap';
+  | 'surface-overlap'
+  | 'caption-collision';
 
 export interface CompositionIssue {
   readonly code: CompositionIssueCode;
@@ -386,6 +387,23 @@ export function validateComposition(spec: CompositionSpec): CompositionIssue[] {
   const textSurfaces = spec.elements.filter(
     (element) => carriesText(element) || hasTextInside(spec.elements, element),
   );
+
+  /* A card that carries its own caption and also holds text sits the two on
+     top of each other: the caption starts at the card's padding, the child is
+     placed by the author. One or the other, never both. */
+  for (const element of textSurfaces) {
+    if (element.primitive !== 'card' || !carriesText(element)) {
+      continue;
+    }
+
+    if (hasTextInside(spec.elements, element)) {
+      fail(
+        'caption-collision',
+        element.id,
+        `"${element.id}" carries its own text and also holds text inside: put the caption in the child element or drop the child, not both`,
+      );
+    }
+  }
 
   for (let i = 0; i < textSurfaces.length; i += 1) {
     for (let j = i + 1; j < textSurfaces.length; j += 1) {

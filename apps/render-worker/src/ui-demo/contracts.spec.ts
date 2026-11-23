@@ -206,15 +206,11 @@ describe('composition validation', () => {
 
   it('rejects a composition above the element budget', () => {
     const spec = validSpec();
-    spec.elements = [
-      element('e1', 'card'),
-      element('e2', 'label'),
-      element('e3', 'pill'),
-      element('e4', 'bubble'),
-      element('e5', 'avatar'),
-      element('e6', 'object'),
-      element('e7', 'line'),
-    ];
+    const budget = MAX_ELEMENTS_PER_SCENE + 1;
+    const primitives = ['card', 'label', 'pill', 'bubble', 'avatar', 'object', 'line'] as const;
+    spec.elements = Array.from({ length: budget }, (_, index) =>
+      element(`e${String(index + 1)}`, primitives[index % primitives.length] ?? 'card'),
+    );
 
     expect(spec.elements.length).toBeGreaterThan(MAX_ELEMENTS_PER_SCENE);
     expect(validateComposition(spec).map((issue) => issue.code)).toContain(
@@ -386,6 +382,25 @@ describe('composition validation', () => {
     expect(
       validateComposition(spec).filter((issue) => issue.code === 'surface-overlap'),
     ).toEqual([]);
+  });
+
+  it('rejects a card caption that sits on top of its own child text', () => {
+    const spec = validSpec();
+    spec.elements = [
+      element('e1', 'stage', { params: { background: '#0A0A0B' } }),
+      element('receipt', 'card', {
+        layout: { x: 72, y: 300, width: 818, height: 400 },
+        params: { text: 'Чек', token: 'card', background: '#161618' },
+      }),
+      element('line1', 'label', {
+        layout: { x: 104, y: 360, width: 700, height: 80 },
+        params: { text: 'Скидка 15%', token: 'caption' },
+      }),
+    ];
+
+    expect(validateComposition(spec).map((issue) => issue.code)).toContain(
+      'caption-collision',
+    );
   });
 
   it('rejects two labelled cards that share pixels', () => {

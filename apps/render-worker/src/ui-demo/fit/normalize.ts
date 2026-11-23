@@ -1,4 +1,4 @@
-import { TYPE_BOX_RULES, tokenForHeight } from '../typography-rules.js';
+﻿import { TYPE_BOX_RULES, tokenForHeight } from '../typography-rules.js';
 import { CANVAS, CRITICAL_SAFE_BOUNDS } from '../platform.js';
 import {
   deriveTiming,
@@ -612,6 +612,99 @@ function repairTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[
   });
 }
 
+/**
+ * A divider belongs to the surface it sits on. A line whose middle lands inside
+ * a card is snapped to that card's edge so it cannot hide underneath or stick
+ * out of the frame like a stray tick.
+ */
+function repairLines(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
+  const surfaces = elements.filter((element) => {
+    const primitive = element['primitive'];
+    const layout = element['layout'];
+
+    return (
+      (primitive === 'card' || primitive === 'pill' || primitive === 'bubble') &&
+      isObject(layout) &&
+      typeof layout['x'] === 'number' &&
+      typeof layout['y'] === 'number' &&
+      typeof layout['width'] === 'number' &&
+      typeof layout['height'] === 'number'
+    );
+  });
+
+  return elements.map((element) => {
+    if (element['primitive'] !== 'line' || !isObject(element['params'])) {
+      return element;
+    }
+
+    const params = element['params'];
+    const x1 = params['fromX'];
+    const y1 = params['fromY'];
+    const x2 = params['toX'];
+    const y2 = params['toY'];
+
+    if (
+      typeof x1 !== 'number' ||
+      typeof y1 !== 'number' ||
+      typeof x2 !== 'number' ||
+      typeof y2 !== 'number'
+    ) {
+      return element;
+    }
+
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    const host = surfaces.find((surface) => {
+      const layout = surface['layout'] as Record<string, number>;
+
+      return (
+        midX >= layout['x']! &&
+        midX <= layout['x']! + layout['width']! &&
+        midY >= layout['y']! &&
+        midY <= layout['y']! + layout['height']!
+      );
+    });
+
+    if (host === undefined) {
+      return element;
+    }
+
+    const layout = host['layout'] as Record<string, number>;
+    const inset = 8;
+    const left = layout['x']! + inset;
+    const right = layout['x']! + layout['width']! - inset;
+    const top = layout['y']! + inset;
+    const bottom = layout['y']! + layout['height']! - inset;
+    const clampX = (value: number): number => Math.min(Math.max(value, left), right);
+    const clampY = (value: number): number => Math.min(Math.max(value, top), bottom);
+    const next = {
+      fromX: clampX(x1),
+      fromY: clampY(y1),
+      toX: clampX(x2),
+      toY: clampY(y2),
+    };
+
+    if (
+      next.fromX === x1 &&
+      next.fromY === y1 &&
+      next.toX === x2 &&
+      next.toY === y2
+    ) {
+      return element;
+    }
+
+    repairs.push({
+      element: typeof element['id'] === 'string' ? element['id'] : null,
+      path: 'line-inside-surface',
+      reason: 'a divider belongs to its surface: the segment is snapped to the surface edge',
+      from: `${x1}..${x2} / ${y1}..${y2}`,
+      to: `${next.fromX}..${next.toX} / ${next.fromY}..${next.toY}`,
+    });
+
+    return { ...element, params: { ...params, ...next } };
+  });
+}
+
 function stackTracks(elements: readonly Unknown[], repairs: Repair[]): Unknown[] {
   /* A rail that lands on a captioned surface is unreadable: slide it below that
      surface instead of leaving the fill hidden under a card. */
@@ -1106,7 +1199,7 @@ export function normalizeRawEpisode(raw: unknown, repairs: Repair[] = []): unkno
          sees the scene. */
       finalElements = ensureHierarchy(finalElements, repairs);
       finalElements = fixContrast(finalElements, theme, repairs);
-      finalElements = stackTracks(repairTracks(finalElements, repairs), repairs);
+      finalElements = stackTracks(repairTracks(repairLines(finalElements, repairs), repairs), repairs);
 
       return {
         ...scene,

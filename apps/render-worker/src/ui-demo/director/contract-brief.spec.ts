@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PRIMITIVES, type PrimitiveId } from '../catalog.js';
+import { MAX_CONTENT_ELEMENTS } from '../catalog.js';
 import { TYPE_SCALE, type TypeToken } from '../typography.js';
 import {
   DIRECTOR_SYSTEM_PROMPT,
@@ -49,7 +50,7 @@ describe('director prompt covers the catalogue', () => {
 
     expect(prompt).toContain('x 72..890');
     expect(prompt).toContain('y 80..1620');
-    expect(prompt).toContain('от 2 до 5 единиц контента');
+    expect(prompt).toContain(`от 2 до ${MAX_CONTENT_ELEMENTS} единиц контента`);
   });
 
   it('asks for one spec scene with a sequence', () => {

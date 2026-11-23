@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The contract layer: what the factory really can express, not what a prompt
  * claims it can. Every primitive declares parameters, states, transitions,
  * operations and constraints; every implementation declares the operations it
@@ -11,11 +11,11 @@
 
 import { MIN_FONT_SCALE } from './typography-rules.js';
 
-export const MAX_ELEMENTS_PER_SCENE = 6;
+export const MAX_ELEMENTS_PER_SCENE = 9;
 /** The stage is mandatory, so it never spends a slot of its own. */
 export const MAX_CONTENT_ELEMENTS = MAX_ELEMENTS_PER_SCENE - 1;
 /** A row of four chips is a normal interface; five means the scene repeats itself. */
-export const MAX_INSTANCES_PER_PRIMITIVE = 4;
+export const MAX_INSTANCES_PER_PRIMITIVE = 6;
 
 export type PrimitiveId =
   | 'stage'
@@ -413,3 +413,10 @@ export function hasOperation(implementation: ImplementationContract, operation: 
 export const TEXT_PRIMITIVES: ReadonlySet<PrimitiveId> = new Set(
   (Object.keys(PRIMITIVES) as PrimitiveId[]).filter((id) => PRIMITIVES[id].carriesText === true),
 );
+
+/** Primitives that paint a surface other elements can stand on. */
+export const SURFACE_PRIMITIVES: ReadonlySet<PrimitiveId> = new Set<PrimitiveId>([
+  'card',
+  'pill',
+  'bubble',
+]);

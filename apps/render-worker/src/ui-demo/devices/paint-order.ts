@@ -13,8 +13,10 @@
 const RANK: Readonly<Record<string, number>> = {
   stage: 0,
   grid: 1,
-  line: 1,
   card: 2,
+  /* A line is a divider or a connector: inside a card it must sit on top of it,
+     otherwise it hides under the surface and only its overflow shows. */
+  line: 3,
   avatar: 3,
   object: 3,
   track: 4,

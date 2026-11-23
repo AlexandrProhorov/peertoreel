@@ -5,8 +5,8 @@
     "height": 1920
   },
   "fps": 30,
-  "maxElementsPerScene": 6,
-  "maxInstancesPerPrimitive": 4,
+  "maxElementsPerScene": 9,
+  "maxInstancesPerPrimitive": 6,
   "assets": [
     "owl",
     "panda",
