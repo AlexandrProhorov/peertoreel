@@ -1,4 +1,5 @@
 import type { DerivedWord } from '@peertoreel/contracts';
+import { nodeStarts } from './draw/motion.js';
 import type { SpeechTrack, UiScene } from './spec.js';
 
 /**
@@ -169,16 +170,23 @@ export function visualTimeline(scene: UiScene, fps: number): VisualTimeline {
         revealWindowFrames,
         stepFrames: scene.spec.sequence.map((step) => Math.round((step.at ?? 0) * fps)),
       };
-    case 'draw':
-      /* A drawn scene reveals as one gesture: the whole picture fades in during
-         the reveal window and holds for the rest of the scene. */
+    case 'draw': {
+      /* A drawn scene assembles node by node: every authored `at` is a step, and
+         the whole assembly fits the first half of the scene. */
+      const starts = nodeStarts(scene.nodes, scene.durationSec);
+      const windowStart = Math.round(0.2 * fps);
+
       return {
         durationInFrames,
         titleFrame: TITLE_FRAME,
         revealFrame,
         revealWindowFrames,
-        stepFrames: [revealFrame],
+        stepFrames:
+          starts.length === 0
+            ? [revealFrame]
+            : [windowStart, ...starts.map((sec) => Math.round(sec * fps))],
       };
+    }
   }
 }
 

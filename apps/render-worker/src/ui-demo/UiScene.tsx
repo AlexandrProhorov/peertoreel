@@ -23,9 +23,11 @@ import { sceneMotion } from './transitions.js';
 function Device({
   episode,
   scene,
+  durationInFrames,
 }: {
   episode: UiEpisode;
   scene: UiSceneSpec;
+  durationInFrames: number;
 }) {
   const theme = themeById(sceneThemeId(episode, scene));
 
@@ -53,7 +55,7 @@ function Device({
     case 'spec':
       return <SpecRenderer scene={scene} theme={theme} />;
     case 'draw':
-      return <DrawScene nodes={scene.nodes} theme={theme} />;
+      return <DrawScene nodes={scene.nodes} theme={theme} durationInFrames={durationInFrames} />;
   }
 }
 
@@ -89,7 +91,7 @@ export function UiSceneView({
           willChange: 'opacity',
         }}
       >
-        <Device episode={episode} scene={scene} />
+        <Device episode={episode} scene={scene} durationInFrames={durationInFrames} />
       </AbsoluteFill>
 
       <AbsoluteFill
