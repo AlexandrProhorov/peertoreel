@@ -537,6 +537,47 @@ function counterNodes(
   };
 }
 
+function panelsBlockNodes(
+  block: Extract<DrawPlanBlock, { role: 'panels' }>,
+  align: 'left' | 'center',
+  innerWidth: number,
+  gap: number,
+  rowGap: number,
+): Laid {
+  const count = block.panels.length;
+  const width = Math.floor((innerWidth - PANEL_GAP * (count - 1)) / count);
+  const nodes: DrawNode[] = [];
+  let height = 0;
+
+  block.panels.forEach((panel, index) => {
+    const x = index * (width + PANEL_GAP);
+    const inner = panel.surface === 'card' ? width - CARD_PAD * 2 : width;
+    const laid = stackBlocks(panel.blocks, align, inner, gap, rowGap);
+
+    if (panel.surface === 'card') {
+      const cardHeight = Math.ceil(laid.height + CARD_PAD * 2);
+
+      nodes.push({
+        kind: 'box',
+        x,
+        y: 0,
+        w: width,
+        h: cardHeight,
+        r: CARD_RADIUS,
+        fill: 'surface',
+        shadow: true,
+        children: laid.nodes.map((node) => shift(node, CARD_PAD, CARD_PAD)),
+      });
+      height = Math.max(height, cardHeight);
+    } else {
+      nodes.push(...laid.nodes.map((node) => shift(node, x, 0)));
+      height = Math.max(height, laid.height);
+    }
+  });
+
+  return { nodes, height: height + gap };
+}
+
 function layBlock(
   block: DrawPlanBlock,
   align: 'left' | 'center',
@@ -563,6 +604,8 @@ function layBlock(
       return footerNodes(block, innerWidth, gap);
     case 'counter':
       return counterNodes(block, align, innerWidth, gap);
+    case 'panels':
+      return panelsBlockNodes(block, align, innerWidth, gap, rowGap);
     case 'freeform':
       throw new Error('freeform blocks are reserved by composePlan, not laid out');
   }
@@ -653,10 +696,6 @@ export function composePlan(plan: DrawPlan, bounds: LayoutBounds = LAYOUT_BOUNDS
   const frameHeight = bounds.bottom - bounds.top;
 
   if (plan.composition === 'panels') {
-    if (plan.panels.some((panel) => panel.blocks.some((block) => block.role === 'freeform'))) {
-      throw new Error('freeform inside panels is not supported yet');
-    }
-
     const count = plan.panels.length;
     const width = Math.floor((frameWidth - PANEL_GAP * (count - 1)) / count);
     const nodes = plan.panels.flatMap((panel, index) =>

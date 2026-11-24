@@ -93,7 +93,7 @@ const totalBlock = z.object({
 
 const badgeBlock = z.object({
   role: z.literal('badge'),
-  text: z.string().min(1).max(24),
+  text: z.string().min(1).max(40),
   tone: z.enum(['accent', 'muted']).default('accent'),
   align,
   motion,
@@ -125,6 +125,30 @@ const counterBlock = z.object({
   motion,
 });
 
+export const leafBlockSchema = z.discriminatedUnion('role', [
+  headerBlock,
+  iconsBlock,
+  figureBlock,
+  rowsBlock,
+  dividerBlock,
+  totalBlock,
+  badgeBlock,
+  footerBlock,
+  counterBlock,
+]);
+
+const panelSchema = z.object({
+  surface: z.enum(PLAN_SURFACES).default('card'),
+  blocks: z.array(leafBlockSchema).min(1).max(6),
+});
+
+/** Two or three surfaces side by side inside a stacked frame. */
+const panelsBlock = z.object({
+  role: z.literal('panels'),
+  panels: z.array(panelSchema).min(2).max(3),
+  motion,
+});
+
 export const drawPlanBlockSchema = z.discriminatedUnion('role', [
   headerBlock,
   iconsBlock,
@@ -135,13 +159,9 @@ export const drawPlanBlockSchema = z.discriminatedUnion('role', [
   badgeBlock,
   footerBlock,
   counterBlock,
+  panelsBlock,
   freeformBlock,
 ]);
-
-const panelSchema = z.object({
-  surface: z.enum(PLAN_SURFACES).default('card'),
-  blocks: z.array(drawPlanBlockSchema).min(1).max(8),
-});
 
 const stackPlan = z.object({
   composition: z.literal('stack'),
@@ -214,6 +234,21 @@ function normalizeBlock(value: unknown): unknown {
     }
   }
 
+  /* Panels nest their own blocks: the same habits appear one level deeper. */
+  if (block['role'] === 'panels' && Array.isArray(block['panels'])) {
+    block['panels'] = (block['panels'] as unknown[]).map((panel) => {
+      if (typeof panel !== 'object' || panel === null) {
+        return panel;
+      }
+
+      const record = panel as Record<string, unknown>;
+
+      return Array.isArray(record['blocks'])
+        ? { ...record, blocks: (record['blocks'] as unknown[]).map(normalizeBlock) }
+        : panel;
+    });
+  }
+
   return block;
 }
 
@@ -227,6 +262,17 @@ function normalizePlan(value: unknown): unknown {
 
   if (!('composition' in plan) && Array.isArray(plan['blocks'])) {
     plan['composition'] = 'stack';
+  }
+
+  /* The model sometimes commits to panels but forgets the array: stacking the
+     blocks is the same picture, so it is repaired instead of losing the plan. */
+  if (
+    plan['composition'] === 'panels' &&
+    !Array.isArray(plan['panels']) &&
+    Array.isArray(plan['blocks'])
+  ) {
+    plan['composition'] = 'stack';
+    plan['surface'] = plan['surface'] ?? 'none';
   }
 
   if (Array.isArray(plan['blocks'])) {
@@ -272,5 +318,6 @@ export const ROLE_MOTION: Readonly<
   badge: { transition: 'appear', at: 0.4 },
   footer: { transition: 'appear', at: 1.2 },
   counter: { transition: 'tick', at: 0.2 },
+  panels: { transition: 'appear', at: 0.2 },
   freeform: { transition: 'appear', at: 0.2 },
 };
