@@ -886,6 +886,12 @@ export function normalizeDrawNodes(value: unknown): unknown {
   return Array.isArray(value) ? value.map(normalizeNode) : value;
 }
 
+/** Pure shapes plus the habit repair: no layout is re-composed. */
+export const drawPaintedNodesSchema = z.preprocess(
+  (value) => normalizeDrawNodes(value),
+  drawNodesSchema,
+);
+
 export const drawSceneNodesSchema = z.preprocess((value) => {
   if (!Array.isArray(value)) {
     return value;

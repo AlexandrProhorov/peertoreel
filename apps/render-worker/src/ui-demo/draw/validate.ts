@@ -6,18 +6,22 @@ import { TYPE_SCALE, type TypeToken } from '../typography.js';
  * The validator.
  *
  * The model owns the composition: what is in the frame and where it stands.
- * This module owns the objects: a text box grows to its measured string, a
- * container hugs its children, a small collision is nudged apart. Anything that
+ * This module owns the objects: a text keeps its measured line, the container
+ * around it grows to hold it, a small collision is nudged apart. Anything that
  * would require redesigning the frame is **rejected** with a reason, so the
  * caller can ask for another drawing instead of silently repainting the idea.
  */
 
-export const FRAME_BUDGET = {
-  /** Top-level nodes: a picture, not a form. */
-  nodes: 5,
-  /** Words on screen: 12 words read in about three seconds. */
-  words: 12,
-} as const;
+export interface FrameBudget {
+  readonly nodes: number;
+  readonly words: number;
+}
+
+/** No caps by default: the frame may hold as many elements as the scene needs. */
+const UNCAPPED: FrameBudget = { nodes: Number.POSITIVE_INFINITY, words: Number.POSITIVE_INFINITY };
+
+/** Kept for the experiment that measured how a form looks. Not a default. */
+export const FRAME_BUDGET: FrameBudget = { nodes: 5, words: 12 };
 
 /** A collision this small is a nudge; anything bigger is a wrong composition. */
 export const NUDGE_PX = 24;
@@ -54,6 +58,7 @@ type MutBox = Mutable<DrawBox>;
 type MutIcon = Mutable<DrawIcon>;
 type MutLine = Mutable<DrawLine>;
 type MutNode = MutText | MutBox | MutIcon | MutLine;
+type MutPlaced = MutText | MutBox | MutIcon;
 
 function tokenOf(node: MutText): TypeToken {
   const token = node.token;
@@ -68,74 +73,171 @@ function textHeight(node: MutText): number {
   return lines * style.fontSize * style.lineHeight;
 }
 
+function sizeOf(node: MutPlaced): { w: number; h: number } {
+  if (node.kind === 'icon') {
+    return { w: node.size, h: node.size };
+  }
+
+  return { w: node.w, h: node.kind === 'text' ? textHeight(node) : node.h };
+}
+
+function boxChildren(node: MutNode): MutPlaced[] | null {
+  if (node.kind !== 'box' || node.children === undefined) {
+    return null;
+  }
+
+  const children = node.children as unknown as MutNode[];
+
+  return children.some((child) => child.kind === 'line') ? null : (children as MutPlaced[]);
+}
+
+/**
+ * Some answers place a box's children in frame coordinates instead of the
+ * parent's. When the children fit only as absolute, the parent origin is
+ * subtracted — the picture stays the same, the space is corrected.
+ */
+function normalizeChildSpace(nodes: readonly MutNode[]): void {
+  for (const node of nodes) {
+    if (node.kind !== 'box' || node.children === undefined) {
+      continue;
+    }
+
+    const children = boxChildren(node);
+
+    if (children === null) {
+      continue;
+    }
+
+    normalizeChildSpace(children);
+
+    const fitsRelative = children.every((child) => {
+      const size = sizeOf(child);
+
+      return (
+        child.x >= 0 && child.y >= 0 && child.x + size.w <= node.w + 1 && child.y + size.h <= node.h + 1
+      );
+    });
+
+    if (fitsRelative) {
+      continue;
+    }
+
+    if (!children.every((child) => child.x >= node.x - 1 && child.y >= node.y - 1)) {
+      continue;
+    }
+
+    for (const child of children) {
+      child.x -= node.x;
+      child.y -= node.y;
+    }
+  }
+}
+
+/** A text keeps its measured line: width grows, token drops only as a fallback. */
+function fitTexts(nodes: readonly MutNode[], frameWidth: number, fixes: string[], issues: ValidationIssue[]): void {
+  for (const node of nodes) {
+    if (node.kind === 'text') {
+      const measured = measureText(node.text, TYPE_SCALE[tokenOf(node)].fontSize);
+
+      if (measured <= node.w) {
+        continue;
+      }
+
+      if (measured <= frameWidth) {
+        node.w = Math.ceil(measured);
+        fixes.push(`text-widened:${node.text.slice(0, 24)}`);
+        continue;
+      }
+
+      const fitted = fitToken(node.text, frameWidth, tokenOf(node));
+
+      if (fitted !== tokenOf(node)) {
+        node.token = fitted;
+        fixes.push(`text-token:${node.text.slice(0, 24)}:${fitted}`);
+        continue;
+      }
+
+      issues.push({
+        code: 'text-overflow',
+        path: `/${node.text.slice(0, 24)}`,
+        message: `«${node.text.slice(0, 24)}» шире кадра даже минимальным кеглем`,
+      });
+      continue;
+    }
+
+    if (node.kind !== 'box' || node.children === undefined) {
+      continue;
+    }
+
+    const children = boxChildren(node);
+
+    if (children !== null) {
+      fitTexts(children, frameWidth, fixes, issues);
+    }
+  }
+}
+
+/** A container hugs the text inside it: a bubble grows, it never clips. */
+function growContainers(nodes: readonly MutNode[], fixes: string[]): void {
+  for (const node of nodes) {
+    if (node.kind !== 'box' || node.children === undefined) {
+      continue;
+    }
+
+    const children = boxChildren(node);
+
+    if (children === null || children.length === 0) {
+      continue;
+    }
+
+    growContainers(children, fixes);
+
+    let right = 0;
+    let bottom = 0;
+    let leftPad = Number.POSITIVE_INFINITY;
+    let topPad = Number.POSITIVE_INFINITY;
+
+    for (const child of children) {
+      const size = sizeOf(child);
+
+      right = Math.max(right, child.x + size.w);
+      bottom = Math.max(bottom, child.y + size.h);
+      leftPad = Math.min(leftPad, child.x);
+      topPad = Math.min(topPad, child.y);
+    }
+
+    if (!Number.isFinite(leftPad) || !Number.isFinite(topPad)) {
+      continue;
+    }
+
+    if (right + leftPad > node.w + 0.5) {
+      node.w = Math.ceil(right + leftPad);
+      fixes.push(`container-widened:${node.kind}`);
+    }
+
+    if (bottom + topPad > node.h + 0.5) {
+      node.h = Math.ceil(bottom + topPad);
+      fixes.push(`container-grown:${node.kind}`);
+    }
+  }
+}
+
 interface Rect {
   readonly node: MutText;
-  readonly x: number;
+  x: number;
   y: number;
   readonly w: number;
   readonly h: number;
 }
 
-function childrenOf(node: MutNode): readonly MutNode[] | undefined {
-  return node.kind === 'box' ? node.children : undefined;
-}
-
-/** Grows a text box to its measured line, or drops the token a step. */
-function fitText(node: MutText, parentWidth: number, fixes: string[]): string | null {
-  const size = TYPE_SCALE[tokenOf(node)].fontSize;
-  const measured = measureText(node.text, size);
-
-  if (measured <= node.w) {
-    return null;
-  }
-
-  const room = Math.max(node.w, Math.min(measured, parentWidth - node.x));
-
-  if (room > node.w) {
-    node.w = Math.ceil(room);
-    fixes.push(`text-widened:${node.text.slice(0, 24)}`);
-
-    return null;
-  }
-
-  const fitted = fitToken(node.text, node.w, tokenOf(node));
-
-  if (fitted !== tokenOf(node)) {
-    node.token = fitted;
-    fixes.push(`text-token:${node.text.slice(0, 24)}:${fitted}`);
-
-    return null;
-  }
-
-  return 'text-overflow';
-}
-
-/**
- * Walks the tree and returns absolute text boxes. Nested nodes are measured in
- * their parent's space, then moved into the frame for collision checks.
- */
-function collectTexts(
+function collectRects(
   nodes: readonly MutNode[],
-  parentWidth: number,
   offsetX: number,
   offsetY: number,
-  fixes: string[],
-  issues: ValidationIssue[],
+  rects: Rect[] = [],
 ): Rect[] {
-  const rects: Rect[] = [];
-
   for (const node of nodes) {
     if (node.kind === 'text') {
-      const overflow = fitText(node, parentWidth, fixes);
-
-      if (overflow !== null) {
-        issues.push({
-          code: 'text-overflow',
-          path: `/${node.text.slice(0, 24)}`,
-          message: `«${node.text.slice(0, 24)}» не влезает даже минимальным кеглем`,
-        });
-      }
-
       rects.push({
         node,
         x: node.x + offsetX,
@@ -146,19 +248,20 @@ function collectTexts(
       continue;
     }
 
-    const children = childrenOf(node);
+    if (node.kind !== 'box' || node.children === undefined) {
+      continue;
+    }
 
-    if (children !== undefined && node.kind === 'box') {
-      rects.push(
-        ...collectTexts(children, node.w, offsetX + node.x, offsetY + node.y, fixes, issues),
-      );
+    const children = boxChildren(node);
+
+    if (children !== null) {
+      collectRects(children, offsetX + node.x, offsetY + node.y, rects);
     }
   }
 
   return rects;
 }
 
-/** Boxes intersect on both axes. */
 function collide(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
@@ -213,9 +316,9 @@ function countWords(nodes: readonly MutNode[]): number {
       words += node.text.trim().split(/\s+/u).filter(Boolean).length;
     }
 
-    const children = childrenOf(node);
+    const children = boxChildren(node);
 
-    if (children !== undefined) {
+    if (children !== undefined && children !== null) {
       words += countWords(children);
     }
   }
@@ -225,6 +328,8 @@ function countWords(nodes: readonly MutNode[]): number {
 
 /** Clamps top-level nodes into the safe area; a large move is a rejection. */
 function clampFrame(nodes: readonly MutNode[], bounds: Bounds, issues: ValidationIssue[]): void {
+  const frameWidth = bounds.right - bounds.left;
+
   for (const node of nodes) {
     if (node.kind === 'line') {
       const x = Math.min(node.x1, node.x2);
@@ -239,12 +344,20 @@ function clampFrame(nodes: readonly MutNode[], bounds: Bounds, issues: Validatio
       continue;
     }
 
+    /* A full-frame background is not out of the safe area, it is behind it. */
+    if (
+      node.kind === 'box' &&
+      node.x <= bounds.left &&
+      node.y <= bounds.top &&
+      node.x + node.w >= bounds.right &&
+      node.y + node.h >= bounds.bottom &&
+      node.w >= frameWidth
+    ) {
+      continue;
+    }
+
     const shiftX =
-      node.x < bounds.left
-        ? bounds.left - node.x
-        : node.x > bounds.right
-          ? bounds.right - node.x
-          : 0;
+      node.x < bounds.left ? bounds.left - node.x : node.x > bounds.right ? bounds.right - node.x : 0;
     const shiftY =
       node.y < bounds.top ? bounds.top - node.y : node.y > bounds.bottom ? bounds.bottom - node.y : 0;
 
@@ -266,35 +379,41 @@ function clampFrame(nodes: readonly MutNode[], bounds: Bounds, issues: Validatio
 }
 
 /**
- * Checks a drawn frame against the budget and the object rules.
+ * Checks a drawn frame: objects are corrected, the composition is not.
  * Returns the corrected tree, the fixes applied and the reasons to redraw.
  */
-export function validateDrawNodes(input: readonly DrawNode[], bounds: Bounds): ValidationResult {
+export function validateDrawNodes(
+  input: readonly DrawNode[],
+  bounds: Bounds,
+  budget: FrameBudget = UNCAPPED,
+): ValidationResult {
   const nodes = structuredClone(input) as unknown as MutNode[];
   const fixes: string[] = [];
   const issues: ValidationIssue[] = [];
 
-  if (nodes.length > FRAME_BUDGET.nodes) {
+  normalizeChildSpace(nodes);
+
+  if (nodes.length > budget.nodes) {
     issues.push({
       code: 'too-many-nodes',
       path: '/',
-      message: `${String(nodes.length)} верхнеуровневых узлов при бюджете ${String(FRAME_BUDGET.nodes)}`,
+      message: `${String(nodes.length)} верхнеуровневых узлов при бюджете ${String(budget.nodes)}`,
     });
   }
 
   const words = countWords(nodes);
 
-  if (words > FRAME_BUDGET.words) {
+  if (words > budget.words) {
     issues.push({
       code: 'too-many-words',
       path: '/',
-      message: `${String(words)} слов на кадре при бюджете ${String(FRAME_BUDGET.words)}`,
+      message: `${String(words)} слов на кадре при бюджете ${String(budget.words)}`,
     });
   }
 
-  const rects = collectTexts(nodes, bounds.right - bounds.left, 0, 0, fixes, issues);
-
-  separate(rects, issues);
+  fitTexts(nodes, bounds.right - bounds.left, fixes, issues);
+  growContainers(nodes, fixes);
+  separate(collectRects(nodes, 0, 0), issues);
   clampFrame(nodes, bounds, issues);
 
   return {

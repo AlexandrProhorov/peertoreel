@@ -2,7 +2,7 @@ import { derivedWordSchema } from '@peertoreel/contracts';
 import { z } from 'zod';
 import { ASSET_KEYS, resolveAsset } from './assets.js';
 import { compositionSpecSchema, parseComposition } from './composition.js';
-import { drawSceneNodesSchema } from './draw/schema.js';
+import { drawPaintedNodesSchema } from './draw/schema.js';
 import { lintQuality } from './quality.js';
 import { ENTER_IDS } from './scene-enter.js';
 import { placeScenes } from './scene-timeline.js';
@@ -252,7 +252,7 @@ export const scaleBreakSceneSchema = z.object({
 export const drawSceneSchema = z.object({
   ...sceneBaseShape,
   device: z.literal('draw'),
-  nodes: drawSceneNodesSchema,
+  nodes: drawPaintedNodesSchema,
 });
 
 /**

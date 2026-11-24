@@ -20,7 +20,7 @@ describe('draw validator: budget', () => {
     const nodes = Array.from({ length: FRAME_BUDGET.nodes + 1 }, (_, index) =>
       text({ text: `строка ${String(index)}`, y: 200 + index * 100 }),
     );
-    const result = validateDrawNodes(nodes, BOUNDS);
+    const result = validateDrawNodes(nodes, BOUNDS, FRAME_BUDGET);
 
     expect(result.rejected).toBe(true);
     expect(result.issues.map((issue) => issue.code)).toContain('too-many-nodes');
@@ -30,6 +30,7 @@ describe('draw validator: budget', () => {
     const result = validateDrawNodes(
       [text({ text: 'раз два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать тринадцать', w: 900 })],
       BOUNDS,
+      FRAME_BUDGET,
     );
 
     expect(result.rejected).toBe(true);
