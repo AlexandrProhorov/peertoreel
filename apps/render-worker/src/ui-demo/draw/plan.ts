@@ -99,6 +99,17 @@ const badgeBlock = z.object({
   motion,
 });
 
+/**
+ * A region the layout does not compose: the plan says what it should express,
+ * and a dedicated paint call draws inside the reserved band.
+ */
+const freeformBlock = z.object({
+  role: z.literal('freeform'),
+  intent: z.string().min(1).max(200),
+  /** Share of the safe frame height reserved for the painted picture. */
+  height: z.number().min(0.2).max(0.6).default(0.4),
+});
+
 const footerBlock = z.object({
   role: z.literal('footer'),
   text: z.string().min(1).max(120),
@@ -124,6 +135,7 @@ export const drawPlanBlockSchema = z.discriminatedUnion('role', [
   badgeBlock,
   footerBlock,
   counterBlock,
+  freeformBlock,
 ]);
 
 const panelSchema = z.object({
@@ -260,4 +272,5 @@ export const ROLE_MOTION: Readonly<
   badge: { transition: 'appear', at: 0.4 },
   footer: { transition: 'appear', at: 1.2 },
   counter: { transition: 'tick', at: 0.2 },
+  freeform: { transition: 'appear', at: 0.2 },
 };

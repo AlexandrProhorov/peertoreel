@@ -82,7 +82,9 @@ function textNode(input: {
   };
 }
 
-function motionOf(block: DrawPlanBlock): { at: number; transition: DrawTransition } {
+function motionOf(
+  block: Exclude<DrawPlanBlock, { role: 'freeform' }>,
+): { at: number; transition: DrawTransition } {
   return block.motion ?? ROLE_MOTION[block.role];
 }
 
@@ -561,7 +563,26 @@ function layBlock(
       return footerNodes(block, innerWidth, gap);
     case 'counter':
       return counterNodes(block, align, innerWidth, gap);
+    case 'freeform':
+      throw new Error('freeform blocks are reserved by composePlan, not laid out');
   }
+}
+
+/** A band the plan reserves for a painted region. */
+export interface FreeformRegion {
+  readonly intent: string;
+  readonly bounds: LayoutBounds;
+}
+
+/** The frame in drawing order: laid-out nodes, then a painted band, then more. */
+export type PlanSegment =
+  | { readonly nodes: DrawNode[] }
+  | { readonly region: FreeformRegion };
+
+export interface ComposedPlan {
+  readonly nodes: DrawNode[];
+  readonly regions: FreeformRegion[];
+  readonly segments: PlanSegment[];
 }
 
 /** Stacks blocks top-down in a local coordinate space starting at zero. */
@@ -622,44 +643,109 @@ function panelNodes(
 /**
  * Lays a plan out inside the safe content area. `stack` puts one column of
  * blocks on one surface; `panels` sets two or three surfaces side by side for a
- * comparison.
+ * comparison; `freeform` bands are reserved and returned, not drawn — a paint
+ * call fills them.
  */
-export function layoutPlan(plan: DrawPlan, bounds: LayoutBounds = LAYOUT_BOUNDS): DrawNode[] {
+export function composePlan(plan: DrawPlan, bounds: LayoutBounds = LAYOUT_BOUNDS): ComposedPlan {
   const gap = DENSITY_GAP[plan.density];
   const rowGap = ROW_GAP[plan.density];
   const frameWidth = bounds.right - bounds.left;
+  const frameHeight = bounds.bottom - bounds.top;
 
   if (plan.composition === 'panels') {
+    if (plan.panels.some((panel) => panel.blocks.some((block) => block.role === 'freeform'))) {
+      throw new Error('freeform inside panels is not supported yet');
+    }
+
     const count = plan.panels.length;
     const width = Math.floor((frameWidth - PANEL_GAP * (count - 1)) / count);
-
-    return plan.panels.flatMap((panel, index) =>
+    const nodes = plan.panels.flatMap((panel, index) =>
       panelNodes(panel, plan, bounds.left + index * (width + PANEL_GAP), bounds.top, width, gap, rowGap),
     );
+
+    return { nodes, regions: [], segments: [{ nodes }] };
+  }
+
+  const hasFreeform = plan.blocks.some((block) => block.role === 'freeform');
+
+  if (hasFreeform && plan.surface === 'card') {
+    throw new Error('freeform needs surface none: a painted region is not a stacked block');
   }
 
   const innerWidth = plan.surface === 'card' ? frameWidth - CARD_PAD * 2 : frameWidth;
-  const laid = stackBlocks(plan.blocks, plan.align, innerWidth, gap, rowGap);
+  const nodes: DrawNode[] = [];
+  const regions: FreeformRegion[] = [];
+  const local: PlanSegment[] = [];
+  let y = 0;
+
+  for (const block of plan.blocks) {
+    if (block.role === 'freeform') {
+      const height = Math.round(frameHeight * block.height);
+      const top = bounds.top + y;
+
+      const region: FreeformRegion = {
+        intent: block.intent,
+        bounds: { left: bounds.left, top, right: bounds.right, bottom: top + height },
+      };
+
+      regions.push(region);
+      local.push({ region });
+      y += height + gap;
+      continue;
+    }
+
+    const laid = layBlock(block, plan.align, innerWidth, gap, rowGap);
+    const placed = laid.nodes.map((node) => shift(node, 0, y));
+
+    nodes.push(...placed);
+    local.push({ nodes: placed });
+    y += laid.height;
+  }
 
   if (plan.surface === 'none') {
-    return laid.nodes.map((node) => shift(node, bounds.left, bounds.top));
+    const shiftAll = (list: DrawNode[]): DrawNode[] =>
+      list.map((node) => shift(node, bounds.left, bounds.top));
+
+    return {
+      nodes: shiftAll(nodes),
+      regions,
+      segments: local.map((segment) =>
+        'nodes' in segment ? { nodes: shiftAll(segment.nodes) } : segment,
+      ),
+    };
   }
 
   /* Children are relative to the card: they start after the padding, not on the
      rounded edge, otherwise the first line is cut by the card itself. */
-  return [
+  const card: DrawNode[] = [
     {
       kind: 'box',
       x: bounds.left,
       y: bounds.top,
       w: frameWidth,
-      h: Math.ceil(laid.height + CARD_PAD * 2),
+      h: Math.ceil(Math.max(0, y - gap) + CARD_PAD * 2),
       r: CARD_RADIUS,
       fill: 'surface',
       shadow: true,
-      children: laid.nodes.map((node) => shift(node, CARD_PAD, CARD_PAD)),
+      children: nodes.map((node) => shift(node, CARD_PAD, CARD_PAD)),
     },
   ];
+
+  return { nodes: card, regions, segments: [{ nodes: card }] };
+}
+
+/**
+ * Nodes only. A plan with a freeform band cannot be laid out without a painter,
+ * so it fails explicitly instead of silently dropping the picture.
+ */
+export function layoutPlan(plan: DrawPlan, bounds: LayoutBounds = LAYOUT_BOUNDS): DrawNode[] {
+  const composed = composePlan(plan, bounds);
+
+  if (composed.regions.length > 0) {
+    throw new Error('draw plan contains a freeform region: fill it with paintRegion');
+  }
+
+  return composed.nodes;
 }
 
 /** Moves a node and its line endpoints. Box children are relative and follow. */

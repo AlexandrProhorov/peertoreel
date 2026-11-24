@@ -879,6 +879,13 @@ function repairList(nodes: readonly unknown[], limitWidth: number): unknown[] {
   return dedupeText(records);
 }
 
+export const drawNodesSchema = z.array(drawNodeSchema).min(1).max(40);
+
+/** Repairs a raw answer without re-composing it: used by painted regions. */
+export function normalizeDrawNodes(value: unknown): unknown {
+  return Array.isArray(value) ? value.map(normalizeNode) : value;
+}
+
 export const drawSceneNodesSchema = z.preprocess((value) => {
   if (!Array.isArray(value)) {
     return value;
@@ -890,4 +897,4 @@ export const drawSceneNodesSchema = z.preprocess((value) => {
   spaceDividers(repaired.filter(isRecord));
 
   return repaired;
-}, z.array(drawNodeSchema).min(1).max(40));
+}, drawNodesSchema);

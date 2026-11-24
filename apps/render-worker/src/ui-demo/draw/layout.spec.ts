@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest';
-import { layoutPlan } from './layout.js';
+import { composePlan, layoutPlan } from './layout.js';
 import { drawPlanSchema, type DrawPlan } from './plan.js';
 import { drawSceneNodesSchema } from './schema.js';
 import { measureText } from './text-metrics.js';
@@ -197,6 +197,47 @@ describe('draw layout: panels and visual roles', () => {
         return record['kind'] !== 'box' || record['fill'] === undefined;
       }),
     ).toBe(true);
+  });
+});
+
+describe('draw layout: freeform', () => {
+  const freeformPlan = plan({
+    composition: 'stack',
+    surface: 'none',
+    blocks: [
+      { role: 'header', title: 'Скидка скрывает рост' },
+      { role: 'freeform', intent: 'две карточки под углом', height: 0.4 },
+      { role: 'footer', text: 'цена та же' },
+    ],
+  });
+
+  it('reserves a band between the blocks', () => {
+    const composed = composePlan(freeformPlan);
+    const [band] = composed.regions;
+
+    expect(composed.regions).toHaveLength(1);
+    expect(band?.bounds.left).toBe(72);
+    expect(band?.bounds.right).toBe(1008);
+    expect(band?.bounds.top).toBeGreaterThan(80);
+    expect((band?.bounds.bottom ?? 0) - (band?.bounds.top ?? 0)).toBe(
+      Math.round((1620 - 80) * 0.4),
+    );
+  });
+
+  it('refuses to lay out a freeform plan without a painter', () => {
+    expect(() => layoutPlan(freeformPlan)).toThrow(/freeform/u);
+  });
+
+  it('refuses a freeform band inside a card surface', () => {
+    expect(() =>
+      layoutPlan(
+        plan({
+          composition: 'stack',
+          surface: 'card',
+          blocks: [{ role: 'freeform', intent: 'что-то', height: 0.3 }],
+        }),
+      ),
+    ).toThrow(/surface none/u);
   });
 });
 
