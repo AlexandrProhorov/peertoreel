@@ -133,35 +133,55 @@ function normalizeChildSpace(nodes: readonly MutNode[]): void {
   }
 }
 
-/** A text keeps its measured line: width grows, token drops only as a fallback. */
-function fitTexts(nodes: readonly MutNode[], frameWidth: number, fixes: string[], issues: ValidationIssue[]): void {
+/** Theme tones a frame may use. Hex colours are not part of the language. */
+const THEME_TONES = new Set([
+  'background',
+  'surface',
+  'ink',
+  'muted',
+  'accent',
+  'transparent',
+]);
+
+function isThemeTone(value: string): boolean {
+  return THEME_TONES.has(value);
+}
+
+/** A text keeps the author's width and wraps; only an unbreakable word drops a token. */
+function fitTextWidths(
+  nodes: readonly MutNode[],
+  parentWidth: number,
+  fixes: string[],
+  issues: ValidationIssue[],
+): void {
   for (const node of nodes) {
     if (node.kind === 'text') {
-      const measured = measureText(node.text, TYPE_SCALE[tokenOf(node)].fontSize);
+      const room = parentWidth - node.x;
 
-      if (measured <= node.w) {
-        continue;
+      if (room > 40 && node.w > room) {
+        node.w = Math.floor(room);
+        fixes.push(`text-clamped:${node.text.slice(0, 24)}`);
       }
 
-      if (measured <= frameWidth) {
-        node.w = Math.ceil(measured);
-        fixes.push(`text-widened:${node.text.slice(0, 24)}`);
-        continue;
+      const longest = node.text
+        .split(/\s+/u)
+        .reduce((worst, word) => (measureText(word, TYPE_SCALE[tokenOf(node)].fontSize) > measureText(worst, TYPE_SCALE[tokenOf(node)].fontSize) ? word : worst), '');
+
+      if (longest !== '' && measureText(longest, TYPE_SCALE[tokenOf(node)].fontSize) > node.w) {
+        const fitted = fitToken(longest, node.w, tokenOf(node));
+
+        if (fitted !== tokenOf(node)) {
+          node.token = fitted;
+          fixes.push(`text-token:${longest.slice(0, 12)}:${fitted}`);
+        } else {
+          issues.push({
+            code: 'text-overflow',
+            path: `/${node.text.slice(0, 24)}`,
+            message: `слово «${longest.slice(0, 16)}» не влезает даже минимальным кеглем`,
+          });
+        }
       }
 
-      const fitted = fitToken(node.text, frameWidth, tokenOf(node));
-
-      if (fitted !== tokenOf(node)) {
-        node.token = fitted;
-        fixes.push(`text-token:${node.text.slice(0, 24)}:${fitted}`);
-        continue;
-      }
-
-      issues.push({
-        code: 'text-overflow',
-        path: `/${node.text.slice(0, 24)}`,
-        message: `«${node.text.slice(0, 24)}» шире кадра даже минимальным кеглем`,
-      });
       continue;
     }
 
@@ -172,8 +192,148 @@ function fitTexts(nodes: readonly MutNode[], frameWidth: number, fixes: string[]
     const children = boxChildren(node);
 
     if (children !== null) {
-      fitTexts(children, frameWidth, fixes, issues);
+      fitTextWidths(children, node.w, fixes, issues);
     }
+  }
+}
+
+/** An icon inside a circle shrinks to fit the circle with a 16 px margin. */
+function fitIconsInCircles(nodes: readonly MutNode[], fixes: string[]): void {
+  for (const node of nodes) {
+    if (node.kind !== 'box') {
+      continue;
+    }
+
+    const children = boxChildren(node);
+
+    if (children === null) {
+      continue;
+    }
+
+    const circle = node.r !== undefined && node.r >= Math.min(node.w, node.h) / 2 - 1;
+
+    for (const child of children) {
+      if (circle && child.kind === 'icon') {
+        const limit = Math.min(node.w, node.h) - 16;
+
+        if (child.size > limit) {
+          child.size = Math.floor(limit);
+          fixes.push('icon-in-circle');
+        }
+      }
+    }
+
+    fitIconsInCircles(children, fixes);
+  }
+}
+
+/** Colours are theme tones; a hex or an unknown name falls back to the tone. */
+function enforcePalette(nodes: readonly MutNode[], fixes: string[]): void {
+  for (const node of nodes) {
+    if (node.kind === 'text') {
+      if (node.color !== undefined && !isThemeTone(node.color)) {
+        node.color = 'ink';
+        fixes.push('palette:text');
+      }
+
+      if (node.token !== undefined && !(node.token in TYPE_SCALE)) {
+        node.token = 'body';
+        fixes.push('token:body');
+      }
+    }
+
+    if (node.kind === 'box') {
+      if (node.fill !== undefined && !isThemeTone(node.fill)) {
+        node.fill = 'surface';
+        fixes.push('palette:fill');
+      }
+
+      if (node.stroke !== undefined && !isThemeTone(node.stroke)) {
+        node.stroke = 'muted';
+        fixes.push('palette:stroke');
+      }
+    }
+
+    if (node.kind === 'line' && node.color !== undefined && !isThemeTone(node.color)) {
+      node.color = 'muted';
+      fixes.push('palette:line');
+    }
+
+    const children = node.kind === 'box' ? boxChildren(node) : null;
+
+    if (children !== null) {
+      enforcePalette(children, fixes);
+    }
+  }
+}
+
+/** An avatar that collides with a surface is painted after it, not under it. */
+function raiseAvatars(icons: MutIcon[], nodes: MutNode[], fixes: string[]): void {
+  for (const icon of icons) {
+    const index = nodes.indexOf(icon);
+    const surface = nodes.find(
+      (node, other) =>
+        node.kind === 'box' &&
+        other > index &&
+        icon.x < node.x + node.w &&
+        node.x < icon.x + icon.size &&
+        icon.y < node.y + node.h &&
+        node.y < icon.y + icon.size,
+    );
+
+    if (surface === undefined) {
+      continue;
+    }
+
+    nodes.splice(index, 1);
+    nodes.push(icon);
+    fixes.push('z-order:avatar');
+  }
+}
+
+/** A frame gathered in one corner is not a composition: ask for another one. */
+function checkFilled(nodes: readonly MutNode[], bounds: Bounds, issues: ValidationIssue[]): void {
+  if (nodes.length < 2) {
+    return;
+  }
+
+  const placed = (nodes.filter((node) => node.kind !== 'line') as unknown as MutPlaced[]).filter(
+    (node) => !(node.kind === 'box' && node.w >= bounds.right - bounds.left),
+  );
+
+  if (placed.length < 2) {
+    return;
+  }
+
+  let left = Number.POSITIVE_INFINITY;
+  let right = 0;
+  let top = Number.POSITIVE_INFINITY;
+  let bottom = 0;
+
+  for (const node of placed) {
+    const size = sizeOf(node as MutPlaced);
+
+    left = Math.min(left, node.x);
+    right = Math.max(right, node.x + size.w);
+    top = Math.min(top, node.y);
+    bottom = Math.max(bottom, node.y + size.h);
+  }
+
+  const frameHeight = bounds.bottom - bounds.top;
+  const frameWidth = bounds.right - bounds.left;
+
+  /* A sparse frame is legal (one bubble in the middle); a pile of many nodes in
+     a corner is not — that is a canvas scale mistake, not a composition. */
+  if (
+    placed.length >= 4 &&
+    right - left < frameWidth * 0.4 &&
+    bottom - top < frameHeight * 0.35
+  ) {
+    issues.push({
+      code: 'off-frame',
+      path: '/',
+      message: `кадр собран в ${String(Math.round(right - left))}×${String(Math.round(bottom - top))} вместо ${String(Math.round(frameWidth))}×${String(Math.round(frameHeight))} — разложи сцену на весь кадр`,
+    });
   }
 }
 
@@ -411,10 +571,18 @@ export function validateDrawNodes(
     });
   }
 
-  fitTexts(nodes, bounds.right - bounds.left, fixes, issues);
+  fitTextWidths(nodes, bounds.right - bounds.left, fixes, issues);
+  fitIconsInCircles(nodes, fixes);
   growContainers(nodes, fixes);
+  enforcePalette(nodes, fixes);
+  raiseAvatars(
+    nodes.filter((node): node is MutIcon => node.kind === 'icon'),
+    nodes,
+    fixes,
+  );
   separate(collectRects(nodes, 0, 0), issues);
   clampFrame(nodes, bounds, issues);
+  checkFilled(nodes, bounds, issues);
 
   return {
     nodes: nodes as unknown as DrawNode[],

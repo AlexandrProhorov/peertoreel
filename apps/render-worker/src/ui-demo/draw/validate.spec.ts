@@ -46,19 +46,62 @@ describe('draw validator: budget', () => {
 });
 
 describe('draw validator: objects', () => {
-  it('widens a text box to its measured line when there is room', () => {
+  it('keeps the author width and wraps instead of stretching the line', () => {
     const result = validateDrawNodes([text({ text: 'Кофейня на углу', w: 60 })], BOUNDS);
 
     expect(result.rejected).toBe(false);
-    expect(Number((result.nodes[0] as { w: number }).w)).toBeGreaterThan(60);
+    expect(Number((result.nodes[0] as { w: number }).w)).toBe(60);
   });
 
-  it('drops the token when there is no room to grow', () => {
-    const node = text({ text: 'Очень длинная строка без места', w: 200, token: 'headline' });
-    const result = validateDrawNodes([node], { ...BOUNDS, right: 272 });
+  it('drops the token for a word that cannot break', () => {
+    const result = validateDrawNodes(
+      [text({ text: 'Суперкалифраджилистик', w: 200, token: 'headline' })],
+      BOUNDS,
+    );
 
     expect(result.rejected).toBe(false);
     expect((result.nodes[0] as { token?: string }).token).not.toBe('headline');
+  });
+
+  it('maps a hex colour back to the theme tone', () => {
+    const result = validateDrawNodes(
+      [{ kind: 'box', x: 72, y: 80, w: 200, h: 100, fill: '#ff0000' }],
+      BOUNDS,
+    );
+
+    expect((result.nodes[0] as { fill?: string }).fill).toBe('surface');
+  });
+
+  it('shrinks an icon that does not fit its circle', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 100,
+          y: 100,
+          w: 300,
+          h: 300,
+          r: 150,
+          children: [{ kind: 'icon', x: 0, y: 0, size: 400, emoji: '✈️' }],
+        },
+      ],
+      BOUNDS,
+    );
+    const icon = (result.nodes[0] as { children?: { size: number }[] }).children?.[0];
+
+    expect(icon?.size).toBeLessThanOrEqual(300 - 16);
+  });
+
+  it('raises an avatar above the surface it collides with', () => {
+    const result = validateDrawNodes(
+      [
+        { kind: 'icon', x: 300, y: 300, size: 96, emoji: '👔' },
+        { kind: 'box', x: 100, y: 100, w: 400, h: 400, fill: 'surface' },
+      ],
+      BOUNDS,
+    );
+
+    expect((result.nodes[1] as { kind: string }).kind).toBe('icon');
   });
 
   it('nudges a small collision down', () => {
