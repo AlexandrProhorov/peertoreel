@@ -104,6 +104,39 @@ describe('draw validator: objects', () => {
     expect((result.nodes[1] as { kind: string }).kind).toBe('icon');
   });
 
+  it('raises a text above the surface written after it', () => {
+    const result = validateDrawNodes(
+      [
+        text({ text: 'какие закономерности', x: 200, y: 300, w: 400 }),
+        { kind: 'box', x: 100, y: 280, w: 500, h: 160, fill: 'surface' },
+      ],
+      BOUNDS,
+    );
+    const kinds = result.nodes.map((node) => (node as { kind: string }).kind);
+
+    expect(kinds).toEqual(['box', 'text']);
+  });
+
+  it('flips the text tone when it matches its surface', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 100,
+          y: 100,
+          w: 400,
+          h: 200,
+          fill: 'ink',
+          children: [text({ text: 'видно?', x: 24, y: 24, w: 300, color: 'ink' })],
+        },
+      ],
+      BOUNDS,
+    );
+    const child = (result.nodes[0] as { children?: { color?: string }[] }).children?.[0];
+
+    expect(child?.color).toBe('surface');
+  });
+
   it('nudges a small collision down', () => {
     const result = validateDrawNodes(
       [

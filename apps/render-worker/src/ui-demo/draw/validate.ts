@@ -291,6 +291,77 @@ function raiseAvatars(icons: MutIcon[], nodes: MutNode[], fixes: string[]): void
   }
 }
 
+/**
+ * A text written before a surface it sits on is covered by it. The painter's
+ * order is the drawing order, so the text moves after the surface.
+ */
+function raiseTexts(nodes: MutNode[], fixes: string[]): void {
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+
+    if (node === undefined || node.kind !== 'text') {
+      continue;
+    }
+
+    const height = textHeight(node);
+    let covered = -1;
+
+    for (let other = index + 1; other < nodes.length; other += 1) {
+      const surface = nodes[other];
+
+      if (
+        surface !== undefined &&
+        surface.kind === 'box' &&
+        node.x < surface.x + surface.w &&
+        surface.x < node.x + node.w &&
+        node.y < surface.y + surface.h &&
+        surface.y < node.y + height
+      ) {
+        covered = other;
+      }
+    }
+
+    if (covered === -1) {
+      continue;
+    }
+
+    nodes.splice(index, 1);
+    nodes.splice(covered, 0, node);
+    fixes.push(`z-order:text:${node.text.slice(0, 16)}`);
+  }
+}
+
+/** A text inside a surface may not use the same tone as the surface. */
+function fixInnerContrast(nodes: readonly MutNode[], fixes: string[]): void {
+  for (const node of nodes) {
+    if (node.kind !== 'box') {
+      continue;
+    }
+
+    const children = boxChildren(node);
+
+    if (children === null) {
+      continue;
+    }
+
+    for (const child of children) {
+      if (child.kind !== 'text') {
+        continue;
+      }
+
+      const fill = node.fill;
+      const color = child.color;
+
+      if (fill !== undefined && (color === fill || (color === undefined && fill === 'ink'))) {
+        child.color = fill === 'ink' ? 'surface' : 'ink';
+        fixes.push(`contrast:${child.text.slice(0, 16)}`);
+      }
+    }
+
+    fixInnerContrast(children, fixes);
+  }
+}
+
 /** A frame gathered in one corner is not a composition: ask for another one. */
 function checkFilled(nodes: readonly MutNode[], bounds: Bounds, issues: ValidationIssue[]): void {
   if (nodes.length < 2) {
@@ -580,6 +651,8 @@ export function validateDrawNodes(
     nodes,
     fixes,
   );
+  raiseTexts(nodes, fixes);
+  fixInnerContrast(nodes, fixes);
   separate(collectRects(nodes, 0, 0), issues);
   clampFrame(nodes, bounds, issues);
   checkFilled(nodes, bounds, issues);

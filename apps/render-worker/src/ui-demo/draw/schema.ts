@@ -110,7 +110,7 @@ const boxSchema: z.ZodType<DrawBox> = z.object({
   strokeWidth: z.number().min(0).max(20).optional(),
   shadow: z.boolean().optional(),
   clip: z.boolean().optional(),
-  children: z.array(z.lazy(() => drawNodeSchema)).max(24).optional(),
+  children: z.array(z.lazy(() => drawNodeSchema)).max(64).optional(),
   opacity: z.number().min(0).max(1).optional(),
   at,
   transition,
@@ -879,7 +879,7 @@ function repairList(nodes: readonly unknown[], limitWidth: number): unknown[] {
   return dedupeText(records);
 }
 
-export const drawNodesSchema = z.array(drawNodeSchema).min(1).max(40);
+export const drawNodesSchema = z.array(drawNodeSchema).min(1).max(120);
 
 /** Repairs a raw answer without re-composing it: used by painted regions. */
 export function normalizeDrawNodes(value: unknown): unknown {
