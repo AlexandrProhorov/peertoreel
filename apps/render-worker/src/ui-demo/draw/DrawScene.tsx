@@ -1,8 +1,8 @@
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
-import { contrast, toneColor } from '../quality.js';
 import { TYPE_SCALE, type TypeToken } from '../typography.js';
 import { textStyle } from '../typography.js';
 import type { UiTheme } from '../themes.js';
+import { drawColor } from './colors.js';
 import { nodeMotion } from './motion.js';
 import type { DrawNode, DrawTransition } from './schema.js';
 
@@ -16,11 +16,7 @@ import type { DrawNode, DrawTransition } from './schema.js';
  */
 
 function colour(theme: UiTheme, value: string | undefined, fallback: string): string {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  return toneColor(theme, value) ?? value;
+  return drawColor(theme, value, fallback);
 }
 
 function tokenOf(value: string | undefined): TypeToken {
@@ -50,7 +46,6 @@ function printOrder(children: readonly DrawNode[]): number[] {
 function Node({
   node,
   theme,
-  bg,
   frame,
   fps,
   durationSec,
@@ -58,7 +53,6 @@ function Node({
 }: {
   node: DrawNode;
   theme: UiTheme;
-  bg: string;
   frame: number;
   fps: number;
   durationSec: number;
@@ -83,7 +77,6 @@ function Node({
   switch (node.kind) {
     case 'box': {
       const fill = node.fill === undefined ? undefined : colour(theme, node.fill, theme.surface);
-      const inner = fill ?? bg;
       const children = node.children ?? [];
       const shown =
         transition === 'print'
@@ -117,7 +110,6 @@ function Node({
                 key={`${String(index)}-${child.kind}`}
                 node={child}
                 theme={theme}
-                bg={inner}
                 frame={frame}
                 fps={fps}
                 durationSec={durationSec}
@@ -129,16 +121,9 @@ function Node({
       );
     }
     case 'text': {
-      const wanted = colour(theme, node.color, theme.ink);
-      /* Text on its own surface must stay readable: a caption in the tone of the
-         card behind it is not styling, it is a hole. */
-      const ratio = contrast(wanted, bg);
-      const readable =
-        ratio !== null && ratio >= 3.2
-          ? wanted
-          : (contrast(theme.ink, bg) ?? 0) >= (contrast(theme.surface, bg) ?? 0)
-            ? theme.ink
-            : theme.surface;
+      /* The validator owns readability: it judges the surface actually painted
+         under the text and records a fix. The renderer only resolves the colour. */
+      const readable = colour(theme, node.color, theme.ink);
       const base = textStyle(tokenOf(node.token), readable);
       const { fontSize, ...rest } = base;
 
@@ -250,7 +235,6 @@ export function DrawScene({
           key={`${String(index)}-${node.kind}`}
           node={node}
           theme={theme}
-          bg={theme.background}
           frame={frame}
           fps={fps}
           durationSec={durationSec}

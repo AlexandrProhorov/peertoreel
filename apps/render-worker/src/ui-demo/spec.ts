@@ -66,7 +66,9 @@ export type UiDevice = z.infer<typeof uiDeviceSchema>;
  */
 export const narrationLineSchema = z
   .object({
-    text: z.string().min(1).max(80),
+    /* Spec scenes split at 80 for subtitle-sized lines; a draw sentence may run
+       to the TTS request limit and still be one planned line. */
+    text: z.string().min(1).max(200),
     startSec: z.number().finite().min(0).max(30),
     endSec: z.number().finite().min(0).max(30),
   })
@@ -249,10 +251,18 @@ export const scaleBreakSceneSchema = z.object({
  * A scene drawn in the four-node language: boxes, text, icons and lines. No
  * object names, so a receipt and a push take the same path.
  */
+export const drawTextBeatSchema = z.object({
+  text: z.string().min(1).max(120),
+  role: z.enum(['setup', 'punchline', 'question', 'number', 'label']),
+  zone: z.enum(['top', 'middle', 'bottom']),
+});
+
 export const drawSceneSchema = z.object({
   ...sceneBaseShape,
   device: z.literal('draw'),
   nodes: drawPaintedNodesSchema,
+  /** The planned text beats: what the viewer reads and where it stands. */
+  textBeats: z.array(drawTextBeatSchema).max(3).optional(),
 });
 
 /**

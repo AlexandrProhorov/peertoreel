@@ -37,7 +37,48 @@ export function measureText(text: string, fontSize: number, margin = MEASURE_MAR
 }
 
 export function estimateLines(text: string, width: number, fontSize: number): number {
-  return Math.max(1, Math.ceil(measureText(text, fontSize) / Math.max(1, width)));
+  const room = Math.max(1, width);
+  const words = text.trim().split(/\s+/u).filter((word) => word !== '');
+
+  if (words.length === 0) {
+    return 1;
+  }
+
+  /* Greedy word wrapping: the flat total-width guess says "one line" for a
+     headline that actually breaks after the first word. Line count drives text
+     height, and text height drives every separation pass. */
+  const space = measureText(' ', fontSize, 1);
+  let lines = 1;
+  let current = 0;
+
+  for (const word of words) {
+    const wordWidth = measureText(word, fontSize);
+
+    if (wordWidth > room) {
+      if (current > 0) {
+        lines += 1;
+        current = 0;
+      }
+
+      lines += Math.ceil(wordWidth / room) - 1;
+      current = wordWidth % room;
+      continue;
+    }
+
+    if (current === 0) {
+      current = wordWidth;
+      continue;
+    }
+
+    if (current + space + wordWidth <= room) {
+      current += space + wordWidth;
+    } else {
+      lines += 1;
+      current = wordWidth;
+    }
+  }
+
+  return lines;
 }
 
 /** One step down the type scale until the line fits; caption is the floor. */
@@ -47,6 +88,11 @@ const DOWNGRADE: Readonly<Record<string, TypeToken>> = {
   card: 'body',
   body: 'caption',
 };
+
+/** One step down the type scale; `caption` is the floor. */
+export function downgradeToken(token: TypeToken): TypeToken {
+  return DOWNGRADE[token] ?? token;
+}
 
 /** The largest token whose rendered line fits `width`, never below caption. */
 export function fitToken(text: string, width: number, token: TypeToken): TypeToken {

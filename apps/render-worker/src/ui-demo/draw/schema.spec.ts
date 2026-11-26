@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawSceneNodesSchema } from './schema.js';
+import { drawPaintedNodesSchema, drawSceneNodesSchema } from './schema.js';
 
 interface TextNode {
   kind: 'text';
@@ -269,3 +269,14 @@ describe('draw node salvage: idempotence', () => {
     expect(twice).toEqual(once);
   });
 });
+
+describe('draw node salvage: numbers', () => {
+  it('keeps a price on one line', () => {
+    const parsed = drawPaintedNodesSchema.parse([
+      text({ text: 'Итого: 2 148 ₽', x: 72, y: 100, w: 600 }),
+    ]) as TextNode[];
+
+    expect(parsed[0]?.text).toBe('Итого: 2\u00A0148\u00A0₽');
+  });
+});
+

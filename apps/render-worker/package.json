@@ -10,6 +10,8 @@
     "render-fixture": "tsx src/cli.ts render-fixture",
     "render-storyboard": "tsx src/cli.ts render-storyboard",
     "ui:demo": "tsx src/ui-demo/cli.ts",
+    "ui:scene": "tsx src/ui-demo/draw/scene-cli.ts",
+    "ui:film-draw": "tsx src/ui-demo/draw/film-cli.ts",
     "ui:lint": "tsx src/ui-demo/lint/cli.ts",
     "ui:motion": "tsx src/ui-demo/motion/cli.ts",
     "ui:variants": "tsx src/ui-demo/variants/build.ts",

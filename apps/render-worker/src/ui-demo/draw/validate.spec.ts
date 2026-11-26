@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { FRAME_BUDGET, validateDrawNodes } from './validate.js';
 import type { DrawNode } from './schema.js';
+import { contrast } from '../quality.js';
+import { themeById } from '../themes.js';
 
 const BOUNDS = { left: 72, top: 80, right: 1008, bottom: 1620 };
+const THEME = themeById('studio-dark');
 
 function text(overrides: Partial<Extract<DrawNode, { kind: 'text' }>> & { text: string }): DrawNode {
   return {
@@ -63,13 +66,38 @@ describe('draw validator: objects', () => {
     expect((result.nodes[0] as { token?: string }).token).not.toBe('headline');
   });
 
-  it('maps a hex colour back to the theme tone', () => {
+  it('keeps the author hex instead of snapping it to a tone', () => {
     const result = validateDrawNodes(
       [{ kind: 'box', x: 72, y: 80, w: 200, h: 100, fill: '#ff0000' }],
       BOUNDS,
+      undefined,
+      THEME,
     );
 
-    expect((result.nodes[0] as { fill?: string }).fill).toBe('surface');
+    expect((result.nodes[0] as { fill?: string }).fill).toBe('#ff0000');
+  });
+
+  it('resolves a role to the surface colour, not to its ink', () => {
+    const result = validateDrawNodes(
+      [{ kind: 'box', x: 72, y: 80, w: 200, h: 100, fill: 'surface' }],
+      BOUNDS,
+      undefined,
+      THEME,
+    );
+
+    expect((result.nodes[0] as { fill?: string }).fill).toBe(THEME.surface);
+  });
+
+  it('replaces an unknown colour name with the default and records it', () => {
+    const result = validateDrawNodes(
+      [text({ text: 'видно', color: 'brandBlue' })],
+      BOUNDS,
+      undefined,
+      THEME,
+    );
+
+    expect((result.nodes[0] as { color?: string }).color).toBe(THEME.ink);
+    expect(result.fixes.some((fix) => fix.startsWith('palette:text'))).toBe(true);
   });
 
   it('shrinks an icon that does not fit its circle', () => {
@@ -117,7 +145,39 @@ describe('draw validator: objects', () => {
     expect(kinds).toEqual(['box', 'text']);
   });
 
-  it('flips the text tone when it matches its surface', () => {
+  it('does not compare texts that live in different containers', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 72,
+          y: 200,
+          w: 400,
+          h: 200,
+          fill: 'surface',
+          children: [text({ text: 'первое', x: 24, y: 24, w: 300 })],
+        },
+        {
+          kind: 'box',
+          x: 508,
+          y: 200,
+          w: 400,
+          h: 200,
+          fill: 'surface',
+          children: [text({ text: 'второе', x: 24, y: 24, w: 300 })],
+        },
+      ],
+      BOUNDS,
+    );
+    const first = (result.nodes[0] as unknown as { children: { y: number }[] }).children[0];
+    const second = (result.nodes[1] as unknown as { children: { y: number }[] }).children[0];
+
+    expect(first?.y).toBe(24);
+    expect(second?.y).toBe(24);
+    expect(result.rejected).toBe(false);
+  });
+
+  it('fixes a text that repeats the surface colour', () => {
     const result = validateDrawNodes(
       [
         {
@@ -126,15 +186,143 @@ describe('draw validator: objects', () => {
           y: 100,
           w: 400,
           h: 200,
-          fill: 'ink',
-          children: [text({ text: 'видно?', x: 24, y: 24, w: 300, color: 'ink' })],
+          fill: '#FFFFFF',
+          children: [text({ text: 'видно?', x: 24, y: 24, w: 300, color: '#FFFFFF' })],
+        },
+      ],
+      BOUNDS,
+      undefined,
+      THEME,
+    );
+    const child = (result.nodes[0] as { children?: { color?: string }[] }).children?.[0];
+    const ratio = contrast(child?.color ?? '', '#FFFFFF') ?? 0;
+
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+    expect(result.fixes.some((fix) => fix.startsWith('contrast:'))).toBe(true);
+  });
+
+  it('judges contrast against a sibling surface painted under the text', () => {
+    const result = validateDrawNodes(
+      [
+        { kind: 'box', x: 100, y: 100, w: 400, h: 200, fill: '#FFFFFF' },
+        text({ text: 'на карточке', x: 140, y: 160, w: 300, color: THEME.ink }),
+      ],
+      BOUNDS,
+      undefined,
+      THEME,
+    );
+    const textNode = result.nodes[1] as { color?: string };
+    const ratio = contrast(textNode.color ?? '', '#FFFFFF') ?? 0;
+
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('counts and separates texts in a card that also holds a divider', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 72,
+          y: 80,
+          w: 400,
+          h: 300,
+          children: [
+            text({ text: 'первая', x: 0, y: 0, w: 300 }),
+            { kind: 'line', x1: 0, y1: 150, x2: 300, y2: 150, width: 2 },
+            text({ text: 'вторая', x: 0, y: 50, w: 300 }),
+          ],
         },
       ],
       BOUNDS,
     );
-    const child = (result.nodes[0] as { children?: { color?: string }[] }).children?.[0];
+    const children = (result.nodes[0] as { children?: { y: number }[] }).children;
 
-    expect(child?.color).toBe('surface');
+    expect(result.words).toBe(2);
+    expect(Number(children?.[2]?.y)).toBeGreaterThan(50);
+  });
+
+  it('lifts a headline that straddles the top edge of a carrier', () => {
+    const result = validateDrawNodes(
+      [
+        { kind: 'box', x: 72, y: 300, w: 500, h: 600, fill: '#111111' },
+        text({ text: 'Заголовок', x: 72, y: 270, w: 400 }),
+      ],
+      BOUNDS,
+    );
+    const headline = result.nodes[1] as { y: number };
+
+    expect(Number(headline?.y)).toBeLessThan(270);
+    expect(result.fixes.some((fix) => fix.startsWith('lifted'))).toBe(true);
+  });
+
+  it('shrinks a text that cannot fit its card instead of growing the card', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 72,
+          y: 80,
+          w: 600,
+          h: 300,
+          children: [
+            text({ text: 'Очень длинная строка заголовка', x: 20, y: 200, w: 560, token: 'display' }),
+          ],
+        },
+      ],
+      BOUNDS,
+    );
+    const child = (result.nodes[0] as { children?: { token?: string }[] }).children?.[0];
+
+    expect(child?.token).not.toBe('display');
+    expect(result.fixes.some((fix) => fix.startsWith('text-shrunk'))).toBe(true);
+  });
+
+  it('lifts a badge that grew onto the card content', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 100,
+          y: 500,
+          w: 800,
+          h: 1000,
+          children: [text({ text: 'Сделай отчёт', x: 40, y: 100, w: 600 })],
+        },
+        {
+          kind: 'box',
+          x: 120,
+          y: 420,
+          w: 600,
+          h: 130,
+          fill: '#E23A2E',
+          children: [text({ text: 'Сэкономил 2 мин', x: 32, y: 36, w: 536, token: 'headline' })],
+        },
+      ],
+      BOUNDS,
+    );
+    const badge = result.nodes[1] as { y: number; h: number };
+
+    expect(Number(badge?.y)).toBeLessThan(420);
+    expect(Number(badge?.y) + Number(badge?.h)).toBeLessThanOrEqual(500 - 12);
+  });
+
+  it('drops clip that would cut a child text', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 100,
+          y: 100,
+          w: 300,
+          h: 200,
+          clip: true,
+          children: [text({ text: 'Строка', x: -20, y: 20, w: 100 })],
+        },
+      ],
+      BOUNDS,
+    );
+
+    expect((result.nodes[0] as { clip?: boolean }).clip).toBe(false);
   });
 
   it('nudges a small collision down', () => {
@@ -152,7 +340,7 @@ describe('draw validator: objects', () => {
     expect(Number(second?.y)).toBeGreaterThan(252);
   });
 
-  it('rejects a collision that needs a redesign', () => {
+  it('pushes a large collision down instead of asking for another frame', () => {
     const result = validateDrawNodes(
       [
         text({ text: 'Первая строка', y: 200, w: 400, token: 'display' }),
@@ -161,8 +349,34 @@ describe('draw validator: objects', () => {
       BOUNDS,
     );
 
-    expect(result.rejected).toBe(true);
-    expect(result.issues.map((issue) => issue.code)).toContain('text-collision');
+    const [, second] = result.nodes as { y: number }[];
+
+    expect(result.rejected).toBe(false);
+    expect(Number(second?.y)).toBeGreaterThan(300);
+    expect(result.fixes.some((fix) => fix.startsWith('text-pushed'))).toBe(true);
+  });
+
+  it('stacks two overlapping cards inside a carrier instead of one row', () => {
+    const result = validateDrawNodes(
+      [
+        {
+          kind: 'box',
+          x: 72,
+          y: 200,
+          w: 500,
+          h: 900,
+          children: [
+            { kind: 'box', x: 0, y: 0, w: 400, h: 300, fill: '#111111' },
+            { kind: 'box', x: 20, y: 60, w: 400, h: 300, fill: '#222222' },
+          ],
+        },
+      ],
+      BOUNDS,
+    );
+    const children = (result.nodes[0] as { children?: { y: number }[] }).children;
+
+    expect(result.rejected).toBe(false);
+    expect(Number(children?.[1]?.y)).toBeGreaterThanOrEqual(316);
   });
 
   it('clamps a node that left the frame', () => {

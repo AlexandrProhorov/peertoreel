@@ -83,7 +83,9 @@ export function tickText(text: string, progress: number): string {
 export function nodeMotion(input: MotionInput): MotionState {
   const { transition, at, frame, fps, durationSec, text, childCount = 0 } = input;
   const windowSec = motionWindow(durationSec);
-  const start = Math.min(Math.max(at, 0), windowSec);
+  /* Authored beats assemble in the first 45 %; a text that backs a spoken line
+     may start later, so its clamp is the scene tail, not the window. */
+  const start = Math.min(Math.max(at, 0), Math.max(0.4, durationSec - 0.3));
   const local = frame / fps - start;
   const full: MotionState = { opacity: 1, offsetY: 0, text: text ?? '', drawn: 1, childCount };
 
@@ -119,7 +121,9 @@ export function nodeMotion(input: MotionInput): MotionState {
 
     case 'type': {
       const source = text ?? '';
-      const room = Math.max(0.15, windowSec - start);
+      /* A narration line types over the remaining tail, not over the assembly
+         window: a line that starts at 4 s still types instead of snapping. */
+      const room = Math.max(0.15, durationSec - 0.25 - start);
       const duration = Math.min(room, Math.max(0.15, source.length / TYPE_CHARS_PER_SEC));
       const chars = Math.round(source.length * clamp01(local / duration));
 

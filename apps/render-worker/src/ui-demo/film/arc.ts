@@ -38,6 +38,8 @@ export const arcSceneSchema = z.object({
     }),
   seconds: z.number().min(1).max(12),
   theme: z.enum(['studio-dark', 'studio-light', 'studio-lime']),
+  /** What kind of frame this beat wants; absent means a carrier scene. */
+  beat: z.enum(['moment', 'question', 'number']).optional(),
 });
 
 /** Default film length; a longer film is requested explicitly. */
@@ -130,8 +132,8 @@ export function buildArcPrompt(
       ? { seconds: ARC_DEFAULT_WINDOW, scenes: { min: 3, max: 5 } }
       : arcPlanFor(options.seconds);
   const skeleton = withAction
-    ? '{ "id": "hook", "role": "<роль>", "action": "<визуальное действие>", "intent": "<что зритель поймёт>", "narration": "<что произносит голос>", "seconds": <число>, "theme": "<тема>" }'
-    : '{ "id": "hook", "role": "<роль>", "intent": "<что зритель поймёт>", "narration": "<что произносит голос>", "seconds": <число>, "theme": "<тема>" }';
+    ? '{ "id": "hook", "role": "<роль>", "beat": "moment|question|number", "action": "<визуальное действие>", "intent": "<что зритель поймёт>", "narration": "<что произносит голос>", "seconds": <число>, "theme": "<тема>" }'
+    : '{ "id": "hook", "role": "<роль>", "beat": "moment|question|number", "intent": "<что зритель поймёт>", "narration": "<что произносит голос>", "seconds": <число>, "theme": "<тема>" }';
 
   return [
     `Тема: ${topic}`,
@@ -154,6 +156,9 @@ export function buildArcPrompt(
     `- сумма seconds по всем сценам — от ${plan.seconds.min} до ${plan.seconds.max}; посчитай её перед ответом;`,
     '- durations — твой выбор: крючок короткий, доказательство и поворот длинные;',
     '- id латиницей, до 12 символов, уникальные;',
+    '- beat — одно из: moment, question, number. moment — ситуация через носитель; question — вопрос или утверждение в зал; number — одно число-герой. Не больше двух moment подряд; первый кадр — question, последний — question или number;',
+    '- если beat = question, narration — вопрос со знаком вопроса;',
+    '- если beat = number, в narration обязательна цифра (например, 299 ₽), не словами;',
     `- theme — одна из: ${themes};`,
     '- intent — одна фраза, без описания картинки;',
     '- narration — речь голоса, её произнесут вслух за эту сцену;',

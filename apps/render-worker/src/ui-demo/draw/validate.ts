@@ -1,5 +1,7 @@
 import type { DrawBox, DrawIcon, DrawLine, DrawNode, DrawText } from './schema.js';
-import { estimateLines, fitToken, measureText } from './text-metrics.js';
+import { downgradeToken, estimateLines, fitToken, measureText } from './text-metrics.js';
+import { pickReadable, resolveDrawColor } from './colors.js';
+import type { UiTheme } from '../themes.js';
 import { TYPE_SCALE, type TypeToken } from '../typography.js';
 
 /**
@@ -86,9 +88,11 @@ function boxChildren(node: MutNode): MutPlaced[] | null {
     return null;
   }
 
-  const children = node.children as unknown as MutNode[];
-
-  return children.some((child) => child.kind === 'line') ? null : (children as MutPlaced[]);
+  /* A divider inside a card must not hide the card's texts from the passes: a
+     line is not a placed sibling, it is decoration between them. */
+  return (node.children as unknown as MutNode[]).filter(
+    (child): child is MutPlaced => child.kind !== 'line',
+  );
 }
 
 /**
@@ -131,20 +135,6 @@ function normalizeChildSpace(nodes: readonly MutNode[]): void {
       child.y -= node.y;
     }
   }
-}
-
-/** Theme tones a frame may use. Hex colours are not part of the language. */
-const THEME_TONES = new Set([
-  'background',
-  'surface',
-  'ink',
-  'muted',
-  'accent',
-  'transparent',
-]);
-
-function isThemeTone(value: string): boolean {
-  return THEME_TONES.has(value);
 }
 
 /** A text keeps the author's width and wraps; only an unbreakable word drops a token. */
@@ -227,42 +217,145 @@ function fitIconsInCircles(nodes: readonly MutNode[], fixes: string[]): void {
   }
 }
 
-/** Colours are theme tones; a hex or an unknown name falls back to the tone. */
-function enforcePalette(nodes: readonly MutNode[], fixes: string[]): void {
-  for (const node of nodes) {
+/** Colours are theme roles or the author's own hex; a typo takes the default. */
+function normalizeColors(
+  nodes: MutNode[],
+  theme: UiTheme,
+  background: string,
+  fixes: string[],
+): void {
+  for (const [index, node] of nodes.entries()) {
     if (node.kind === 'text') {
-      if (node.color !== undefined && !isThemeTone(node.color)) {
-        node.color = 'ink';
-        fixes.push('palette:text');
+      const token = tokenOf(node);
+      const wanted =
+        node.color === undefined
+          ? theme.ink
+          : (resolveDrawColor(theme, node.color) ?? theme.ink);
+
+      if (node.color !== undefined && resolveDrawColor(theme, node.color) === null) {
+        fixes.push(`palette:text:${node.color}`);
       }
 
       if (node.token !== undefined && !(node.token in TYPE_SCALE)) {
         node.token = 'body';
         fixes.push('token:body');
       }
+
+      const readable = pickReadable(
+        theme,
+        effectiveBackdrop(nodes, index, background),
+        wanted,
+        token,
+      );
+
+      if (readable !== wanted) {
+        fixes.push(`contrast:${node.text.slice(0, 16)}`);
+      }
+
+      node.color = readable;
+      continue;
     }
 
     if (node.kind === 'box') {
-      if (node.fill !== undefined && !isThemeTone(node.fill)) {
-        node.fill = 'surface';
-        fixes.push('palette:fill');
+      const fill = node.fill === undefined ? undefined : resolveDrawColor(theme, node.fill);
+
+      if (node.fill !== undefined && fill === null) {
+        fixes.push(`palette:fill:${node.fill}`);
       }
 
-      if (node.stroke !== undefined && !isThemeTone(node.stroke)) {
-        node.stroke = 'muted';
-        fixes.push('palette:stroke');
+      node.fill = fill ?? (node.fill === undefined ? undefined : 'transparent');
+
+      if (node.stroke !== undefined) {
+        const stroke = resolveDrawColor(theme, node.stroke);
+
+        if (stroke === null) {
+          fixes.push(`palette:stroke:${node.stroke}`);
+        }
+
+        node.stroke = stroke ?? theme.muted;
       }
+
+      const inner =
+        node.fill !== undefined && node.fill !== 'transparent' ? node.fill : background;
+
+      if (node.children !== undefined) {
+        normalizeColors(node.children as unknown as MutNode[], theme, inner, fixes);
+      }
+
+      continue;
     }
 
-    if (node.kind === 'line' && node.color !== undefined && !isThemeTone(node.color)) {
-      node.color = 'muted';
-      fixes.push('palette:line');
+    if (node.kind === 'line' && node.color !== undefined) {
+      const colour = resolveDrawColor(theme, node.color);
+
+      if (colour === null) {
+        fixes.push(`palette:line:${node.color}`);
+      }
+
+      node.color = colour ?? theme.muted;
+    }
+  }
+}
+
+/**
+ * The colour actually painted under a text: the last sibling surface that
+ * covers its centre, or the parent's fill. Rotation is ignored — a tilted card
+ * still counts as its rectangle, which is why contrast is a repair and not a
+ * frame gate.
+ */
+function effectiveBackdrop(
+  nodes: readonly MutNode[],
+  index: number,
+  background: string,
+): string {
+  const text = nodes[index];
+
+  if (text === undefined || text.kind !== 'text') {
+    return background;
+  }
+
+  const height = textHeight(text);
+  const centreX = text.x + text.w / 2;
+  const centreY = text.y + height / 2;
+  let backdrop = background;
+
+  for (let other = 0; other < index; other += 1) {
+    const surface = nodes[other];
+
+    if (
+      surface === undefined ||
+      surface.kind !== 'box' ||
+      surface.fill === undefined ||
+      surface.fill === 'transparent'
+    ) {
+      continue;
     }
 
-    const children = node.kind === 'box' ? boxChildren(node) : null;
+    if (
+      centreX >= surface.x &&
+      centreX <= surface.x + surface.w &&
+      centreY >= surface.y &&
+      centreY <= surface.y + surface.h
+    ) {
+      backdrop = surface.fill;
+    }
+  }
 
-    if (children !== null) {
-      enforcePalette(children, fixes);
+  return backdrop;
+}
+
+/** Paints avatars and texts after the surfaces they land on, at every depth. */
+function raiseZs(nodes: MutNode[], fixes: string[]): void {
+  raiseAvatars(
+    nodes.filter((node): node is MutIcon => node.kind === 'icon'),
+    nodes,
+    fixes,
+  );
+  raiseTexts(nodes, fixes);
+
+  for (const node of nodes) {
+    if (node.kind === 'box' && node.children !== undefined) {
+      raiseZs(node.children as unknown as MutNode[], fixes);
     }
   }
 }
@@ -331,36 +424,6 @@ function raiseTexts(nodes: MutNode[], fixes: string[]): void {
   }
 }
 
-/** A text inside a surface may not use the same tone as the surface. */
-function fixInnerContrast(nodes: readonly MutNode[], fixes: string[]): void {
-  for (const node of nodes) {
-    if (node.kind !== 'box') {
-      continue;
-    }
-
-    const children = boxChildren(node);
-
-    if (children === null) {
-      continue;
-    }
-
-    for (const child of children) {
-      if (child.kind !== 'text') {
-        continue;
-      }
-
-      const fill = node.fill;
-      const color = child.color;
-
-      if (fill !== undefined && (color === fill || (color === undefined && fill === 'ink'))) {
-        child.color = fill === 'ink' ? 'surface' : 'ink';
-        fixes.push(`contrast:${child.text.slice(0, 16)}`);
-      }
-    }
-
-    fixInnerContrast(children, fixes);
-  }
-}
 
 /** A frame gathered in one corner is not a composition: ask for another one. */
 function checkFilled(nodes: readonly MutNode[], bounds: Bounds, issues: ValidationIssue[]): void {
@@ -461,47 +524,25 @@ interface Rect {
   readonly h: number;
 }
 
-function collectRects(
-  nodes: readonly MutNode[],
-  offsetX: number,
-  offsetY: number,
-  rects: Rect[] = [],
-): Rect[] {
-  for (const node of nodes) {
-    if (node.kind === 'text') {
-      rects.push({
-        node,
-        x: node.x + offsetX,
-        y: node.y + offsetY,
-        w: node.w,
-        h: textHeight(node),
-      });
-      continue;
-    }
-
-    if (node.kind !== 'box' || node.children === undefined) {
-      continue;
-    }
-
-    const children = boxChildren(node);
-
-    if (children !== null) {
-      collectRects(children, offsetX + node.x, offsetY + node.y, rects);
-    }
-  }
-
-  return rects;
-}
-
 function collide(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
 /**
- * Texts may not sit on each other. A small overlap is a nudge down; a big one
- * means the composition itself is wrong and the frame goes back to the model.
+ * Texts may not sit on each other **inside one parent**. A small overlap is a
+ * nudge down; a big one means the composition itself is wrong. Different
+ * containers are the model's composition and are never compared: a bubble does
+ * not collide with a bubble by our judgement.
  */
-function separate(rects: readonly Rect[], issues: ValidationIssue[]): void {
+function separateSiblings(nodes: readonly MutNode[], fixes: string[]): void {
+  const rects: Rect[] = [];
+
+  for (const node of nodes) {
+    if (node.kind === 'text') {
+      rects.push({ node, x: node.x, y: node.y, w: node.w, h: textHeight(node) });
+    }
+  }
+
   const sorted = [...rects].sort((left, right) => left.y - right.y);
 
   for (let index = 0; index < sorted.length; index += 1) {
@@ -524,18 +565,259 @@ function separate(rects: readonly Rect[], issues: ValidationIssue[]): void {
         continue;
       }
 
-      if (shift > NUDGE_PX) {
-        issues.push({
-          code: 'text-collision',
-          path: `/${next.node.text.slice(0, 24)}`,
-          message: `«${next.node.text.slice(0, 24)}» наезжает на «${current.node.text.slice(0, 24)}» на ${String(shift)} px — нужна другая композиция`,
-        });
+      /* Two texts in one column never share a line: the later one moves down.
+         The movement is a repair, not a reason to redraw — the composition is
+         the author's, the spacing is ours. */
+      next.node.y = Math.round(next.y + shift);
+      next.y = next.node.y;
+      fixes.push(`text-pushed:${next.node.text.slice(0, 16)}`);
+    }
+  }
+
+  for (const node of nodes) {
+    if (node.kind !== 'box') {
+      continue;
+    }
+
+    const children = boxChildren(node);
+
+    if (children !== null) {
+      separateSiblings(children, fixes);
+    }
+  }
+}
+
+/** Minimum gap between two stacked neighbours that share a column. */
+const STACK_GAP = 16;
+
+/** Width and height of a placed node, for the stacking pass. */
+function spanOf(node: MutNode): { x: number; w: number; y: number; h: number } | null {
+  if (node.kind === 'line') {
+    return null;
+  }
+
+  const x = node.x;
+  const y = node.y;
+
+  if (node.kind === 'text') {
+    return { x, y, w: node.w, h: textHeight(node) };
+  }
+
+  if (node.kind === 'icon') {
+    return { x, y, w: node.size, h: node.size };
+  }
+
+  return { x, y, w: node.w, h: node.h };
+}
+
+/**
+ * Two neighbours in one column may not share a row. The later one moves down
+ * until it clears the earlier one; a box moves as a whole, so its children
+ * follow. Columns that do not overlap are left alone.
+ */
+function stackSiblings(nodes: MutNode[], fixes: string[]): void {
+  const items = nodes
+    .map((node) => ({ node, span: spanOf(node) }))
+    .filter(
+      (item): item is { node: MutNode; span: { x: number; w: number; y: number; h: number } } =>
+        /* Texts are separated by their own pass; a text on a band or a card is a
+           caption, not a stack item. Stacking whole surfaces only. */
+        item.span !== null && item.span.h > 0 && item.node.kind !== 'text',
+    )
+    .sort((left, right) => left.span.y - right.span.y);
+
+  const placed: { x: number; w: number; bottom: number }[] = [];
+
+  for (const item of items) {
+    let y = item.span.y;
+    let moved = true;
+
+    while (moved) {
+      moved = false;
+
+      for (const other of placed) {
+        if (item.span.x >= other.x + other.w || other.x >= item.span.x + item.span.w) {
+          continue;
+        }
+
+        if (y >= other.bottom + STACK_GAP) {
+          continue;
+        }
+
+        y = other.bottom + STACK_GAP;
+        moved = true;
+      }
+    }
+
+    if (y !== item.span.y && item.node.kind !== 'line') {
+      item.node.y = Math.round(y);
+      fixes.push(`stacked:${item.node.kind}`);
+    }
+
+    placed.push({ x: item.span.x, w: item.span.w, bottom: y + item.span.h });
+  }
+}
+
+/** Gap a lifted headline keeps from the carrier it no longer touches. */
+const EDGE_GAP = 12;
+
+/**
+ * A headline whose bottom pokes into the carrier by less than half its height is
+ * not "a title on the card": it is a title that missed the edge. It moves above
+ * the carrier, so the picture reads as a framed composition. A text that sits on
+ * the card fully is the author's overlay and stays.
+ */
+function liftStraddlingTexts(nodes: MutNode[], fixes: string[]): void {
+  for (const text of nodes) {
+    if (text.kind !== 'text') {
+      continue;
+    }
+
+    const height = textHeight(text);
+    const bottom = text.y + height;
+
+    for (const box of nodes) {
+      if (box.kind !== 'box' || text.y >= box.y) {
         continue;
       }
 
-      next.node.y = Math.round(next.y + shift);
-      next.y = next.node.y;
+      if (text.x >= box.x + box.w || box.x >= text.x + text.w) {
+        continue;
+      }
+
+      const overlap = Math.min(bottom, box.y + box.h) - box.y;
+
+      if (overlap <= 0 || overlap >= height / 2) {
+        continue;
+      }
+
+      text.y = Math.round(box.y - height - EDGE_GAP);
+      fixes.push(`lifted:${text.text.slice(0, 16)}`);
+      break;
     }
+  }
+}
+
+/**
+ * A text that cannot fit its declared container takes a smaller type token
+ * instead of growing the container into its neighbour. The picture keeps every
+ * word; the card keeps the size the author gave it.
+ */
+function fitTextHeights(nodes: MutNode[], fixes: string[]): void {
+  for (const node of nodes) {
+    if (node.kind !== 'box' || node.children === undefined) {
+      continue;
+    }
+
+    for (const child of node.children as unknown as MutNode[]) {
+      if (child.kind !== 'text') {
+        continue;
+      }
+
+      const available = node.h - child.y;
+
+      if (available <= 0) {
+        continue;
+      }
+
+      let guard = 0;
+
+      while (textHeight(child) > available && guard < 8) {
+        const next = downgradeToken(tokenOf(child));
+
+        if (next === tokenOf(child)) {
+          break;
+        }
+
+        child.token = next;
+        fixes.push(`text-shrunk:${child.text.slice(0, 16)}`);
+        guard += 1;
+      }
+    }
+  }
+}
+
+/**
+ * A badge that grew downward and now sits on the card's content is lifted above
+ * the card: the author meant it as an overlay on the edge, not as a lid.
+ */
+function liftBadges(nodes: MutNode[], fixes: string[]): void {
+  for (const small of nodes) {
+    if (small.kind !== 'box') {
+      continue;
+    }
+
+    for (const big of nodes) {
+      if (big === small || big.kind !== 'box' || small.y >= big.y) {
+        continue;
+      }
+
+      if (small.x >= big.x + big.w || big.x >= small.x + small.w) {
+        continue;
+      }
+
+      if (small.y + small.h - big.y <= 0) {
+        continue;
+      }
+
+      if (small.w * small.h > big.w * big.h * 0.35) {
+        continue;
+      }
+
+      small.y = Math.round(big.y - small.h - EDGE_GAP);
+      fixes.push('badge-lifted');
+      break;
+    }
+  }
+}
+
+/** Clip must not cut a text: a box that still cuts its child loses the clip. */
+function unclipTexts(nodes: MutNode[], fixes: string[]): void {
+  for (const node of nodes) {
+    if (node.kind !== 'box' || node.clip !== true || node.children === undefined) {
+      continue;
+    }
+
+    const cuts = (node.children as unknown as MutNode[]).some((child) => {
+      const span = spanOf(child);
+
+      return (
+        span !== null &&
+        (span.x < 0 || span.y < 0 || span.x + span.w > node.w + 1 || span.y + span.h > node.h + 1)
+      );
+    });
+
+    if (cuts) {
+      node.clip = false;
+      fixes.push('unclipped');
+    }
+  }
+}
+
+/**
+ * Bottom-up layout: texts separate inside every container, containers grow to
+ * hold them, then the grown siblings stack so a repaired card does not run into
+ * the next one.
+ */
+function layoutPass(nodes: MutNode[], fixes: string[], depth = 0): void {
+  for (const node of nodes) {
+    if (node.kind === 'box' && node.children !== undefined) {
+      layoutPass(node.children as unknown as MutNode[], fixes, depth + 1);
+    }
+  }
+
+  liftStraddlingTexts(nodes, fixes);
+  separateSiblings(nodes, fixes);
+  fitTextHeights(nodes, fixes);
+  growContainers(nodes, fixes);
+  unclipTexts(nodes, fixes);
+  liftBadges(nodes, fixes);
+
+  /* Inside a carrier the parts are a flow and must not share a row. At the top
+     level the model may deliberately lay a title over a card: that is its
+     composition, not a collision. */
+  if (depth > 0) {
+    stackSiblings(nodes, fixes);
   }
 }
 
@@ -617,6 +899,7 @@ export function validateDrawNodes(
   input: readonly DrawNode[],
   bounds: Bounds,
   budget: FrameBudget = UNCAPPED,
+  theme?: UiTheme,
 ): ValidationResult {
   const nodes = structuredClone(input) as unknown as MutNode[];
   const fixes: string[] = [];
@@ -644,16 +927,15 @@ export function validateDrawNodes(
 
   fitTextWidths(nodes, bounds.right - bounds.left, fixes, issues);
   fitIconsInCircles(nodes, fixes);
-  growContainers(nodes, fixes);
-  enforcePalette(nodes, fixes);
-  raiseAvatars(
-    nodes.filter((node): node is MutIcon => node.kind === 'icon'),
-    nodes,
-    fixes,
-  );
-  raiseTexts(nodes, fixes);
-  fixInnerContrast(nodes, fixes);
-  separate(collectRects(nodes, 0, 0), issues);
+  raiseZs(nodes, fixes);
+  layoutPass(nodes, fixes);
+
+  /* Colours need the theme: a role is a name until it is resolved, and contrast
+     is judged on the surface that is actually painted under the text. */
+  if (theme !== undefined) {
+    normalizeColors(nodes, theme, theme.background, fixes);
+  }
+
   clampFrame(nodes, bounds, issues);
   checkFilled(nodes, bounds, issues);
 

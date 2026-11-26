@@ -25,11 +25,9 @@ describe('draw motion: window', () => {
     expect(motionWindow(1)).toBeCloseTo(0.45);
   });
 
-  it('a node written after the window still starts inside it', () => {
-    const early = motion('appear', 30, { at: 3 });
-
-    expect(early.opacity).toBe(0);
-    expect(motion('appear', 72, { at: 3 }).opacity).toBe(1);
+  it('a narrated node may start after the assembly window', () => {
+    expect(motion('appear', 72, { at: 3 }).opacity).toBe(0);
+    expect(motion('appear', 102, { at: 3 }).opacity).toBe(1);
   });
 });
 

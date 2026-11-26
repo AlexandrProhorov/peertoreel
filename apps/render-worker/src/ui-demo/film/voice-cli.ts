@@ -16,11 +16,13 @@ import {
   type UiScene,
 } from '../spec.js';
 import { alignSceneToLines } from './scene-lines.js';
+import { alignDrawToLines, alignTextBeats } from '../draw/align.js';
 import {
   estimateWords,
   placeLines,
   splitNarrationLines,
   wordsFromAlignment,
+  MAX_LINE_CHARS,
   type LineCue,
   type SpokenWord,
 } from './voice.js';
@@ -310,7 +312,10 @@ async function main(): Promise<void> {
       throw new Error(`scene ${index + 1} has no narration: run the arc with narration first`);
     }
 
-    const lines = splitNarrationLines(narration);
+    const lines = splitNarrationLines(
+      narration,
+      scene.device === 'draw' ? 200 : MAX_LINE_CHARS,
+    );
 
     if (lines.length === 0) {
       throw new Error(`scene ${index + 1} has empty narration`);
@@ -409,22 +414,38 @@ async function main(): Promise<void> {
     };
     /* The scene's text elements are the script: put the measured line in each
        one and show it exactly when the line is spoken. */
-    const alignment =
-      voicedScene.device === 'spec'
-        ? alignSceneToLines(voicedScene, placement.cues, lineWordsByIdx, {
-            /* A fallback keeps its one label: it cannot carry every line. */
-            requireAll: voicedScene.fallback === undefined,
-          })
-        : null;
+    let finalScene: UiScene = voicedScene;
 
-    if (alignment !== null && !alignment.aligned) {
-      console.warn(
-        `scene ${index + 1}: the design has ${alignment.reasons.join('; ')} — ` +
-          'the text stays as the model wrote it',
-      );
+    if (voicedScene.device === 'spec') {
+      const alignment = alignSceneToLines(voicedScene, placement.cues, lineWordsByIdx, {
+        /* A fallback keeps its one label: it cannot carry every line. */
+        requireAll: voicedScene.fallback === undefined,
+      });
+
+      if (!alignment.aligned) {
+        console.warn(
+          `scene ${index + 1}: the design has ${alignment.reasons.join('; ')} — ` +
+            'the text stays as the model wrote it',
+        );
+      }
+
+      finalScene = alignment.aligned ? alignment.scene : voicedScene;
+    } else if (voicedScene.device === 'draw') {
+      const alignment =
+        voicedScene.textBeats === undefined
+          ? alignDrawToLines(voicedScene, placement.cues, lineWordsByIdx)
+          : alignTextBeats(voicedScene, words);
+
+      if (!alignment.aligned) {
+        console.warn(
+          `scene ${index + 1}: ${alignment.reasons.join('; ')} — ` +
+            'the text keeps its authored beat',
+        );
+      }
+
+      finalScene = alignment.scene;
     }
 
-    const finalScene = alignment?.aligned ? alignment?.scene : voicedScene;
     scenes[index] = finalScene;
 
     voices.push({

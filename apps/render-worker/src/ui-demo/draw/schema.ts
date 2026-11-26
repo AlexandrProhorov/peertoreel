@@ -244,6 +244,13 @@ function repairMotion(node: Record<string, unknown>): void {
   }
 }
 
+/** A price never breaks between its digits or before the currency sign. */
+function protectNumbers(value: string): string {
+  return value
+    .replace(/(\d)\s+(?=\d)/gu, '$1\u00A0')
+    .replace(/\s+([₽$€])/gu, '\u00A0$1');
+}
+
 function normalizeNode(value: unknown): unknown {
   if (typeof value !== 'object' || value === null) {
     return value;
@@ -259,6 +266,10 @@ function normalizeNode(value: unknown): unknown {
 
   if (typeof node['weight'] === 'string') {
     node['weight'] = WEIGHT[node['weight']] ?? 400;
+  }
+
+  if (typeof node['text'] === 'string') {
+    node['text'] = protectNumbers(node['text']);
   }
 
   if (typeof node['shadow'] === 'object' && node['shadow'] !== null) {
